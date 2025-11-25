@@ -11,7 +11,8 @@ import {
   UserCircle, 
   Settings, 
   Menu,
-  Home
+  Home,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavLink } from "react-router-dom";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/customers", label: "Clientes", icon: Users },
   { href: "/products", label: "Produtos", icon: Package },
   { href: "/freights", label: "Fretes", icon: ClipboardList },
+  { href: "/contracts", label: "Contratos", icon: FileText },
   { href: "/locations", label: "Localizações", icon: MapPin },
   { href: "/settings", label: "Configurações", icon: Settings },
 ];
