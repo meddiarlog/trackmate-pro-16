@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface Customer {
   id: string;
@@ -17,45 +19,18 @@ interface Customer {
   city: string;
   state: string;
   neighborhood: string;
-  loadingLocation: string;
-  unloadingLocation: string;
+  loading_location: string;
+  unloading_location: string;
   type: "Embarcador" | "Consignatário" | "Ambos";
+  cpf_cnpj?: string;
 }
 
 export default function Customers() {
-  const { toast } = useToast();
-  const [customers, setCustomers] = useState<Customer[]>([
-    {
-      id: "1",
-      name: "Empresa ABC Ltda",
-      email: "contato@empresaabc.com.br",
-      phone: "(11) 3333-3333",
-      address: "Rua das Flores, 123",
-      city: "São Paulo",
-      state: "SP",
-      neighborhood: "Centro",
-      loadingLocation: "Galpão A - Portão 3",
-      unloadingLocation: "Doca 5 - Setor Norte",
-      type: "Embarcador"
-    },
-    {
-      id: "2",
-      name: "Distribuidora XYZ S/A",
-      email: "logistica@xyz.com.br",
-      phone: "(21) 4444-4444",
-      address: "Av. Principal, 456",
-      city: "Rio de Janeiro",
-      state: "RJ",
-      neighborhood: "Industrial",
-      loadingLocation: "Centro de Distribuição",
-      unloadingLocation: "Armazém Central",
-      type: "Consignatário"
-    }
-  ]);
-
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [cnpjSearching, setCnpjSearching] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -64,42 +39,105 @@ export default function Customers() {
     city: "",
     state: "",
     neighborhood: "",
-    loadingLocation: "",
-    unloadingLocation: "",
-    type: "Embarcador" as Customer["type"]
+    loading_location: "",
+    unloading_location: "",
+    type: "Embarcador" as Customer["type"],
+    cpf_cnpj: "",
   });
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.state.toLowerCase().includes(searchTerm.toLowerCase())
+  // Fetch customers from Supabase
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as Customer[];
+    },
+  });
+
+  const filteredCustomers = customers.filter(
+    (customer) =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.state?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingCustomer) {
-      setCustomers(customers.map(c => 
-        c.id === editingCustomer.id ? { ...editingCustomer, ...formData } : c
-      ));
-      toast({
-        title: "Cliente atualizado",
-        description: "As informações do cliente foram atualizadas com sucesso.",
+  const fetchCnpjData = async (cnpj: string) => {
+    setCnpjSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-cnpj", {
+        body: { cnpj },
       });
-    } else {
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        ...formData
-      };
-      setCustomers([...customers, newCustomer]);
-      toast({
-        title: "Cliente cadastrado",
-        description: "Novo cliente foi adicionado ao sistema.",
-      });
-    }
 
-    setIsDialogOpen(false);
-    setEditingCustomer(null);
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          ...formData,
+          name: data.name || formData.name,
+          email: data.email || formData.email,
+          phone: data.phone || formData.phone,
+          address: data.address || formData.address,
+        });
+        toast.success("Dados do CNPJ/CPF encontrados!");
+      }
+    } catch (error) {
+      toast.error("Erro ao buscar dados do CNPJ/CPF");
+      console.error(error);
+    } finally {
+      setCnpjSearching(false);
+    }
+  };
+
+  const handleCnpjBlur = () => {
+    const cnpj = formData.cpf_cnpj?.replace(/[^\d]/g, "");
+    if (cnpj && cnpj.length >= 11) {
+      fetchCnpjData(cnpj);
+    }
+  };
+
+  const saveCustomerMutation = useMutation({
+    mutationFn: async (customer: any) => {
+      if (editingCustomer) {
+        const { error } = await supabase
+          .from("customers")
+          .update(customer)
+          .eq("id", editingCustomer.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("customers").insert([customer]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      toast.success(editingCustomer ? "Cliente atualizado!" : "Cliente cadastrado!");
+      setIsDialogOpen(false);
+      resetForm();
+    },
+    onError: () => {
+      toast.error("Erro ao salvar cliente");
+    },
+  });
+
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("customers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      toast.success("Cliente removido!");
+    },
+    onError: () => {
+      toast.error("Erro ao remover cliente");
+    },
+  });
+
+  const resetForm = () => {
     setFormData({
       name: "",
       email: "",
@@ -108,25 +146,45 @@ export default function Customers() {
       city: "",
       state: "",
       neighborhood: "",
-      loadingLocation: "",
-      unloadingLocation: "",
-      type: "Embarcador"
+      loading_location: "",
+      unloading_location: "",
+      type: "Embarcador",
+      cpf_cnpj: "",
     });
+    setEditingCustomer(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formData.name || !formData.email) {
+      toast.error("Nome e email são obrigatórios");
+      return;
+    }
+
+    saveCustomerMutation.mutate(formData);
   };
 
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
-    setFormData(customer);
+    setFormData({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || "",
+      address: customer.address || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      neighborhood: customer.neighborhood || "",
+      loading_location: customer.loading_location || "",
+      unloading_location: customer.unloading_location || "",
+      type: customer.type,
+      cpf_cnpj: customer.cpf_cnpj || "",
+    });
     setIsDialogOpen(true);
   };
 
   const handleDelete = (id: string) => {
-    setCustomers(customers.filter(c => c.id !== id));
-    toast({
-      title: "Cliente removido",
-      description: "O cliente foi removido do sistema.",
-      variant: "destructive",
-    });
+    deleteCustomerMutation.mutate(id);
   };
 
   const getTypeBadge = (type: Customer["type"]) => {
@@ -151,31 +209,42 @@ export default function Customers() {
             <Users className="h-8 w-8 text-primary" />
             Gestão de Clientes
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Cadastre embarcadores e consignatários
-          </p>
+          <p className="text-muted-foreground mt-1">Cadastre embarcadores e consignatários</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2 mt-4 sm:mt-0">
+            <Button className="gap-2 mt-4 sm:mt-0" onClick={resetForm}>
               <Plus className="h-4 w-4" />
               Cadastrar Cliente
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
-                {editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}
-              </DialogTitle>
+              <DialogTitle>{editingCustomer ? "Editar Cliente" : "Cadastrar Novo Cliente"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="cpf_cnpj">CPF/CNPJ</Label>
+                <Input
+                  id="cpf_cnpj"
+                  value={formData.cpf_cnpj}
+                  onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })}
+                  onBlur={handleCnpjBlur}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  disabled={cnpjSearching}
+                />
+                {cnpjSearching && (
+                  <p className="text-sm text-muted-foreground mt-1">Buscando dados do CNPJ/CPF...</p>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="name">Razão Social / Nome *</Label>
                 <Input
                   id="name"
                   placeholder="Empresa ABC Ltda"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
               </div>
@@ -188,7 +257,7 @@ export default function Customers() {
                     type="email"
                     placeholder="contato@empresa.com.br"
                     value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     required
                   />
                 </div>
@@ -198,7 +267,7 @@ export default function Customers() {
                     id="phone"
                     placeholder="(11) 3333-3333"
                     value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     required
                   />
                 </div>
@@ -210,7 +279,7 @@ export default function Customers() {
                   id="address"
                   placeholder="Rua, Número, Complemento"
                   value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   required
                 />
               </div>
@@ -222,7 +291,7 @@ export default function Customers() {
                     id="neighborhood"
                     placeholder="Centro"
                     value={formData.neighborhood}
-                    onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
                     required
                   />
                 </div>
@@ -232,7 +301,7 @@ export default function Customers() {
                     id="city"
                     placeholder="São Paulo"
                     value={formData.city}
-                    onChange={(e) => setFormData({...formData, city: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     required
                   />
                 </div>
@@ -242,29 +311,29 @@ export default function Customers() {
                     id="state"
                     placeholder="SP"
                     value={formData.state}
-                    onChange={(e) => setFormData({...formData, state: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="loadingLocation">Local de Carregamento</Label>
+                <Label htmlFor="loading_location">Local de Carregamento</Label>
                 <Input
-                  id="loadingLocation"
+                  id="loading_location"
                   placeholder="Galpão A - Portão 3"
-                  value={formData.loadingLocation}
-                  onChange={(e) => setFormData({...formData, loadingLocation: e.target.value})}
+                  value={formData.loading_location}
+                  onChange={(e) => setFormData({ ...formData, loading_location: e.target.value })}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="unloadingLocation">Local de Descarregamento</Label>
+                <Label htmlFor="unloading_location">Local de Descarregamento</Label>
                 <Input
-                  id="unloadingLocation"
+                  id="unloading_location"
                   placeholder="Doca 5 - Setor Norte"
-                  value={formData.unloadingLocation}
-                  onChange={(e) => setFormData({...formData, unloadingLocation: e.target.value})}
+                  value={formData.unloading_location}
+                  onChange={(e) => setFormData({ ...formData, unloading_location: e.target.value })}
                 />
               </div>
 
@@ -273,7 +342,7 @@ export default function Customers() {
                 <select
                   id="type"
                   value={formData.type}
-                  onChange={(e) => setFormData({...formData, type: e.target.value as Customer["type"]})}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as Customer["type"] })}
                   className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 >
@@ -287,9 +356,7 @@ export default function Customers() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingCustomer ? "Atualizar" : "Cadastrar"}
-                </Button>
+                <Button type="submit">{editingCustomer ? "Atualizar" : "Cadastrar"}</Button>
               </div>
             </form>
           </DialogContent>
@@ -340,27 +407,22 @@ export default function Customers() {
                     </div>
                   </div>
                 </div>
-                {customer.loadingLocation && (
+                {customer.loading_location && (
                   <div className="text-sm">
                     <span className="text-muted-foreground">Carregamento:</span>
-                    <div className="font-medium">{customer.loadingLocation}</div>
+                    <div className="font-medium">{customer.loading_location}</div>
                   </div>
                 )}
-                {customer.unloadingLocation && (
+                {customer.unloading_location && (
                   <div className="text-sm">
                     <span className="text-muted-foreground">Descarregamento:</span>
-                    <div className="font-medium">{customer.unloadingLocation}</div>
+                    <div className="font-medium">{customer.unloading_location}</div>
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-2 pt-3 border-t">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(customer)}
-                  className="flex-1 gap-2"
-                >
+                <Button size="sm" variant="outline" onClick={() => handleEdit(customer)} className="flex-1 gap-2">
                   <Edit className="h-3 w-3" />
                   Editar
                 </Button>
