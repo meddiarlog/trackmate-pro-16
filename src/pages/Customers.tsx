@@ -66,6 +66,15 @@ export default function Customers() {
   );
 
   const fetchCnpjData = async (cnpj: string) => {
+    // Remove formatting and validate
+    const cleanCnpj = cnpj.replace(/[^\d]/g, '');
+    
+    // Only fetch if it's a CNPJ (14 digits), not CPF (11 digits)
+    if (cleanCnpj.length !== 14) {
+      toast.error("Busca automática disponível apenas para CNPJ (14 dígitos)");
+      return;
+    }
+
     setCnpjSearching(true);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-cnpj", {
@@ -82,10 +91,10 @@ export default function Customers() {
           phone: data.phone || formData.phone,
           address: data.address || formData.address,
         });
-        toast.success("Dados do CNPJ/CPF encontrados!");
+        toast.success("Dados do CNPJ encontrados e preenchidos!");
       }
     } catch (error) {
-      toast.error("Erro ao buscar dados do CNPJ/CPF");
+      toast.error("Erro ao buscar dados do CNPJ. Verifique o número informado.");
       console.error(error);
     } finally {
       setCnpjSearching(false);

@@ -20,13 +20,18 @@ serve(async (req) => {
     // Remove special characters from CNPJ
     const cleanCnpj = cnpj.replace(/[^\d]/g, '');
 
+    // Validate CNPJ format (must be 14 digits)
+    if (cleanCnpj.length !== 14) {
+      throw new Error('CNPJ inválido. Deve conter 14 dígitos. CPF não é suportado.');
+    }
+
     console.log('Fetching CNPJ data for:', cleanCnpj);
 
     // Try BrasilAPI first (more reliable and free)
     const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
     
     if (!response.ok) {
-      throw new Error('CNPJ não encontrado');
+      throw new Error('CNPJ não encontrado na base de dados');
     }
 
     const data = await response.json();
