@@ -47,7 +47,7 @@ interface Customer {
 const Financial = () => {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterMonth, setFilterMonth] = useState("");
+  const [filterMonth, setFilterMonth] = useState("all");
   const [filterCustomer, setFilterCustomer] = useState("");
   const [activeTab, setActiveTab] = useState<"payments" | "cash">("payments");
   
@@ -446,7 +446,7 @@ const Financial = () => {
                     <SelectValue placeholder="Filtrar por mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos os meses</SelectItem>
+                    <SelectItem value="all">Todos os meses</SelectItem>
                     {Array.from({ length: 12 }, (_, i) => {
                       const month = format(new Date(2024, i), "MMMM", { locale: ptBR });
                       return (
