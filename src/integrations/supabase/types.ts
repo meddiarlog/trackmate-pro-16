@@ -162,6 +162,57 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          address: string | null
+          city: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          email: string
+          id: string
+          loading_location: string | null
+          name: string
+          neighborhood: string | null
+          phone: string | null
+          state: string | null
+          type: string | null
+          unloading_location: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          loading_location?: string | null
+          name: string
+          neighborhood?: string | null
+          phone?: string | null
+          state?: string | null
+          type?: string | null
+          unloading_location?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          loading_location?: string | null
+          name?: string
+          neighborhood?: string | null
+          phone?: string | null
+          state?: string | null
+          type?: string | null
+          unloading_location?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
