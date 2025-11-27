@@ -10,6 +10,7 @@ import Drivers from "./pages/Drivers";
 import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import Freights from "./pages/Freights";
+import Contracts from "./pages/Contracts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="customers" element={<Customers />} />
             <Route path="products" element={<Products />} />
             <Route path="freights" element={<Freights />} />
+            <Route path="contracts" element={<Contracts />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
