@@ -13,7 +13,8 @@ import {
   Menu,
   Home,
   FileText,
-  DollarSign
+  DollarSign,
+  CreditCard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NavLink } from "react-router-dom";
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/freights", label: "Fretes", icon: ClipboardList },
   { href: "/contracts", label: "Contratos", icon: FileText },
   { href: "/financial", label: "Financeiro", icon: DollarSign },
+  { href: "/credit-control", label: "Controle de Crédito", icon: CreditCard },
   { href: "/locations", label: "Localizações", icon: MapPin },
   { href: "/settings", label: "Configurações", icon: Settings },
 ];

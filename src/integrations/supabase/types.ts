@@ -115,6 +115,54 @@ export type Database = {
           },
         ]
       }
+      credit_control: {
+        Row: {
+          chave_acesso: string
+          cnpj_emitente: string
+          created_at: string
+          credito: number
+          data_emissao: string
+          id: string
+          numero_nfe: string
+          quantidade: number
+          razao_social: string
+          tipo_combustivel: Database["public"]["Enums"]["fuel_type"]
+          uf: string
+          updated_at: string
+          valor_nfe: number
+        }
+        Insert: {
+          chave_acesso: string
+          cnpj_emitente: string
+          created_at?: string
+          credito: number
+          data_emissao?: string
+          id?: string
+          numero_nfe: string
+          quantidade: number
+          razao_social: string
+          tipo_combustivel: Database["public"]["Enums"]["fuel_type"]
+          uf: string
+          updated_at?: string
+          valor_nfe: number
+        }
+        Update: {
+          chave_acesso?: string
+          cnpj_emitente?: string
+          created_at?: string
+          credito?: number
+          data_emissao?: string
+          id?: string
+          numero_nfe?: string
+          quantidade?: number
+          razao_social?: string
+          tipo_combustivel?: Database["public"]["Enums"]["fuel_type"]
+          uf?: string
+          updated_at?: string
+          valor_nfe?: number
+        }
+        Relationships: []
+      }
       ctes: {
         Row: {
           contract_id: string
@@ -258,6 +306,7 @@ export type Database = {
     }
     Enums: {
       cash_movement_type: "sangria" | "suprimento"
+      fuel_type: "DIESEL" | "DIESEL+ARLA"
       payment_method: "pix" | "boleto" | "transferencia"
       payment_status: "pendente" | "pago" | "vencido"
     }
@@ -388,6 +437,7 @@ export const Constants = {
   public: {
     Enums: {
       cash_movement_type: ["sangria", "suprimento"],
+      fuel_type: ["DIESEL", "DIESEL+ARLA"],
       payment_method: ["pix", "boleto", "transferencia"],
       payment_status: ["pendente", "pago", "vencido"],
     },
