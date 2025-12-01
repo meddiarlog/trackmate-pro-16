@@ -1,1 +1,7 @@
 project_id = "yojzaghwrznytnkksujw"
+
+[functions.fetch-cnpj]
+verify_jwt = false
+
+[functions.fetch-nfe]
+verify_jwt = false
