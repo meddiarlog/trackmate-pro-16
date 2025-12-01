@@ -65,6 +65,7 @@ export default function Contracts() {
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCnpj, setNewCompanyCnpj] = useState("");
   const [cnpjSearching, setCnpjSearching] = useState(false);
+  const [quickCnpj, setQuickCnpj] = useState("");
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -107,6 +108,76 @@ export default function Contracts() {
     const cnpj = newCompanyCnpj?.replace(/[^\d]/g, "");
     if (cnpj && cnpj.length === 14) {
       fetchCnpjData(cnpj);
+    }
+  };
+
+  // Quick CNPJ search and auto-register
+  const handleQuickCnpjSearch = async () => {
+    const cleanCnpj = quickCnpj.replace(/[^\d]/g, '');
+    
+    if (cleanCnpj.length !== 14) {
+      toast({
+        title: "CNPJ inválido",
+        description: "Digite um CNPJ válido com 14 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if company already exists
+    const existingCompany = companies.find(c => c.cnpj?.replace(/[^\d]/g, '') === cleanCnpj);
+    if (existingCompany) {
+      setCompanyId(existingCompany.id);
+      setQuickCnpj("");
+      toast({
+        title: "Empresa encontrada",
+        description: `${existingCompany.name} foi selecionada.`,
+      });
+      return;
+    }
+
+    // Fetch and auto-register
+    setCnpjSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-cnpj", {
+        body: { cnpj: cleanCnpj },
+      });
+
+      if (error) throw error;
+
+      if (data && data.name) {
+        // Auto-register the company
+        const { data: newCompany, error: insertError } = await supabase
+          .from("companies")
+          .insert({
+            name: data.name,
+            cnpj: cleanCnpj,
+            email: data.email || null,
+            phone: data.phone || null,
+            address: data.address || null,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        await queryClient.invalidateQueries({ queryKey: ["companies"] });
+        setCompanyId(newCompany.id);
+        setQuickCnpj("");
+        
+        toast({
+          title: "Empresa cadastrada",
+          description: `${data.name} foi cadastrada e selecionada automaticamente.`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar CNPJ",
+        description: "Não foi possível buscar ou cadastrar a empresa. Verifique o CNPJ.",
+        variant: "destructive",
+      });
+    } finally {
+      setCnpjSearching(false);
     }
   };
 
@@ -454,7 +525,7 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                   </Select>
                   <Dialog open={isCompanyDialogOpen} onOpenChange={setIsCompanyDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="icon">
+                      <Button variant="outline" size="icon" title="Cadastrar manualmente">
                         <Plus className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -497,6 +568,34 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <Label htmlFor="quickCnpj" className="text-sm text-muted-foreground">
+                      Ou busque por CNPJ para cadastro automático
+                    </Label>
+                    <Input
+                      id="quickCnpj"
+                      value={quickCnpj}
+                      onChange={(e) => setQuickCnpj(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickCnpjSearch();
+                        }
+                      }}
+                      placeholder="Digite o CNPJ e pressione Enter"
+                      disabled={cnpjSearching}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleQuickCnpjSearch}
+                    disabled={cnpjSearching || !quickCnpj}
+                    variant="secondary"
+                  >
+                    {cnpjSearching ? "Buscando..." : "Buscar"}
+                  </Button>
                 </div>
               </div>
 
