@@ -10,10 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Download, Eye, Edit, Trash2, X } from "lucide-react";
+import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { ContractPrint } from "@/components/ContractPrint";
+import { ImportCteDialog } from "@/components/ImportCteDialog";
 
 interface Company {
   id: string;
@@ -51,7 +54,10 @@ export default function Contracts() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
+  const [isImportCteDialogOpen, setIsImportCteDialogOpen] = useState(false);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [selectedPrintCte, setSelectedPrintCte] = useState<any>(null);
   const [editingContract, setEditingContract] = useState<string | null>(null);
   
   // Form states
@@ -228,6 +234,20 @@ export default function Contracts() {
     return data as CTE[];
   };
 
+  // Fetch available CTEs (not assigned to any contract)
+  const { data: availableCtes = [] } = useQuery({
+    queryKey: ["available-ctes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ctes")
+        .select("*")
+        .is("contract_id", null)
+        .order("issue_date", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Create company mutation
   const createCompanyMutation = useMutation({
     mutationFn: async () => {
@@ -396,6 +416,35 @@ export default function Contracts() {
 
   const removeCTE = (index: number) => {
     setCtes(ctes.filter((_, i) => i !== index));
+  };
+
+  const importCtes = (selectedIds: string[]) => {
+    const ctesToImport = availableCtes.filter((cte) => selectedIds.includes(cte.id));
+    setCtes([...ctes, ...ctesToImport.map((cte) => ({
+      cte_number: cte.cte_number,
+      origin: cte.origin,
+      destination: cte.destination,
+      product_description: cte.product_description,
+      weight: cte.weight,
+      value: cte.value,
+      issue_date: cte.issue_date,
+    }))]);
+    setIsImportCteDialogOpen(false);
+  };
+
+  const handlePrintContract = async (contract: Contract) => {
+    const ctes = await fetchCTEsForContract(contract.id);
+    if (ctes.length > 0) {
+      setSelectedContract(contract);
+      setSelectedPrintCte(ctes[0]); // Use first CTE for now
+      setIsPrintDialogOpen(true);
+    } else {
+      toast({
+        title: "Sem CT-es",
+        description: "Este contrato não possui CT-es vinculados.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = async (contract: Contract) => {
@@ -636,10 +685,32 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <Label className="text-base">CTes Vinculados</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addCTE}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Adicionar CTe
-                  </Button>
+                  <div className="flex gap-2">
+                    <Dialog open={isImportCteDialogOpen} onOpenChange={setIsImportCteDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button type="button" variant="outline" size="sm">
+                          <FileUp className="h-4 w-4 mr-2" />
+                          Importar CT-e
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Importar CT-es Disponíveis</DialogTitle>
+                          <DialogDescription>
+                            Selecione os CT-es que deseja vincular a este contrato
+                          </DialogDescription>
+                        </DialogHeader>
+                        <ImportCteDialog
+                          availableCtes={availableCtes}
+                          onImport={importCtes}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                    <Button type="button" variant="outline" size="sm" onClick={addCTE}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Manualmente
+                    </Button>
+                  </div>
                 </div>
 
                 {ctes.map((cte, index) => (
@@ -824,6 +895,14 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handlePrintContract(contract)}
+                        title="Imprimir contrato"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleView(contract)}
                       >
                         <Eye className="h-4 w-4" />
@@ -944,6 +1023,23 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                   </div>
                 </div>
               </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Print Contract Dialog */}
+      <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
+        <DialogContent className="max-w-[900px] max-h-[90vh] overflow-y-auto">
+          {selectedContract && selectedPrintCte && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Contrato de Serviço de Transporte</DialogTitle>
+                <DialogDescription>
+                  Use Ctrl+P para imprimir este contrato
+                </DialogDescription>
+              </DialogHeader>
+              <ContractPrint contract={selectedContract} cte={selectedPrintCte} />
             </>
           )}
         </DialogContent>
