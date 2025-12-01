@@ -1,0 +1,230 @@
+import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield } from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+
+const menuItems = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: Home,
+  },
+  {
+    title: "Cadastro",
+    icon: Users,
+    items: [
+      { title: "Clientes", url: "/customers", icon: Users },
+      { title: "Motoristas", url: "/drivers", icon: UserCircle },
+      { title: "Veículos", url: "/vehicles", icon: Truck },
+      { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
+      { title: "Fornecedores", url: "/suppliers", icon: Briefcase },
+    ],
+  },
+  {
+    title: "Fretes",
+    icon: ClipboardList,
+    items: [
+      { title: "Ordem de Coleta", url: "/collection-orders", icon: MapPin },
+      { title: "CTE", url: "/cte", icon: FileText },
+      { title: "MDF-e", url: "/mdfe", icon: FileCheck },
+      { title: "Frete", url: "/freights", icon: Package },
+      { title: "Contrato", url: "/contracts", icon: FileText },
+      { title: "Cotação", url: "/quotes", icon: Calculator, badge: "Novo" },
+    ],
+  },
+  {
+    title: "Financeiro",
+    icon: DollarSign,
+    items: [
+      { title: "Contas a Pagar", url: "/accounts-payable", icon: Receipt },
+      { title: "Contas a Receber", url: "/accounts-receivable", icon: DollarSign },
+      { title: "Controle de Crédito", url: "/credit-control", icon: CreditCard, badge: "Novo" },
+    ],
+  },
+  {
+    title: "Relatórios",
+    url: "/reports",
+    icon: BarChart3,
+  },
+  {
+    title: "Repositório",
+    icon: Folder,
+    items: [
+      { title: "Fixas", url: "/repository/fixed", icon: Archive },
+      {
+        title: "Criadas",
+        icon: Folder,
+        items: [
+          { title: "Notas Duotek", url: "/repository/created/duotek-notes", icon: FileText },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Configurações",
+    icon: Settings,
+    items: [
+      { title: "Unidades", url: "/settings/units", icon: Building2 },
+    ],
+  },
+  {
+    title: "Minha Conta",
+    icon: User,
+    items: [
+      { title: "Conta", url: "/account", icon: User },
+      {
+        title: "Gestão de Acessos",
+        icon: Shield,
+        items: [
+          { title: "Usuários", url: "/account/access/users", icon: Users },
+          { title: "Grupo de Usuários", url: "/account/access/user-groups", icon: Users },
+          { title: "Permissões", url: "/account/access/permissions", icon: Shield },
+        ],
+      },
+    ],
+  },
+  {
+    title: "Ajuda",
+    url: "/help",
+    icon: HelpCircle,
+  },
+  {
+    title: "Sair",
+    url: "/logout",
+    icon: LogOut,
+  },
+];
+
+const MenuItem = ({ item, level = 0 }: { item: any; level?: number }) => {
+  const location = useLocation();
+  const { open: sidebarOpen } = useSidebar();
+  const isActive = location.pathname === item.url;
+  
+  if (item.items) {
+    const hasActiveChild = item.items.some((child: any) => 
+      child.url === location.pathname || 
+      (child.items && child.items.some((subChild: any) => subChild.url === location.pathname))
+    );
+    
+    return (
+      <Collapsible defaultOpen={hasActiveChild} className="group/collapsible">
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton
+              tooltip={item.title}
+              className={cn(
+                "w-full",
+                level > 0 && "pl-8"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {sidebarOpen && (
+                <>
+                  <span className="flex-1 text-left">{item.title}</span>
+                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </>
+              )}
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {item.items.map((subItem: any) => (
+                <SidebarMenuSubItem key={subItem.title}>
+                  {subItem.items ? (
+                    <MenuItem item={subItem} level={level + 1} />
+                  ) : (
+                    <SidebarMenuSubButton asChild>
+                      <NavLink
+                        to={subItem.url}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center gap-3 w-full",
+                            isActive && "bg-secondary text-secondary-foreground font-medium"
+                          )
+                        }
+                      >
+                        <subItem.icon className="h-4 w-4" />
+                        {sidebarOpen && (
+                          <>
+                            <span className="flex-1">{subItem.title}</span>
+                            {subItem.badge && (
+                              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
+                                {subItem.badge}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    </SidebarMenuSubButton>
+                  )}
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  }
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild tooltip={item.title} isActive={isActive}>
+        <NavLink
+          to={item.url}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 w-full",
+              isActive && "bg-secondary text-secondary-foreground font-medium"
+            )
+          }
+        >
+          <item.icon className="h-4 w-4" />
+          {sidebarOpen && <span>{item.title}</span>}
+        </NavLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+};
+
+export function AppSidebar() {
+  const { open } = useSidebar();
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className={cn("h-12 flex items-center px-4", !open && "justify-center")}>
+            <Truck className="h-6 w-6" />
+            {open && <span className="ml-3 text-lg font-bold">Mutlog</span>}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <MenuItem key={item.title} item={item} />
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}

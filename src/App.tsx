@@ -13,6 +13,23 @@ import Freights from "./pages/Freights";
 import Contracts from "./pages/Contracts";
 import Financial from "./pages/Financial";
 import CreditControl from "./pages/CreditControl";
+import VehicleOwners from "./pages/VehicleOwners";
+import Suppliers from "./pages/Suppliers";
+import CollectionOrders from "./pages/CollectionOrders";
+import CTE from "./pages/CTE";
+import MDFe from "./pages/MDFe";
+import Quotes from "./pages/Quotes";
+import AccountsPayable from "./pages/AccountsPayable";
+import AccountsReceivable from "./pages/AccountsReceivable";
+import Reports from "./pages/Reports";
+import RepositoryFixed from "./pages/RepositoryFixed";
+import DuotekNotes from "./pages/DuotekNotes";
+import SettingsUnits from "./pages/SettingsUnits";
+import Account from "./pages/Account";
+import AccessUsers from "./pages/AccessUsers";
+import AccessUserGroups from "./pages/AccessUserGroups";
+import AccessPermissions from "./pages/AccessPermissions";
+import Help from "./pages/Help";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +51,23 @@ const App = () => (
             <Route path="contracts" element={<Contracts />} />
             <Route path="financial" element={<Financial />} />
             <Route path="credit-control" element={<CreditControl />} />
+            <Route path="vehicle-owners" element={<VehicleOwners />} />
+            <Route path="suppliers" element={<Suppliers />} />
+            <Route path="collection-orders" element={<CollectionOrders />} />
+            <Route path="cte" element={<CTE />} />
+            <Route path="mdfe" element={<MDFe />} />
+            <Route path="quotes" element={<Quotes />} />
+            <Route path="accounts-payable" element={<AccountsPayable />} />
+            <Route path="accounts-receivable" element={<AccountsReceivable />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="repository/fixed" element={<RepositoryFixed />} />
+            <Route path="repository/created/duotek-notes" element={<DuotekNotes />} />
+            <Route path="settings/units" element={<SettingsUnits />} />
+            <Route path="account" element={<Account />} />
+            <Route path="account/access/users" element={<AccessUsers />} />
+            <Route path="account/access/user-groups" element={<AccessUserGroups />} />
+            <Route path="account/access/permissions" element={<AccessPermissions />} />
+            <Route path="help" element={<Help />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
