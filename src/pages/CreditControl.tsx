@@ -179,10 +179,21 @@ const CreditControl = () => {
       return;
     }
 
+    const chaveNumerica = formData.chave_acesso.replace(/\D/g, "");
+
+    if (chaveNumerica.length !== 44) {
+      toast({
+        title: "Chave inválida",
+        description: `A chave de acesso deve ter 44 dígitos numéricos, você informou ${chaveNumerica.length}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setFetchingNfe(true);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-nfe", {
-        body: { chaveAcesso: formData.chave_acesso },
+        body: { chaveAcesso: chaveNumerica },
       });
 
       if (error) throw error;
