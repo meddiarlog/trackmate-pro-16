@@ -165,39 +165,195 @@ export type Database = {
       }
       ctes: {
         Row: {
+          advance_value: number | null
+          breakage_value: number | null
+          cargo_invoice: string | null
+          cargo_quantity: number | null
+          cargo_species: string | null
+          cfop: string | null
+          cfop_description: string | null
           contract_id: string
           created_at: string
           cte_number: string
           destination: string
+          driver_account: string | null
+          driver_agency: string | null
+          driver_bank: string | null
+          driver_cellphone: string | null
+          driver_city: string | null
+          driver_cpf: string | null
+          driver_license: string | null
+          driver_name: string | null
+          driver_phone: string | null
+          driver_pis: string | null
+          driver_rg: string | null
+          driver_rg_issuer: string | null
+          driver_state: string | null
+          freight_value: number | null
           id: string
+          inss_value: number | null
+          insurance_company: string | null
+          insurance_policy: string | null
+          insurance_value: number | null
           issue_date: string
+          net_value: number | null
+          observations: string | null
           origin: string
+          other_discount_value: number | null
+          owner_address: string | null
+          owner_antt: string | null
+          owner_cpf: string | null
+          owner_name: string | null
+          owner_pis: string | null
+          owner_rg: string | null
           product_description: string | null
+          recipient_address: string | null
+          recipient_cnpj: string | null
+          recipient_ie: string | null
+          recipient_name: string | null
+          sender_address: string | null
+          sender_cnpj: string | null
+          sender_ie: string | null
+          sender_name: string | null
+          sest_senat_value: number | null
+          toll_value: number | null
           value: number
+          vehicle_account: string | null
+          vehicle_agency: string | null
+          vehicle_brand: string | null
+          vehicle_city: string | null
+          vehicle_plate: string | null
+          vehicle_renavam: string | null
+          vehicle_rntrc: string | null
+          vehicle_state: string | null
           weight: number | null
         }
         Insert: {
+          advance_value?: number | null
+          breakage_value?: number | null
+          cargo_invoice?: string | null
+          cargo_quantity?: number | null
+          cargo_species?: string | null
+          cfop?: string | null
+          cfop_description?: string | null
           contract_id: string
           created_at?: string
           cte_number: string
           destination: string
+          driver_account?: string | null
+          driver_agency?: string | null
+          driver_bank?: string | null
+          driver_cellphone?: string | null
+          driver_city?: string | null
+          driver_cpf?: string | null
+          driver_license?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          driver_pis?: string | null
+          driver_rg?: string | null
+          driver_rg_issuer?: string | null
+          driver_state?: string | null
+          freight_value?: number | null
           id?: string
+          inss_value?: number | null
+          insurance_company?: string | null
+          insurance_policy?: string | null
+          insurance_value?: number | null
           issue_date?: string
+          net_value?: number | null
+          observations?: string | null
           origin: string
+          other_discount_value?: number | null
+          owner_address?: string | null
+          owner_antt?: string | null
+          owner_cpf?: string | null
+          owner_name?: string | null
+          owner_pis?: string | null
+          owner_rg?: string | null
           product_description?: string | null
+          recipient_address?: string | null
+          recipient_cnpj?: string | null
+          recipient_ie?: string | null
+          recipient_name?: string | null
+          sender_address?: string | null
+          sender_cnpj?: string | null
+          sender_ie?: string | null
+          sender_name?: string | null
+          sest_senat_value?: number | null
+          toll_value?: number | null
           value: number
+          vehicle_account?: string | null
+          vehicle_agency?: string | null
+          vehicle_brand?: string | null
+          vehicle_city?: string | null
+          vehicle_plate?: string | null
+          vehicle_renavam?: string | null
+          vehicle_rntrc?: string | null
+          vehicle_state?: string | null
           weight?: number | null
         }
         Update: {
+          advance_value?: number | null
+          breakage_value?: number | null
+          cargo_invoice?: string | null
+          cargo_quantity?: number | null
+          cargo_species?: string | null
+          cfop?: string | null
+          cfop_description?: string | null
           contract_id?: string
           created_at?: string
           cte_number?: string
           destination?: string
+          driver_account?: string | null
+          driver_agency?: string | null
+          driver_bank?: string | null
+          driver_cellphone?: string | null
+          driver_city?: string | null
+          driver_cpf?: string | null
+          driver_license?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          driver_pis?: string | null
+          driver_rg?: string | null
+          driver_rg_issuer?: string | null
+          driver_state?: string | null
+          freight_value?: number | null
           id?: string
+          inss_value?: number | null
+          insurance_company?: string | null
+          insurance_policy?: string | null
+          insurance_value?: number | null
           issue_date?: string
+          net_value?: number | null
+          observations?: string | null
           origin?: string
+          other_discount_value?: number | null
+          owner_address?: string | null
+          owner_antt?: string | null
+          owner_cpf?: string | null
+          owner_name?: string | null
+          owner_pis?: string | null
+          owner_rg?: string | null
           product_description?: string | null
+          recipient_address?: string | null
+          recipient_cnpj?: string | null
+          recipient_ie?: string | null
+          recipient_name?: string | null
+          sender_address?: string | null
+          sender_cnpj?: string | null
+          sender_ie?: string | null
+          sender_name?: string | null
+          sest_senat_value?: number | null
+          toll_value?: number | null
           value?: number
+          vehicle_account?: string | null
+          vehicle_agency?: string | null
+          vehicle_brand?: string | null
+          vehicle_city?: string | null
+          vehicle_plate?: string | null
+          vehicle_renavam?: string | null
+          vehicle_rntrc?: string | null
+          vehicle_state?: string | null
           weight?: number | null
         }
         Relationships: [
