@@ -39,6 +39,8 @@ export default function CTE() {
   const [selectedCte, setSelectedCte] = useState<CTE | null>(null);
 
   // Form states
+  const [accessKey, setAccessKey] = useState("");
+  const [isLoadingAccessKey, setIsLoadingAccessKey] = useState(false);
   const [cteNumber, setCteNumber] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [origin, setOrigin] = useState("");
@@ -72,6 +74,7 @@ export default function CTE() {
   });
 
   const resetForm = () => {
+    setAccessKey("");
     setCteNumber("");
     setIssueDate(new Date().toISOString().split("T")[0]);
     setOrigin("");
@@ -87,6 +90,47 @@ export default function CTE() {
     setVehiclePlate("");
     setFreightValue("");
     setEditingCte(null);
+  };
+
+  const handleAccessKeySearch = async () => {
+    if (!accessKey.trim()) {
+      toast({
+        title: "Erro",
+        description: "Por favor, informe a chave de acesso",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingAccessKey(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-cte', {
+        body: { chaveAcesso: accessKey }
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setCteNumber(data.numeroCte || "");
+        setIssueDate(data.dataEmissao || new Date().toISOString().split("T")[0]);
+        setSenderName(data.razaoSocial || "");
+        setSenderCnpj(data.cnpjEmitente || "");
+        setOrigin(data.uf || "");
+
+        toast({
+          title: "Dados importados",
+          description: "Dados do CT-e foram carregados com sucesso!",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao buscar CT-e",
+        description: error.message || "Não foi possível buscar os dados da chave de acesso",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingAccessKey(false);
+    }
   };
 
   // Create/Update CTE mutation
@@ -205,6 +249,28 @@ export default function CTE() {
                 <DialogTitle>{editingCte ? "Editar" : "Novo"} CT-e</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
+                {!editingCte && (
+                  <div className="border-b pb-4">
+                    <Label htmlFor="accessKey">Chave de Acesso do CT-e</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="accessKey"
+                        value={accessKey}
+                        onChange={(e) => setAccessKey(e.target.value)}
+                        placeholder="Informe os 44 dígitos da chave de acesso"
+                        maxLength={44}
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleAccessKeySearch}
+                        disabled={isLoadingAccessKey}
+                      >
+                        {isLoadingAccessKey ? "Buscando..." : "Buscar"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="cteNumber">Número do CT-e*</Label>
