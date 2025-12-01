@@ -64,9 +64,51 @@ export default function Contracts() {
   // New company form
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCnpj, setNewCompanyCnpj] = useState("");
+  const [cnpjSearching, setCnpjSearching] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch CNPJ data automatically
+  const fetchCnpjData = async (cnpj: string) => {
+    const cleanCnpj = cnpj.replace(/[^\d]/g, '');
+    
+    if (cleanCnpj.length !== 14) {
+      return;
+    }
+
+    setCnpjSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-cnpj", {
+        body: { cnpj },
+      });
+
+      if (error) throw error;
+
+      if (data && data.name) {
+        setNewCompanyName(data.name);
+        toast({
+          title: "Dados encontrados",
+          description: "Dados do CNPJ encontrados e preenchidos!",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao buscar CNPJ",
+        description: "Verifique o número informado.",
+        variant: "destructive",
+      });
+    } finally {
+      setCnpjSearching(false);
+    }
+  };
+
+  const handleCnpjBlur = () => {
+    const cnpj = newCompanyCnpj?.replace(/[^\d]/g, "");
+    if (cnpj && cnpj.length === 14) {
+      fetchCnpjData(cnpj);
+    }
+  };
 
   // Fetch companies
   const { data: companies = [] } = useQuery({
@@ -422,19 +464,26 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label htmlFor="newCompanyName">Nome da Empresa *</Label>
-                          <Input
-                            id="newCompanyName"
-                            value={newCompanyName}
-                            onChange={(e) => setNewCompanyName(e.target.value)}
-                          />
-                        </div>
-                        <div>
                           <Label htmlFor="newCompanyCnpj">CNPJ</Label>
                           <Input
                             id="newCompanyCnpj"
                             value={newCompanyCnpj}
                             onChange={(e) => setNewCompanyCnpj(e.target.value)}
+                            onBlur={handleCnpjBlur}
+                            placeholder="Digite o CNPJ para buscar automaticamente"
+                            disabled={cnpjSearching}
+                          />
+                          {cnpjSearching && (
+                            <p className="text-sm text-muted-foreground mt-1">Buscando dados do CNPJ...</p>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="newCompanyName">Nome da Empresa *</Label>
+                          <Input
+                            id="newCompanyName"
+                            value={newCompanyName}
+                            onChange={(e) => setNewCompanyName(e.target.value)}
+                            disabled={cnpjSearching}
                           />
                         </div>
                       </div>
