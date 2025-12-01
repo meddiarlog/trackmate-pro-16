@@ -21,7 +21,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Chave de acesso não fornecida" }),
         { 
-          status: 400, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
@@ -41,7 +41,7 @@ serve(async (req) => {
           tamanho: chaveClean.length
         }),
         { 
-          status: 400, 
+          status: 200, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
