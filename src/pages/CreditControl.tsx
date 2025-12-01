@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Download } from "lucide-react";
 
 type CreditRecord = {
   id: string;
@@ -49,6 +49,7 @@ const CreditControl = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CreditRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [fetchingNfe, setFetchingNfe] = useState(false);
   
   const [formData, setFormData] = useState({
     numero_nfe: "",
@@ -168,6 +169,60 @@ const CreditControl = () => {
     setDialogOpen(true);
   };
 
+  const fetchNfeData = async () => {
+    if (!formData.chave_acesso) {
+      toast({
+        title: "Atenção",
+        description: "Informe a chave de acesso da NF-e",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFetchingNfe(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-nfe", {
+        body: { chaveAcesso: formData.chave_acesso },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Erro",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preencher os campos com os dados da NF-e
+      setFormData({
+        ...formData,
+        cnpj_emitente: data.cnpj_emitente,
+        razao_social: data.razao_social,
+        data_emissao: data.data_emissao,
+        numero_nfe: data.numero_nfe,
+        uf: data.uf,
+        chave_acesso: data.chave_acesso,
+      });
+
+      toast({
+        title: "Sucesso",
+        description: "Dados da NF-e carregados com sucesso",
+      });
+    } catch (error) {
+      console.error("Erro ao buscar NF-e:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar dados da NF-e",
+        variant: "destructive",
+      });
+    } finally {
+      setFetchingNfe(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       numero_nfe: "",
@@ -217,6 +272,34 @@ const CreditControl = () => {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="chave_acesso">Chave de Acesso da NF-e</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="chave_acesso"
+                    value={formData.chave_acesso}
+                    onChange={(e) =>
+                      setFormData({ ...formData, chave_acesso: e.target.value })
+                    }
+                    placeholder="44 dígitos da chave de acesso"
+                    maxLength={44}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    onClick={fetchNfeData}
+                    disabled={fetchingNfe || !formData.chave_acesso}
+                    variant="secondary"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {fetchingNfe ? "Buscando..." : "Buscar"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Informe a chave de acesso e clique em "Buscar" para preencher automaticamente os dados da NF-e
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="numero_nfe">Número NF-e</Label>
@@ -323,18 +406,6 @@ const CreditControl = () => {
                   </p>
                 </div>
               )}
-
-              <div>
-                <Label htmlFor="chave_acesso">Chave de Acesso</Label>
-                <Input
-                  id="chave_acesso"
-                  value={formData.chave_acesso}
-                  onChange={(e) =>
-                    setFormData({ ...formData, chave_acesso: e.target.value })
-                  }
-                  required
-                />
-              </div>
 
               <div>
                 <Label htmlFor="uf">UF</Label>
