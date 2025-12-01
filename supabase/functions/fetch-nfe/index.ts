@@ -14,6 +14,9 @@ serve(async (req) => {
   try {
     const { chaveAcesso } = await req.json();
     
+    console.log('Chave recebida (original):', chaveAcesso);
+    console.log('Tamanho da chave original:', chaveAcesso?.length);
+    
     if (!chaveAcesso) {
       return new Response(
         JSON.stringify({ error: "Chave de acesso não fornecida" }),
@@ -27,9 +30,16 @@ serve(async (req) => {
     // Limpar a chave de acesso (remover espaços e caracteres especiais)
     const chaveClean = chaveAcesso.replace(/\D/g, '');
     
+    console.log('Chave limpa:', chaveClean);
+    console.log('Tamanho da chave limpa:', chaveClean.length);
+    
     if (chaveClean.length !== 44) {
       return new Response(
-        JSON.stringify({ error: "Chave de acesso inválida. Deve conter 44 dígitos." }),
+        JSON.stringify({ 
+          error: `Chave de acesso inválida. Deve conter 44 dígitos, mas foram recebidos ${chaveClean.length} dígitos.`,
+          chaveRecebida: chaveClean,
+          tamanho: chaveClean.length
+        }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
