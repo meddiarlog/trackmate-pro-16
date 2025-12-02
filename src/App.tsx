@@ -13,6 +13,7 @@ import Freights from "./pages/Freights";
 import Contracts from "./pages/Contracts";
 import Financial from "./pages/Financial";
 import CreditControl from "./pages/CreditControl";
+import Boletos from "./pages/Boletos";
 import VehicleOwners from "./pages/VehicleOwners";
 import Suppliers from "./pages/Suppliers";
 import CollectionOrders from "./pages/CollectionOrders";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="contracts" element={<Contracts />} />
             <Route path="financial" element={<Financial />} />
             <Route path="credit-control" element={<CreditControl />} />
+            <Route path="boletos" element={<Boletos />} />
             <Route path="vehicle-owners" element={<VehicleOwners />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="collection-orders" element={<CollectionOrders />} />

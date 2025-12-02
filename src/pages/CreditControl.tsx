@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Download } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Download, Copy, Check } from "lucide-react";
 
 type CreditRecord = {
   id: string;
@@ -50,6 +50,18 @@ const CreditControl = () => {
   const [editingRecord, setEditingRecord] = useState<CreditRecord | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [fetchingNfe, setFetchingNfe] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyChave = async (chave: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(chave);
+      setCopiedId(id);
+      toast({ title: "Copiado!", description: "Chave de acesso copiada para a área de transferência" });
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      toast({ title: "Erro", description: "Erro ao copiar chave", variant: "destructive" });
+    }
+  };
   
   const [formData, setFormData] = useState({
     numero_nfe: "",
@@ -478,6 +490,7 @@ const CreditControl = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>NF-e</TableHead>
+                  <TableHead>Chave de Acesso</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Razão Social</TableHead>
                   <TableHead>Data</TableHead>
@@ -492,7 +505,7 @@ const CreditControl = () => {
               <TableBody>
                 {filteredRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center">
+                    <TableCell colSpan={11} className="text-center">
                       Nenhum registro encontrado
                     </TableCell>
                   </TableRow>
@@ -500,6 +513,26 @@ const CreditControl = () => {
                   filteredRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>{record.numero_nfe}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs max-w-[180px] truncate" title={record.chave_acesso}>
+                            {record.chave_acesso}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 shrink-0"
+                            onClick={() => handleCopyChave(record.chave_acesso, record.id)}
+                            title="Copiar chave de acesso"
+                          >
+                            {copiedId === record.id ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>{record.cnpj_emitente}</TableCell>
                       <TableCell>{record.razao_social}</TableCell>
                       <TableCell>
