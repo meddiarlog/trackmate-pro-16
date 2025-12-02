@@ -493,7 +493,7 @@ const CreditControl = () => {
                   <TableHead>Chave de Acesso</TableHead>
                   <TableHead>CNPJ</TableHead>
                   <TableHead>Razão Social</TableHead>
-                  <TableHead>Data</TableHead>
+                  <TableHead>Data Emissão</TableHead>
                   <TableHead>Valor NF-e</TableHead>
                   <TableHead>Combustível</TableHead>
                   <TableHead>Quantidade</TableHead>
