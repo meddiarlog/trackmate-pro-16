@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      boletos: {
+        Row: {
+          created_at: string
+          customer_id: string
+          due_date: string
+          file_name: string
+          file_url: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          due_date: string
+          file_name: string
+          file_url: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          due_date?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boletos_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cash_movements: {
         Row: {
           amount: number
