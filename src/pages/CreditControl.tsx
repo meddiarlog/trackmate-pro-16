@@ -478,7 +478,7 @@ const CreditControl = () => {
           <CardTitle className="flex justify-between items-center">
             <span>Registros</span>
             <span className="text-primary">
-              Total de Crédito: {totalCredito.toFixed(2)}
+              Total de Crédito: {totalCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </CardTitle>
         </CardHeader>
