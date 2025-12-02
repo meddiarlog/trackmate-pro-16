@@ -536,7 +536,7 @@ const CreditControl = () => {
                       <TableCell>{record.cnpj_emitente}</TableCell>
                       <TableCell>{record.razao_social}</TableCell>
                       <TableCell>
-                        {new Date(record.data_emissao).toLocaleDateString("pt-BR")}
+                        {new Date(record.data_emissao + "T12:00:00").toLocaleDateString("pt-BR")}
                       </TableCell>
                       <TableCell>
                         R$ {record.valor_nfe.toFixed(2)}
