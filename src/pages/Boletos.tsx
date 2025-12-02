@@ -457,10 +457,10 @@ const Boletos = () => {
                         {boleto.customer?.name || "—"}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(boleto.issue_date), "dd/MM/yyyy", { locale: ptBR })}
+                        {format(new Date(boleto.issue_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(boleto.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                        {format(new Date(boleto.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         <span className="text-sm text-muted-foreground truncate max-w-[150px] block">
@@ -533,7 +533,7 @@ const Boletos = () => {
                 <div>
                   <span className="text-muted-foreground">Vencimento:</span>
                   <p className="font-medium">
-                    {format(new Date(viewingBoleto.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                    {format(new Date(viewingBoleto.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                   </p>
                 </div>
                 <div>
