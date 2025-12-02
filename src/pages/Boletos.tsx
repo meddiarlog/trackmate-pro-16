@@ -34,6 +34,7 @@ import { ptBR } from "date-fns/locale";
 type Boleto = {
   id: string;
   customer_id: string;
+  issue_date: string;
   due_date: string;
   file_url: string;
   file_name: string;
@@ -63,6 +64,7 @@ const Boletos = () => {
 
   const [formData, setFormData] = useState({
     customer_id: "",
+    issue_date: new Date().toISOString().split("T")[0],
     due_date: new Date().toISOString().split("T")[0],
     file: null as File | null,
   });
@@ -177,6 +179,7 @@ const Boletos = () => {
 
       const payload = {
         customer_id: formData.customer_id,
+        issue_date: formData.issue_date,
         due_date: formData.due_date,
         file_url: fileData.url,
         file_name: fileData.name,
@@ -240,6 +243,7 @@ const Boletos = () => {
     setEditingBoleto(boleto);
     setFormData({
       customer_id: boleto.customer_id,
+      issue_date: boleto.issue_date,
       due_date: boleto.due_date,
       file: null,
     });
@@ -258,6 +262,7 @@ const Boletos = () => {
   const resetForm = () => {
     setFormData({
       customer_id: "",
+      issue_date: new Date().toISOString().split("T")[0],
       due_date: new Date().toISOString().split("T")[0],
       file: null,
     });
@@ -325,6 +330,19 @@ const Boletos = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="issue_date">Data de Emissão *</Label>
+                <Input
+                  id="issue_date"
+                  type="date"
+                  value={formData.issue_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, issue_date: e.target.value })
+                  }
+                  required
+                />
               </div>
 
               <div>
@@ -418,6 +436,7 @@ const Boletos = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Data de Emissão</TableHead>
                   <TableHead>Data de Vencimento</TableHead>
                   <TableHead>Arquivo</TableHead>
                   <TableHead>Status</TableHead>
@@ -427,7 +446,7 @@ const Boletos = () => {
               <TableBody>
                 {filteredBoletos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center">
+                    <TableCell colSpan={6} className="text-center">
                       Nenhum boleto encontrado
                     </TableCell>
                   </TableRow>
@@ -436,6 +455,9 @@ const Boletos = () => {
                     <TableRow key={boleto.id}>
                       <TableCell className="font-medium">
                         {boleto.customer?.name || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(boleto.issue_date), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         {format(new Date(boleto.due_date), "dd/MM/yyyy", { locale: ptBR })}
