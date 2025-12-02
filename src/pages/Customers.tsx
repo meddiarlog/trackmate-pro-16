@@ -5,27 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Copy, Check } from "lucide-react";
+import { Users, Plus, Search, Edit, Trash2, MapPin, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerContactList, Contact } from "@/components/CustomerContactList";
 
 interface Customer {
   id: string;
   name: string;
-  email: string;
-  phone: string;
   address: string;
   city: string;
   state: string;
   neighborhood: string;
   cep: string;
-  loading_location: string;
-  unloading_location: string;
-  type: "Embarcador" | "Consignatário" | "Ambos";
   cpf_cnpj?: string;
   responsavel?: string;
   prazo_dias?: number;
@@ -51,16 +45,12 @@ export default function Customers() {
   
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
-    phone: "",
+    email: "", // Required by DB
     address: "",
     city: "",
     state: "",
     neighborhood: "",
     cep: "",
-    loading_location: "",
-    unloading_location: "",
-    type: "Embarcador" as Customer["type"],
     cpf_cnpj: "",
     responsavel: "",
     prazo_dias: 30,
@@ -150,8 +140,6 @@ export default function Customers() {
         setFormData((prev) => ({
           ...prev,
           name: data.name || prev.name,
-          email: data.email || prev.email,
-          phone: data.phone ? formatPhone(data.phone) : prev.phone,
           address: data.address || prev.address,
           neighborhood: data.neighborhood || prev.neighborhood,
           city: data.city || prev.city,
@@ -247,15 +235,11 @@ export default function Customers() {
     setFormData({
       name: "",
       email: "",
-      phone: "",
       address: "",
       city: "",
       state: "",
       neighborhood: "",
       cep: "",
-      loading_location: "",
-      unloading_location: "",
-      type: "Embarcador",
       cpf_cnpj: "",
       responsavel: "",
       prazo_dias: 30,
@@ -280,16 +264,12 @@ export default function Customers() {
     setEditingCustomer(customer);
     setFormData({
       name: customer.name,
-      email: customer.email || "",
-      phone: customer.phone || "",
+      email: "",
       address: customer.address || "",
       city: customer.city || "",
       state: customer.state || "",
       neighborhood: customer.neighborhood || "",
       cep: customer.cep || "",
-      loading_location: customer.loading_location || "",
-      unloading_location: customer.unloading_location || "",
-      type: customer.type || "Embarcador",
       cpf_cnpj: customer.cpf_cnpj || "",
       responsavel: customer.responsavel || "",
       prazo_dias: customer.prazo_dias || 30,
@@ -321,19 +301,6 @@ export default function Customers() {
       setTimeout(() => setCopiedField(null), 2000);
     } catch {
       toast.error("Erro ao copiar");
-    }
-  };
-
-  const getTypeBadge = (type: Customer["type"]) => {
-    switch (type) {
-      case "Embarcador":
-        return <Badge className="bg-primary/10 text-primary border-primary/20">Embarcador</Badge>;
-      case "Consignatário":
-        return <Badge className="bg-green-500/10 text-green-600 border-green-500/20">Consignatário</Badge>;
-      case "Ambos":
-        return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Ambos</Badge>;
-      default:
-        return <Badge variant="outline">{type}</Badge>;
     }
   };
 
@@ -496,69 +463,6 @@ export default function Customers() {
                 />
               </div>
 
-              {/* Campos adicionais (ocultos por padrão, mantidos para compatibilidade) */}
-              <div className="space-y-4 border-t pt-6">
-                <Label className="text-base font-semibold">Informações Adicionais</Label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">E-mail Principal</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="contato@empresa.com.br"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone Principal</Label>
-                    <Input
-                      id="phone"
-                      placeholder="(00) 00000-0000"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: formatPhone(e.target.value) })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="loading_location">Local de Carregamento</Label>
-                    <Input
-                      id="loading_location"
-                      placeholder="Galpão A - Portão 3"
-                      value={formData.loading_location}
-                      onChange={(e) => setFormData({ ...formData, loading_location: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unloading_location">Local de Descarregamento</Label>
-                    <Input
-                      id="unloading_location"
-                      placeholder="Doca 5 - Setor Norte"
-                      value={formData.unloading_location}
-                      onChange={(e) => setFormData({ ...formData, unloading_location: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="type">Tipo de Cliente</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value as Customer["type"] })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Embarcador">Embarcador</SelectItem>
-                      <SelectItem value="Consignatário">Consignatário</SelectItem>
-                      <SelectItem value="Ambos">Ambos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -595,7 +499,6 @@ export default function Customers() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">{customer.name}</CardTitle>
-                {getTypeBadge(customer.type)}
               </div>
               {customer.cpf_cnpj && (
                 <p className="text-sm text-muted-foreground">{customer.cpf_cnpj}</p>
@@ -603,42 +506,6 @@ export default function Customers() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                {customer.email && (
-                  <div className="flex items-center gap-2 group">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm flex-1">{customer.email}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleCopy(customer.email, `email-${customer.id}`)}
-                    >
-                      {copiedField === `email-${customer.id}` ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                )}
-                {customer.phone && (
-                  <div className="flex items-center gap-2 group">
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm flex-1">{customer.phone}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleCopy(customer.phone, `phone-${customer.id}`)}
-                    >
-                      {copiedField === `phone-${customer.id}` ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                )}
                 {(customer.address || customer.city) && (
                   <div className="flex items-start gap-2">
                     <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
