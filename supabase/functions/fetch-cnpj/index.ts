@@ -36,13 +36,17 @@ serve(async (req) => {
 
     const data = await response.json();
 
-    // Map BrasilAPI response to our format
+    // Map BrasilAPI response to our format with separate fields
     const companyData = {
       name: data.razao_social || data.nome_fantasia,
       cnpj: data.cnpj,
       email: data.email || '',
       phone: data.ddd_telefone_1 || '',
-      address: `${data.logradouro || ''}, ${data.numero || ''} - ${data.bairro || ''}, ${data.municipio || ''} - ${data.uf || ''}, CEP: ${data.cep || ''}`.trim(),
+      address: data.logradouro ? `${data.logradouro}${data.numero ? ', ' + data.numero : ''}` : '',
+      neighborhood: data.bairro || '',
+      city: data.municipio || '',
+      state: data.uf || '',
+      cep: data.cep || '',
     };
 
     return new Response(JSON.stringify(companyData), {
