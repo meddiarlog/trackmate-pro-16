@@ -407,9 +407,45 @@ export type Database = {
           },
         ]
       }
+      customer_contacts: {
+        Row: {
+          created_at: string
+          customer_id: string
+          email: string | null
+          id: string
+          telefone: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          email?: string | null
+          id?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          email?: string | null
+          id?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
+          cep: string | null
           city: string | null
           cpf_cnpj: string | null
           created_at: string
@@ -418,7 +454,10 @@ export type Database = {
           loading_location: string | null
           name: string
           neighborhood: string | null
+          observacoes: string | null
           phone: string | null
+          prazo_dias: number | null
+          responsavel: string | null
           state: string | null
           type: string | null
           unloading_location: string | null
@@ -426,6 +465,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          cep?: string | null
           city?: string | null
           cpf_cnpj?: string | null
           created_at?: string
@@ -434,7 +474,10 @@ export type Database = {
           loading_location?: string | null
           name: string
           neighborhood?: string | null
+          observacoes?: string | null
           phone?: string | null
+          prazo_dias?: number | null
+          responsavel?: string | null
           state?: string | null
           type?: string | null
           unloading_location?: string | null
@@ -442,6 +485,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          cep?: string | null
           city?: string | null
           cpf_cnpj?: string | null
           created_at?: string
@@ -450,7 +494,10 @@ export type Database = {
           loading_location?: string | null
           name?: string
           neighborhood?: string | null
+          observacoes?: string | null
           phone?: string | null
+          prazo_dias?: number | null
+          responsavel?: string | null
           state?: string | null
           type?: string | null
           unloading_location?: string | null
