@@ -61,6 +61,8 @@ const Boletos = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editingBoleto, setEditingBoleto] = useState<Boleto | null>(null);
   const [viewingBoleto, setViewingBoleto] = useState<Boleto | null>(null);
+  const [viewBlobUrl, setViewBlobUrl] = useState<string | null>(null);
+  const [loadingView, setLoadingView] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [uploading, setUploading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -314,9 +316,36 @@ const Boletos = () => {
     setDialogOpen(true);
   };
 
-  const handleView = (boleto: Boleto) => {
+  const handleView = async (boleto: Boleto) => {
     setViewingBoleto(boleto);
     setViewDialogOpen(true);
+    setLoadingView(true);
+    setViewBlobUrl(null);
+    
+    try {
+      const response = await fetch(boleto.file_url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      setViewBlobUrl(blobUrl);
+    } catch (error) {
+      console.error("Erro ao carregar arquivo:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o arquivo para visualização",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingView(false);
+    }
+  };
+
+  const handleCloseViewDialog = () => {
+    if (viewBlobUrl) {
+      window.URL.revokeObjectURL(viewBlobUrl);
+      setViewBlobUrl(null);
+    }
+    setViewDialogOpen(false);
+    setViewingBoleto(null);
   };
 
   const handleDownload = async (boleto: Boleto) => {
@@ -646,7 +675,7 @@ const Boletos = () => {
       </Card>
 
       {/* View Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <Dialog open={viewDialogOpen} onOpenChange={handleCloseViewDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Visualizar Boleto</DialogTitle>
@@ -675,16 +704,21 @@ const Boletos = () => {
               </div>
 
               <div className="border rounded-lg overflow-hidden bg-muted/50 min-h-[400px] flex items-center justify-center">
-                {isFilePreviewable(viewingBoleto.file_name) ? (
+                {loadingView ? (
+                  <div className="text-center p-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Carregando arquivo...</p>
+                  </div>
+                ) : viewBlobUrl && isFilePreviewable(viewingBoleto.file_name) ? (
                   viewingBoleto.file_name.toLowerCase().endsWith(".pdf") ? (
                     <iframe
-                      src={`${viewingBoleto.file_url}#toolbar=1`}
+                      src={viewBlobUrl}
                       className="w-full h-[500px]"
                       title="Boleto PDF"
                     />
                   ) : (
                     <img
-                      src={viewingBoleto.file_url}
+                      src={viewBlobUrl}
                       alt="Boleto"
                       className="max-w-full max-h-[500px] object-contain"
                     />
@@ -708,7 +742,7 @@ const Boletos = () => {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                <Button variant="outline" onClick={handleCloseViewDialog}>
                   Fechar
                 </Button>
                 <Button onClick={() => handleDownload(viewingBoleto)}>
