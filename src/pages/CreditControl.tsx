@@ -51,6 +51,8 @@ const CreditControl = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [fetchingNfe, setFetchingNfe] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -261,12 +263,18 @@ const CreditControl = () => {
     setEditingRecord(null);
   };
 
-  const filteredRecords = records.filter(
-    (record) =>
+  const filteredRecords = records.filter((record) => {
+    const matchesSearch =
       record.numero_nfe.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.cnpj_emitente.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+      record.cnpj_emitente.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const recordDate = record.data_emissao;
+    const matchesStartDate = !startDate || recordDate >= startDate;
+    const matchesEndDate = !endDate || recordDate <= endDate;
+    
+    return matchesSearch && matchesStartDate && matchesEndDate;
+  });
 
   const totalCredito = filteredRecords.reduce(
     (sum, record) => sum + record.credito,
@@ -461,7 +469,7 @@ const CreditControl = () => {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
@@ -471,6 +479,29 @@ const CreditControl = () => {
             className="pl-10"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">De:</Label>
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">Até:</Label>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        {(startDate || endDate) && (
+          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }}>
+            Limpar
+          </Button>
+        )}
       </div>
 
       <Card>

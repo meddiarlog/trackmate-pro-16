@@ -27,9 +27,10 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Download, Eye, Upload, FileText } from "lucide-react";
-import { format } from "date-fns";
+import { Pencil, Trash2, Plus, Search, Download, Eye, Upload, FileText, CheckCircle, XCircle } from "lucide-react";
+import { format, addDays, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
 
 type Boleto = {
   id: string;
@@ -42,12 +43,14 @@ type Boleto = {
   created_at: string;
   customer?: {
     name: string;
+    prazo_dias?: number;
   };
 };
 
 type Customer = {
   id: string;
   name: string;
+  prazo_dias: number | null;
 };
 
 const Boletos = () => {
@@ -60,6 +63,9 @@ const Boletos = () => {
   const [viewingBoleto, setViewingBoleto] = useState<Boleto | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -80,7 +86,7 @@ const Boletos = () => {
         .from("boletos")
         .select(`
           *,
-          customer:customers(name)
+          customer:customers(name, prazo_dias)
         `)
         .order("due_date", { ascending: false });
 
@@ -101,7 +107,7 @@ const Boletos = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name")
+        .select("id, name, prazo_dias")
         .order("name");
 
       if (error) throw error;
@@ -109,6 +115,41 @@ const Boletos = () => {
     } catch (error) {
       console.error("Erro ao carregar clientes:", error);
     }
+  };
+
+  const calculateDueDate = (issueDate: string, prazoDias: number): string => {
+    const baseDate = new Date(issueDate + "T12:00:00");
+    let dueDate = addDays(baseDate, prazoDias);
+    
+    if (isWeekend(dueDate)) {
+      dueDate = nextMonday(dueDate);
+    }
+    
+    return format(dueDate, "yyyy-MM-dd");
+  };
+
+  const handleCustomerChange = (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    const prazoDias = customer?.prazo_dias || 30;
+    const newDueDate = calculateDueDate(formData.issue_date, prazoDias);
+    
+    setFormData({
+      ...formData,
+      customer_id: customerId,
+      due_date: newDueDate,
+    });
+  };
+
+  const handleIssueDateChange = (issueDate: string) => {
+    const customer = customers.find(c => c.id === formData.customer_id);
+    const prazoDias = customer?.prazo_dias || 30;
+    const newDueDate = formData.customer_id ? calculateDueDate(issueDate, prazoDias) : issueDate;
+    
+    setFormData({
+      ...formData,
+      issue_date: issueDate,
+      due_date: newDueDate,
+    });
   };
 
   const uploadFile = async (file: File): Promise<{ url: string; name: string } | null> => {
@@ -166,7 +207,6 @@ const Boletos = () => {
         : null;
 
       if (formData.file) {
-        // Delete old file if editing
         if (editingBoleto) {
           await deleteFile(editingBoleto.file_url);
         }
@@ -183,7 +223,7 @@ const Boletos = () => {
         due_date: formData.due_date,
         file_url: fileData.url,
         file_name: fileData.name,
-        status: "Anexado",
+        status: editingBoleto?.status || "Em aberto",
       };
 
       if (editingBoleto) {
@@ -239,6 +279,30 @@ const Boletos = () => {
     }
   };
 
+  const handleToggleStatus = async (boleto: Boleto) => {
+    const newStatus = boleto.status === "Quitado" ? "Em aberto" : "Quitado";
+    
+    try {
+      const { error } = await supabase
+        .from("boletos")
+        .update({ status: newStatus })
+        .eq("id", boleto.id);
+
+      if (error) throw error;
+      toast({ 
+        title: "Sucesso", 
+        description: newStatus === "Quitado" ? "Boleto quitado com sucesso" : "Boleto reaberto com sucesso" 
+      });
+      fetchBoletos();
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar status",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleEdit = (boleto: Boleto) => {
     setEditingBoleto(boleto);
     setFormData({
@@ -269,7 +333,6 @@ const Boletos = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Erro ao baixar:", error);
-      // Fallback: abrir em nova aba
       window.open(boleto.file_url, "_blank");
     }
   };
@@ -287,16 +350,23 @@ const Boletos = () => {
     }
   };
 
-  const filteredBoletos = boletos.filter((boleto) =>
-    boleto.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredBoletos = boletos.filter((boleto) => {
+    const matchesSearch = boleto.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || boleto.status === statusFilter;
+    const matchesStartDate = !startDate || boleto.due_date >= startDate;
+    const matchesEndDate = !endDate || boleto.due_date <= endDate;
+    
+    return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+  });
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case "Anexado":
-        return "text-primary";
+      case "Quitado":
+        return <Badge className="bg-green-500 hover:bg-green-600">Quitado</Badge>;
+      case "Em Análise":
+        return <Badge className="bg-yellow-500 hover:bg-yellow-600">Em Análise</Badge>;
       default:
-        return "text-muted-foreground";
+        return <Badge variant="destructive">Em aberto</Badge>;
     }
   };
 
@@ -330,9 +400,7 @@ const Boletos = () => {
                 <Label htmlFor="customer_id">Cliente *</Label>
                 <Select
                   value={formData.customer_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, customer_id: value })
-                  }
+                  onValueChange={handleCustomerChange}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um cliente" />
@@ -340,7 +408,7 @@ const Boletos = () => {
                   <SelectContent>
                     {customers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
+                        {customer.name} {customer.prazo_dias ? `(${customer.prazo_dias} dias)` : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -353,9 +421,7 @@ const Boletos = () => {
                   id="issue_date"
                   type="date"
                   value={formData.issue_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, issue_date: e.target.value })
-                  }
+                  onChange={(e) => handleIssueDateChange(e.target.value)}
                   required
                 />
               </div>
@@ -371,6 +437,9 @@ const Boletos = () => {
                   }
                   required
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Calculado automaticamente com base no prazo do cliente
+                </p>
               </div>
 
               <div>
@@ -427,7 +496,7 @@ const Boletos = () => {
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
@@ -437,6 +506,40 @@ const Boletos = () => {
             className="pl-10"
           />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="Em aberto">Em aberto</SelectItem>
+            <SelectItem value="Quitado">Quitado</SelectItem>
+            <SelectItem value="Em Análise">Em Análise</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">De:</Label>
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">Até:</Label>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        {(startDate || endDate || statusFilter !== "all") && (
+          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setStatusFilter("all"); }}>
+            Limpar
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -483,12 +586,22 @@ const Boletos = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className={`font-medium ${getStatusColor(boleto.status)}`}>
-                          {boleto.status}
-                        </span>
+                        {getStatusBadge(boleto.status)}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleStatus(boleto)}
+                            title={boleto.status === "Quitado" ? "Desquitar" : "Quitar"}
+                          >
+                            {boleto.status === "Quitado" ? (
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -553,9 +666,7 @@ const Boletos = () => {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <p className={`font-medium ${getStatusColor(viewingBoleto.status)}`}>
-                    {viewingBoleto.status}
-                  </p>
+                  <div className="mt-1">{getStatusBadge(viewingBoleto.status)}</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Arquivo:</span>
@@ -566,22 +677,11 @@ const Boletos = () => {
               <div className="border rounded-lg overflow-hidden bg-muted/50 min-h-[400px] flex items-center justify-center">
                 {isFilePreviewable(viewingBoleto.file_name) ? (
                   viewingBoleto.file_name.toLowerCase().endsWith(".pdf") ? (
-                    <object
-                      data={viewingBoleto.file_url}
-                      type="application/pdf"
+                    <iframe
+                      src={`${viewingBoleto.file_url}#toolbar=1`}
                       className="w-full h-[500px]"
-                    >
-                      <div className="text-center p-8">
-                        <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground mb-4">
-                          Não foi possível exibir o PDF no navegador
-                        </p>
-                        <Button onClick={() => handleDownload(viewingBoleto)}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Baixar PDF
-                        </Button>
-                      </div>
-                    </object>
+                      title="Boleto PDF"
+                    />
                   ) : (
                     <img
                       src={viewingBoleto.file_url}
