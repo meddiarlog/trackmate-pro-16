@@ -240,9 +240,11 @@ export default function RepositoryFixed() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      uploadFileMutation.mutate(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(file => {
+        uploadFileMutation.mutate(file);
+      });
     }
     e.target.value = '';
   };
@@ -299,6 +301,7 @@ export default function RepositoryFixed() {
                 className="hidden"
                 onChange={handleFileUpload}
                 disabled={uploadingFile}
+                multiple
               />
             </label>
           </Button>
