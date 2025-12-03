@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Plus, Eye, Edit, Trash2 } from "lucide-react";
+import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
 interface CTE {
   id: string;
@@ -30,6 +31,7 @@ interface CTE {
   vehicle_plate?: string;
   freight_value?: number;
   net_value?: number;
+  pdf_url?: string;
 }
 
 export default function CTE() {
@@ -55,6 +57,8 @@ export default function CTE() {
   const [driverName, setDriverName] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [freightValue, setFreightValue] = useState("");
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -89,6 +93,7 @@ export default function CTE() {
     setDriverName("");
     setVehiclePlate("");
     setFreightValue("");
+    setPdfFile(null);
     setEditingCte(null);
   };
 
@@ -97,6 +102,17 @@ export default function CTE() {
       toast({
         title: "Erro",
         description: "Por favor, informe a chave de acesso",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cleanedKey = accessKey.replace(/\D/g, '');
+    
+    if (cleanedKey.length !== 44) {
+      toast({
+        title: "Erro",
+        description: "Chave de acesso inválida. Deve conter 44 dígitos.",
         variant: "destructive",
       });
       return;
@@ -117,6 +133,19 @@ export default function CTE() {
         setSenderCnpj(data.cnpjEmitente || "");
         setOrigin(data.uf || "");
 
+        // Try to fetch recipient info if we have the CNPJ
+        if (data.cnpjDestinatario) {
+          setRecipientCnpj(data.cnpjDestinatario);
+          if (data.razaoSocialDestinatario) {
+            setRecipientName(data.razaoSocialDestinatario);
+          }
+        }
+
+        // Set value if available
+        if (data.valorServico) {
+          setValue(data.valorServico.toString());
+        }
+
         toast({
           title: "Dados importados",
           description: "Dados do CT-e foram carregados com sucesso!",
@@ -133,10 +162,39 @@ export default function CTE() {
     }
   };
 
+  const uploadPdf = async (): Promise<string | null> => {
+    if (!pdfFile) return null;
+
+    const fileExt = pdfFile.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `ctes/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('cte-pdfs')
+      .upload(filePath, pdfFile);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('cte-pdfs')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   // Create/Update CTE mutation
   const saveCTEMutation = useMutation({
     mutationFn: async () => {
-      const cteData = {
+      setUploading(true);
+      
+      let pdfUrl: string | null = null;
+      if (pdfFile) {
+        pdfUrl = await uploadPdf();
+      }
+
+      const cteData: any = {
         cte_number: cteNumber,
         issue_date: issueDate,
         origin,
@@ -153,6 +211,10 @@ export default function CTE() {
         freight_value: freightValue ? parseFloat(freightValue) : null,
         contract_id: null,
       };
+
+      if (pdfUrl) {
+        cteData.pdf_url = pdfUrl;
+      }
 
       if (editingCte) {
         const { error } = await supabase
@@ -174,13 +236,16 @@ export default function CTE() {
         description: `O CT-e foi ${editingCte ? "atualizado" : "criado"} com sucesso.`,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: `Não foi possível ${editingCte ? "atualizar" : "criar"} o CT-e.`,
+        description: error.message || `Não foi possível ${editingCte ? "atualizar" : "criar"} o CT-e.`,
         variant: "destructive",
       });
     },
+    onSettled: () => {
+      setUploading(false);
+    }
   });
 
   // Delete CTE mutation
@@ -227,6 +292,32 @@ export default function CTE() {
   const handleView = (cte: CTE) => {
     setSelectedCte(cte);
     setIsViewDialogOpen(true);
+  };
+
+  const handleDownloadPdf = async (cte: CTE) => {
+    if (!cte.pdf_url) {
+      toast({
+        title: "Erro",
+        description: "Este CT-e não possui PDF anexado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(cte.pdf_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CTE-${cte.cte_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      window.open(cte.pdf_url, '_blank');
+    }
   };
 
   return (
@@ -422,6 +513,23 @@ export default function CTE() {
                     </div>
                   </div>
                 </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="font-semibold mb-3">Anexar PDF do CT-e</h3>
+                  <div className="space-y-2">
+                    <Input
+                      id="pdfFile"
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                    />
+                    {pdfFile && (
+                      <p className="text-sm text-muted-foreground">
+                        Arquivo selecionado: {pdfFile.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button
@@ -433,8 +541,8 @@ export default function CTE() {
                 >
                   Cancelar
                 </Button>
-                <Button onClick={() => saveCTEMutation.mutate()}>
-                  {editingCte ? "Atualizar" : "Criar"}
+                <Button onClick={() => saveCTEMutation.mutate()} disabled={uploading}>
+                  {uploading ? "Salvando..." : editingCte ? "Atualizar" : "Criar"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -464,6 +572,7 @@ export default function CTE() {
                   <TableHead>Motorista</TableHead>
                   <TableHead>Placa</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>PDF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -479,19 +588,43 @@ export default function CTE() {
                     <TableCell className="text-right">
                       R$ {cte.value.toFixed(2)}
                     </TableCell>
+                    <TableCell>
+                      {cte.pdf_url ? (
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                          <FileText className="h-3 w-3 mr-1" />
+                          Anexado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">
+                          Sem PDF
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-2 justify-end">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleView(cte)}
+                          title="Visualizar"
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
+                        {cte.pdf_url && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownloadPdf(cte)}
+                            title="Baixar PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleEdit(cte)}
+                          title="Editar"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -499,8 +632,9 @@ export default function CTE() {
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteCTEMutation.mutate(cte.id)}
+                          title="Excluir"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
@@ -519,61 +653,64 @@ export default function CTE() {
             <DialogTitle>Detalhes do CT-e</DialogTitle>
           </DialogHeader>
           {selectedCte && (
-            <div className="space-y-4">
+            <div className="grid gap-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Número do CT-e</Label>
-                  <p className="text-sm">{selectedCte.cte_number}</p>
+                  <Label className="text-muted-foreground">Número</Label>
+                  <p className="font-medium">{selectedCte.cte_number}</p>
                 </div>
                 <div>
-                  <Label>Data de Emissão</Label>
-                  <p className="text-sm">{format(new Date(selectedCte.issue_date), "dd/MM/yyyy", { locale: ptBR })}</p>
+                  <Label className="text-muted-foreground">Data de Emissão</Label>
+                  <p className="font-medium">{format(new Date(selectedCte.issue_date), "dd/MM/yyyy", { locale: ptBR })}</p>
                 </div>
-                <div>
-                  <Label>Origem</Label>
-                  <p className="text-sm">{selectedCte.origin}</p>
-                </div>
-                <div>
-                  <Label>Destino</Label>
-                  <p className="text-sm">{selectedCte.destination}</p>
-                </div>
-                <div>
-                  <Label>Valor Total</Label>
-                  <p className="text-sm">R$ {selectedCte.value.toFixed(2)}</p>
-                </div>
-                <div>
-                  <Label>Peso</Label>
-                  <p className="text-sm">{selectedCte.weight ? `${selectedCte.weight} kg` : "-"}</p>
-                </div>
-                {selectedCte.sender_name && (
-                  <div>
-                    <Label>Remetente</Label>
-                    <p className="text-sm">{selectedCte.sender_name}</p>
-                  </div>
-                )}
-                {selectedCte.recipient_name && (
-                  <div>
-                    <Label>Destinatário</Label>
-                    <p className="text-sm">{selectedCte.recipient_name}</p>
-                  </div>
-                )}
-                {selectedCte.driver_name && (
-                  <div>
-                    <Label>Motorista</Label>
-                    <p className="text-sm">{selectedCte.driver_name}</p>
-                  </div>
-                )}
-                {selectedCte.vehicle_plate && (
-                  <div>
-                    <Label>Placa do Veículo</Label>
-                    <p className="text-sm">{selectedCte.vehicle_plate}</p>
-                  </div>
-                )}
               </div>
-              {selectedCte.product_description && (
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Descrição do Produto</Label>
-                  <p className="text-sm">{selectedCte.product_description}</p>
+                  <Label className="text-muted-foreground">Origem</Label>
+                  <p className="font-medium">{selectedCte.origin}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Destino</Label>
+                  <p className="font-medium">{selectedCte.destination}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Valor Total</Label>
+                  <p className="font-medium">R$ {selectedCte.value.toFixed(2)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Peso</Label>
+                  <p className="font-medium">{selectedCte.weight ? `${selectedCte.weight} kg` : "-"}</p>
+                </div>
+              </div>
+              {selectedCte.sender_name && (
+                <div className="border-t pt-4">
+                  <Label className="text-muted-foreground">Remetente</Label>
+                  <p className="font-medium">{selectedCte.sender_name}</p>
+                  {selectedCte.sender_cnpj && <p className="text-sm text-muted-foreground">CNPJ: {selectedCte.sender_cnpj}</p>}
+                </div>
+              )}
+              {selectedCte.recipient_name && (
+                <div className="border-t pt-4">
+                  <Label className="text-muted-foreground">Destinatário</Label>
+                  <p className="font-medium">{selectedCte.recipient_name}</p>
+                  {selectedCte.recipient_cnpj && <p className="text-sm text-muted-foreground">CNPJ: {selectedCte.recipient_cnpj}</p>}
+                </div>
+              )}
+              {(selectedCte.driver_name || selectedCte.vehicle_plate) && (
+                <div className="border-t pt-4">
+                  <Label className="text-muted-foreground">Transporte</Label>
+                  <p className="font-medium">{selectedCte.driver_name || "-"}</p>
+                  <p className="text-sm text-muted-foreground">Placa: {selectedCte.vehicle_plate || "-"}</p>
+                </div>
+              )}
+              {selectedCte.pdf_url && (
+                <div className="border-t pt-4">
+                  <Button onClick={() => handleDownloadPdf(selectedCte)} className="w-full">
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar PDF do CT-e
+                  </Button>
                 </div>
               )}
             </div>
