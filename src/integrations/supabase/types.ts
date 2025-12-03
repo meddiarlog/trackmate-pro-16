@@ -250,6 +250,7 @@ export type Database = {
           owner_name: string | null
           owner_pis: string | null
           owner_rg: string | null
+          pdf_url: string | null
           product_description: string | null
           recipient_address: string | null
           recipient_cnpj: string | null
@@ -314,6 +315,7 @@ export type Database = {
           owner_name?: string | null
           owner_pis?: string | null
           owner_rg?: string | null
+          pdf_url?: string | null
           product_description?: string | null
           recipient_address?: string | null
           recipient_cnpj?: string | null
@@ -378,6 +380,7 @@ export type Database = {
           owner_name?: string | null
           owner_pis?: string | null
           owner_rg?: string | null
+          pdf_url?: string | null
           product_description?: string | null
           recipient_address?: string | null
           recipient_cnpj?: string | null
@@ -508,6 +511,80 @@ export type Database = {
         }
         Relationships: []
       }
+      driver_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          driver_id: string
+          file_name: string
+          file_url: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          driver_id: string
+          file_name: string
+          file_url: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          driver_id?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_documents_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drivers: {
+        Row: {
+          cnh: string | null
+          cnh_expiry: string | null
+          cpf: string | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          cnh?: string | null
+          cnh_expiry?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cnh?: string | null
+          cnh_expiry?: string | null
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -543,6 +620,73 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      repository_files: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          folder_id: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          folder_id?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          folder_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "repository_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      repository_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repository_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "repository_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suppliers: {
         Row: {
