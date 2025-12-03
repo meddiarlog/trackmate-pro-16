@@ -255,8 +255,23 @@ const Boletos = () => {
     setViewDialogOpen(true);
   };
 
-  const handleDownload = (boleto: Boleto) => {
-    window.open(boleto.file_url, "_blank");
+  const handleDownload = async (boleto: Boleto) => {
+    try {
+      const response = await fetch(boleto.file_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = boleto.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Erro ao baixar:", error);
+      // Fallback: abrir em nova aba
+      window.open(boleto.file_url, "_blank");
+    }
   };
 
   const resetForm = () => {
@@ -551,11 +566,22 @@ const Boletos = () => {
               <div className="border rounded-lg overflow-hidden bg-muted/50 min-h-[400px] flex items-center justify-center">
                 {isFilePreviewable(viewingBoleto.file_name) ? (
                   viewingBoleto.file_name.toLowerCase().endsWith(".pdf") ? (
-                    <iframe
-                      src={viewingBoleto.file_url}
+                    <object
+                      data={viewingBoleto.file_url}
+                      type="application/pdf"
                       className="w-full h-[500px]"
-                      title="Boleto PDF"
-                    />
+                    >
+                      <div className="text-center p-8">
+                        <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground mb-4">
+                          Não foi possível exibir o PDF no navegador
+                        </p>
+                        <Button onClick={() => handleDownload(viewingBoleto)}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Baixar PDF
+                        </Button>
+                      </div>
+                    </object>
                   ) : (
                     <img
                       src={viewingBoleto.file_url}
