@@ -14,6 +14,182 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts_payable: {
+        Row: {
+          amount: number
+          cash_box_id: string
+          created_at: string
+          discount: number | null
+          document_number: string | null
+          due_date: string
+          id: string
+          installment_number: number
+          installments: number
+          is_fixed_expense: boolean
+          observations: string | null
+          parent_id: string | null
+          payment_date: string | null
+          payment_method: string
+          penalty_interest: number | null
+          status: string
+          supplier_id: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cash_box_id: string
+          created_at?: string
+          discount?: number | null
+          document_number?: string | null
+          due_date: string
+          id?: string
+          installment_number?: number
+          installments?: number
+          is_fixed_expense?: boolean
+          observations?: string | null
+          parent_id?: string | null
+          payment_date?: string | null
+          payment_method?: string
+          penalty_interest?: number | null
+          status?: string
+          supplier_id: string
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cash_box_id?: string
+          created_at?: string
+          discount?: number | null
+          document_number?: string | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          installments?: number
+          is_fixed_expense?: boolean
+          observations?: string | null
+          parent_id?: string | null
+          payment_date?: string | null
+          payment_method?: string
+          penalty_interest?: number | null
+          status?: string
+          supplier_id?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_payable_cash_box_id_fkey"
+            columns: ["cash_box_id"]
+            isOneToOne: false
+            referencedRelation: "cash_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_payable"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_payable_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts_receivable: {
+        Row: {
+          amount: number
+          cash_box_id: string
+          created_at: string
+          customer_id: string
+          discount: number | null
+          document_number: string | null
+          due_date: string
+          id: string
+          installment_number: number
+          installments: number
+          is_fixed_income: boolean
+          observations: string | null
+          parent_id: string | null
+          payment_date: string | null
+          payment_method: string
+          penalty_interest: number | null
+          status: string
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          cash_box_id: string
+          created_at?: string
+          customer_id: string
+          discount?: number | null
+          document_number?: string | null
+          due_date: string
+          id?: string
+          installment_number?: number
+          installments?: number
+          is_fixed_income?: boolean
+          observations?: string | null
+          parent_id?: string | null
+          payment_date?: string | null
+          payment_method?: string
+          penalty_interest?: number | null
+          status?: string
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          cash_box_id?: string
+          created_at?: string
+          customer_id?: string
+          discount?: number | null
+          document_number?: string | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          installments?: number
+          is_fixed_income?: boolean
+          observations?: string | null
+          parent_id?: string | null
+          payment_date?: string | null
+          payment_method?: string
+          penalty_interest?: number | null
+          status?: string
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounts_receivable_cash_box_id_fkey"
+            columns: ["cash_box_id"]
+            isOneToOne: false
+            referencedRelation: "cash_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounts_receivable_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boletos: {
         Row: {
           amount: number | null
@@ -63,6 +239,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cash_boxes: {
+        Row: {
+          category_id: string
+          created_at: string
+          current_balance: number
+          id: string
+          initial_balance: number
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          current_balance?: number
+          id?: string
+          initial_balance?: number
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          current_balance?: number
+          id?: string
+          initial_balance?: number
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_boxes_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "cash_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_categories: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       cash_movements: {
         Row: {
