@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       boletos: {
         Row: {
+          amount: number | null
           created_at: string
           customer_id: string
           due_date: string
@@ -24,9 +25,11 @@ export type Database = {
           id: string
           issue_date: string
           status: string
+          type: string
           updated_at: string
         }
         Insert: {
+          amount?: number | null
           created_at?: string
           customer_id: string
           due_date: string
@@ -35,9 +38,11 @@ export type Database = {
           id?: string
           issue_date?: string
           status?: string
+          type?: string
           updated_at?: string
         }
         Update: {
+          amount?: number | null
           created_at?: string
           customer_id?: string
           due_date?: string
@@ -46,6 +51,7 @@ export type Database = {
           id?: string
           issue_date?: string
           status?: string
+          type?: string
           updated_at?: string
         }
         Relationships: [
