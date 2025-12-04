@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.fetch-nfe]
 verify_jwt = false
+
+[functions.fetch-cte]
+verify_jwt = false
+
+[functions.extract-pdf-value]
+verify_jwt = false

@@ -57,7 +57,7 @@ const menuItems = [
     items: [
       { title: "Contas a Pagar", url: "/accounts-payable", icon: Receipt },
       { title: "Contas a Receber", url: "/accounts-receivable", icon: DollarSign },
-      { title: "Boletos", url: "/boletos", icon: FileText, badge: "Novo" },
+      { title: "Cobranças", url: "/cobrancas", icon: FileText },
       { title: "Controle de Crédito", url: "/credit-control", icon: CreditCard },
     ],
   },
