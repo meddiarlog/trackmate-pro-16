@@ -17,7 +17,7 @@ import { format, addMonths } from "date-fns";
 
 interface AccountReceivable {
   id: string;
-  cash_box_id: string;
+  cash_box_id: string | null;
   customer_id: string;
   document_number: string | null;
   installments: number;
@@ -33,12 +33,6 @@ interface AccountReceivable {
   observations: string | null;
   status: string;
   created_at: string;
-}
-
-interface CashBox {
-  id: string;
-  name: string;
-  category_id: string;
 }
 
 interface Customer {
@@ -58,7 +52,6 @@ export default function AccountsReceivable() {
   const [newCustomerEmail, setNewCustomerEmail] = useState("");
   
   const [form, setForm] = useState({
-    cash_box_id: "",
     customer_id: "",
     document_number: "",
     installments: "1",
@@ -81,19 +74,6 @@ export default function AccountsReceivable() {
         .order("due_date", { ascending: true });
       if (error) throw error;
       return data as AccountReceivable[];
-    },
-  });
-
-  const { data: cashBoxes = [] } = useQuery({
-    queryKey: ["cash_boxes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cash_boxes")
-        .select("*")
-        .eq("is_active", true)
-        .order("name");
-      if (error) throw error;
-      return data as CashBox[];
     },
   });
 
@@ -133,7 +113,6 @@ export default function AccountsReceivable() {
         for (let i = 0; i < installments; i++) {
           const dueDate = addMonths(baseDate, i);
           accountsToInsert.push({
-            cash_box_id: form.cash_box_id,
             customer_id: form.customer_id,
             document_number: form.document_number || null,
             installments: installments,
@@ -159,7 +138,6 @@ export default function AccountsReceivable() {
             const dueDate = addMonths(baseDate, i);
             if (dueDate.getFullYear() === baseDate.getFullYear()) {
               accountsToInsert.push({
-                cash_box_id: form.cash_box_id,
                 customer_id: form.customer_id,
                 document_number: form.document_number || null,
                 installments: 1,
@@ -244,7 +222,6 @@ export default function AccountsReceivable() {
 
   const resetForm = () => {
     setForm({
-      cash_box_id: "",
       customer_id: "",
       document_number: "",
       installments: "1",
@@ -260,7 +237,7 @@ export default function AccountsReceivable() {
   };
 
   const handleSave = () => {
-    if (!form.cash_box_id || !form.customer_id || !form.due_date || !form.amount) {
+    if (!form.customer_id || !form.due_date || !form.amount) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -270,7 +247,6 @@ export default function AccountsReceivable() {
   const handleEdit = (account: AccountReceivable) => {
     setEditingAccount(account);
     setForm({
-      cash_box_id: account.cash_box_id,
       customer_id: account.customer_id,
       document_number: account.document_number || "",
       installments: account.installments.toString(),
@@ -296,11 +272,6 @@ export default function AccountsReceivable() {
   const getCustomerName = (customerId: string) => {
     const customer = customers.find((c) => c.id === customerId);
     return customer?.name || "Cliente não encontrado";
-  };
-
-  const getCashBoxName = (cashBoxId: string) => {
-    const cashBox = cashBoxes.find((c) => c.id === cashBoxId);
-    return cashBox?.name || "Caixa não encontrado";
   };
 
   const getStatusBadge = (status: string) => {
@@ -374,7 +345,7 @@ export default function AccountsReceivable() {
             <CardTitle>Lançamentos</CardTitle>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={resetForm} disabled={cashBoxes.length === 0}>
+                <Button onClick={resetForm}>
                   <Plus className="mr-2 h-4 w-4" />
                   Nova Conta a Receber
                 </Button>
@@ -384,25 +355,6 @@ export default function AccountsReceivable() {
                   <DialogTitle>{editingAccount ? "Editar Conta a Receber" : "Nova Conta a Receber"}</DialogTitle>
                 </DialogHeader>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
-                    <Label>Categoria de Caixa *</Label>
-                    <Select
-                      value={form.cash_box_id}
-                      onValueChange={(value) => setForm({ ...form, cash_box_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o caixa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cashBoxes.map((cashBox) => (
-                          <SelectItem key={cashBox.id} value={cashBox.id}>
-                            {cashBox.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   <div className="col-span-2">
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
@@ -480,6 +432,7 @@ export default function AccountsReceivable() {
                       min="1"
                       value={form.installments}
                       onChange={(e) => setForm({ ...form, installments: e.target.value })}
+                      disabled={!!editingAccount}
                     />
                   </div>
 
@@ -529,10 +482,7 @@ export default function AccountsReceivable() {
                     <Label>Total R$</Label>
                     <Input
                       type="text"
-                      value={calculateTotal().toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
+                      value={calculateTotal().toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       disabled
                       className="bg-muted"
                     />
@@ -549,7 +499,7 @@ export default function AccountsReceivable() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="boleto">Boleto</SelectItem>
-                        <SelectItem value="pix">PIX</SelectItem>
+                        <SelectItem value="pix">Pix</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -558,12 +508,11 @@ export default function AccountsReceivable() {
                     <Checkbox
                       id="is_fixed_income"
                       checked={form.is_fixed_income}
-                      onCheckedChange={(checked) =>
-                        setForm({ ...form, is_fixed_income: checked as boolean })
-                      }
+                      onCheckedChange={(checked) => setForm({ ...form, is_fixed_income: !!checked })}
+                      disabled={!!editingAccount}
                     />
-                    <Label htmlFor="is_fixed_income">
-                      Receita Fixa (gerar automaticamente para todos os meses do ano)
+                    <Label htmlFor="is_fixed_income" className="cursor-pointer">
+                      Receita Fixa (gerar para todos os meses do ano)
                     </Label>
                   </div>
 
@@ -572,7 +521,8 @@ export default function AccountsReceivable() {
                     <Textarea
                       value={form.observations}
                       onChange={(e) => setForm({ ...form, observations: e.target.value })}
-                      placeholder="Observações opcionais"
+                      placeholder="Observações adicionais..."
+                      rows={3}
                     />
                   </div>
 
@@ -587,104 +537,95 @@ export default function AccountsReceivable() {
           </div>
         </CardHeader>
         <CardContent>
-          {cashBoxes.length === 0 ? (
+          {/* Filters */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="pago">Pago</SelectItem>
+                <SelectItem value="vencido">Vencido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Table */}
+          {filteredAccounts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>Nenhum caixa cadastrado.</p>
-              <p className="text-sm">Cadastre um caixa no módulo Controle de Caixa primeiro.</p>
+              <p>Nenhuma conta a receber encontrada.</p>
             </div>
           ) : (
-            <>
-              <div className="flex gap-2 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filtrar por status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="pendente">Pendente</SelectItem>
-                    <SelectItem value="pago">Pago</SelectItem>
-                    <SelectItem value="vencido">Vencido</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Caixa</TableHead>
-                    <TableHead>Parcela</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ações</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Parcela</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAccounts.map((account) => (
+                  <TableRow key={account.id}>
+                    <TableCell className="font-medium">{getCustomerName(account.customer_id)}</TableCell>
+                    <TableCell>
+                      {account.installment_number}/{account.installments}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(account.due_date + "T12:00:00").toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell>
+                      {Number(account.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                    <TableCell>
+                      {Number(account.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(account.status)}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        {account.status === "pendente" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => markAsPaidMutation.mutate(account.id)}
+                            title="Marcar como pago"
+                          >
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteAccountMutation.mutate(account.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAccounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>{getCustomerName(account.customer_id)}</TableCell>
-                      <TableCell>{getCashBoxName(account.cash_box_id)}</TableCell>
-                      <TableCell>
-                        {account.installment_number}/{account.installments}
-                      </TableCell>
-                      <TableCell>{format(new Date(account.due_date), "dd/MM/yyyy")}</TableCell>
-                      <TableCell>
-                        {Number(account.amount).toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </TableCell>
-                      <TableCell>
-                        {Number(account.total).toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(account.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {account.status === "pendente" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => markAsPaidMutation.mutate(account.id)}
-                              title="Marcar como pago"
-                            >
-                              <Check className="h-4 w-4 text-green-600" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEdit(account)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteAccountMutation.mutate(account.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

@@ -17,7 +17,7 @@ export type Database = {
       accounts_payable: {
         Row: {
           amount: number
-          cash_box_id: string
+          cash_box_id: string | null
           created_at: string
           discount: number | null
           document_number: string | null
@@ -38,7 +38,7 @@ export type Database = {
         }
         Insert: {
           amount: number
-          cash_box_id: string
+          cash_box_id?: string | null
           created_at?: string
           discount?: number | null
           document_number?: string | null
@@ -59,7 +59,7 @@ export type Database = {
         }
         Update: {
           amount?: number
-          cash_box_id?: string
+          cash_box_id?: string | null
           created_at?: string
           discount?: number | null
           document_number?: string | null
@@ -105,7 +105,7 @@ export type Database = {
       accounts_receivable: {
         Row: {
           amount: number
-          cash_box_id: string
+          cash_box_id: string | null
           created_at: string
           customer_id: string
           discount: number | null
@@ -126,7 +126,7 @@ export type Database = {
         }
         Insert: {
           amount: number
-          cash_box_id: string
+          cash_box_id?: string | null
           created_at?: string
           customer_id: string
           discount?: number | null
@@ -147,7 +147,7 @@ export type Database = {
         }
         Update: {
           amount?: number
-          cash_box_id?: string
+          cash_box_id?: string | null
           created_at?: string
           customer_id?: string
           discount?: number | null
