@@ -190,6 +190,24 @@ export type Database = {
           },
         ]
       }
+      body_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       boletos: {
         Row: {
           amount: number | null
@@ -331,6 +349,144 @@ export type Database = {
           type?: Database["public"]["Enums"]["cash_movement_type"]
         }
         Relationships: []
+      }
+      collection_orders: {
+        Row: {
+          body_type_id: string | null
+          code: string | null
+          created_at: string
+          driver_cnh: string | null
+          driver_cnh_expiry: string | null
+          driver_cpf: string | null
+          driver_id: string | null
+          driver_name: string | null
+          driver_phone: string | null
+          employee_name: string | null
+          freight_type_id: string | null
+          id: string
+          loading_city: string | null
+          loading_state: string | null
+          observations: string | null
+          order_date: string
+          order_number: number
+          order_request_number: string | null
+          owner_name: string | null
+          owner_phone: string | null
+          payment_method: string
+          product_id: string | null
+          recipient_name: string
+          sender_name: string | null
+          trailer_plates: string[] | null
+          unloading_city: string
+          unloading_state: string
+          updated_at: string
+          vehicle_plate: string | null
+          vehicle_type_id: string | null
+          weight_tons: number
+        }
+        Insert: {
+          body_type_id?: string | null
+          code?: string | null
+          created_at?: string
+          driver_cnh?: string | null
+          driver_cnh_expiry?: string | null
+          driver_cpf?: string | null
+          driver_id?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          employee_name?: string | null
+          freight_type_id?: string | null
+          id?: string
+          loading_city?: string | null
+          loading_state?: string | null
+          observations?: string | null
+          order_date?: string
+          order_number?: number
+          order_request_number?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          payment_method: string
+          product_id?: string | null
+          recipient_name: string
+          sender_name?: string | null
+          trailer_plates?: string[] | null
+          unloading_city: string
+          unloading_state: string
+          updated_at?: string
+          vehicle_plate?: string | null
+          vehicle_type_id?: string | null
+          weight_tons: number
+        }
+        Update: {
+          body_type_id?: string | null
+          code?: string | null
+          created_at?: string
+          driver_cnh?: string | null
+          driver_cnh_expiry?: string | null
+          driver_cpf?: string | null
+          driver_id?: string | null
+          driver_name?: string | null
+          driver_phone?: string | null
+          employee_name?: string | null
+          freight_type_id?: string | null
+          id?: string
+          loading_city?: string | null
+          loading_state?: string | null
+          observations?: string | null
+          order_date?: string
+          order_number?: number
+          order_request_number?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
+          payment_method?: string
+          product_id?: string | null
+          recipient_name?: string
+          sender_name?: string | null
+          trailer_plates?: string[] | null
+          unloading_city?: string
+          unloading_state?: string
+          updated_at?: string
+          vehicle_plate?: string | null
+          vehicle_type_id?: string | null
+          weight_tons?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_orders_body_type_id_fkey"
+            columns: ["body_type_id"]
+            isOneToOne: false
+            referencedRelation: "body_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_orders_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_orders_freight_type_id_fkey"
+            columns: ["freight_type_id"]
+            isOneToOne: false
+            referencedRelation: "freight_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_orders_vehicle_type_id_fkey"
+            columns: ["vehicle_type_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       companies: {
         Row: {
@@ -832,6 +988,24 @@ export type Database = {
         }
         Relationships: []
       }
+      freight_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -865,6 +1039,24 @@ export type Database = {
           payment_method?: Database["public"]["Enums"]["payment_method"]
           status?: Database["public"]["Enums"]["payment_status"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -1004,6 +1196,24 @@ export type Database = {
           phone?: string | null
           type?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      vehicle_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
