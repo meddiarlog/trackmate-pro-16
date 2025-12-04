@@ -1,4 +1,4 @@
-import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield } from "lucide-react";
+import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield, Wallet } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import {
@@ -55,6 +55,7 @@ const menuItems = [
     title: "Financeiro",
     icon: DollarSign,
     items: [
+      { title: "Controle de Caixa", url: "/cash-boxes", icon: Wallet },
       { title: "Contas a Pagar", url: "/accounts-payable", icon: Receipt },
       { title: "Contas a Receber", url: "/accounts-receivable", icon: DollarSign },
       { title: "Cobranças", url: "/cobrancas", icon: FileText },
