@@ -1,24 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Wallet, Tag } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-interface CashCategory {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-}
+import { Pencil, Wallet, TrendingUp, TrendingDown, ArrowUpDown, Settings } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface CashBox {
   id: string;
@@ -30,410 +22,380 @@ interface CashBox {
   created_at: string;
 }
 
+interface CashCategory {
+  id: string;
+  name: string;
+}
+
+interface Cobranca {
+  id: string;
+  amount: number | null;
+  status: string;
+  due_date: string;
+  customer?: {
+    name: string;
+  };
+}
+
+interface AccountsReceivable {
+  id: string;
+  amount: number;
+  status: string;
+  due_date: string;
+  payment_date: string | null;
+  customer?: {
+    name: string;
+  };
+}
+
+interface AccountsPayable {
+  id: string;
+  amount: number;
+  status: string;
+  due_date: string;
+  payment_date: string | null;
+  supplier?: {
+    name: string;
+  };
+}
+
 export default function CashBoxes() {
   const queryClient = useQueryClient();
-  
-  // Category state
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<CashCategory | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: "", description: "" });
-  
-  // Cash box state
-  const [cashBoxDialogOpen, setCashBoxDialogOpen] = useState(false);
-  const [editingCashBox, setEditingCashBox] = useState<CashBox | null>(null);
-  const [cashBoxForm, setCashBoxForm] = useState({
-    name: "",
-    category_id: "",
-    initial_balance: "",
-  });
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [initialBalanceInput, setInitialBalanceInput] = useState("");
 
-  // Fetch data
-  const { data: categories = [] } = useQuery({
-    queryKey: ["cash_categories"],
+  // Fetch default category
+  const { data: defaultCategory } = useQuery({
+    queryKey: ["default_cash_category"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Check if default category exists
+      let { data: category, error } = await supabase
         .from("cash_categories")
         .select("*")
-        .order("name");
-      if (error) throw error;
-      return data as CashCategory[];
+        .eq("name", "Principal")
+        .maybeSingle();
+
+      if (!category) {
+        // Create default category
+        const { data: newCategory, error: insertError } = await supabase
+          .from("cash_categories")
+          .insert([{ name: "Principal", description: "Categoria principal do caixa" }])
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        return newCategory as CashCategory;
+      }
+
+      return category as CashCategory;
     },
   });
 
-  const { data: cashBoxes = [] } = useQuery({
-    queryKey: ["cash_boxes"],
+  // Fetch single cash box
+  const { data: cashBox, isLoading: loadingCashBox } = useQuery({
+    queryKey: ["single_cash_box", defaultCategory?.id],
     queryFn: async () => {
+      if (!defaultCategory?.id) return null;
+
       const { data, error } = await supabase
         .from("cash_boxes")
         .select("*")
-        .order("name");
+        .eq("category_id", defaultCategory.id)
+        .maybeSingle();
+
       if (error) throw error;
-      return data as CashBox[];
+      return data as CashBox | null;
+    },
+    enabled: !!defaultCategory?.id,
+  });
+
+  // Fetch paid cobranças (boletos)
+  const { data: paidCobrancas = [] } = useQuery({
+    queryKey: ["paid_cobrancas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("boletos")
+        .select(`*, customer:customers(name)`)
+        .eq("status", "Quitado")
+        .order("due_date", { ascending: false });
+
+      if (error) throw error;
+      return data as Cobranca[];
     },
   });
 
-  // Category mutations
-  const saveCategoryMutation = useMutation({
-    mutationFn: async (category: { name: string; description: string }) => {
-      if (editingCategory) {
-        const { error } = await supabase
-          .from("cash_categories")
-          .update(category)
-          .eq("id", editingCategory.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("cash_categories").insert([category]);
-        if (error) throw error;
-      }
+  // Fetch paid accounts receivable
+  const { data: paidReceivables = [] } = useQuery({
+    queryKey: ["paid_receivables"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("accounts_receivable")
+        .select(`*, customer:customers(name)`)
+        .eq("status", "pago")
+        .order("payment_date", { ascending: false });
+
+      if (error) throw error;
+      return data as AccountsReceivable[];
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cash_categories"] });
-      toast.success(editingCategory ? "Categoria atualizada!" : "Categoria criada!");
-      setCategoryDialogOpen(false);
-      resetCategoryForm();
-    },
-    onError: () => toast.error("Erro ao salvar categoria"),
   });
 
-  const deleteCategoryMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("cash_categories").delete().eq("id", id);
+  // Fetch paid accounts payable
+  const { data: paidPayables = [] } = useQuery({
+    queryKey: ["paid_payables"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("accounts_payable")
+        .select(`*, supplier:suppliers(name)`)
+        .eq("status", "pago")
+        .order("payment_date", { ascending: false });
+
+      if (error) throw error;
+      return data as AccountsPayable[];
+    },
+  });
+
+  // Calculate totals
+  const totalCobrancas = paidCobrancas.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const totalReceivables = paidReceivables.reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalPayables = paidPayables.reduce((sum, p) => sum + Number(p.amount), 0);
+  
+  const totalEntradas = totalCobrancas + totalReceivables;
+  const totalSaidas = totalPayables;
+  const initialBalance = cashBox?.initial_balance || 0;
+  const saldoAtual = initialBalance + totalEntradas - totalSaidas;
+
+  // Create cash box mutation
+  const createCashBoxMutation = useMutation({
+    mutationFn: async (initialBalance: number) => {
+      if (!defaultCategory?.id) throw new Error("Categoria não encontrada");
+
+      const { error } = await supabase.from("cash_boxes").insert([{
+        name: "Caixa Principal",
+        category_id: defaultCategory.id,
+        initial_balance: initialBalance,
+        current_balance: initialBalance,
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cash_categories"] });
-      toast.success("Categoria excluída!");
+      queryClient.invalidateQueries({ queryKey: ["single_cash_box"] });
+      toast.success("Caixa configurado com sucesso!");
+      setConfigDialogOpen(false);
+      setInitialBalanceInput("");
     },
-    onError: () => toast.error("Erro ao excluir categoria. Verifique se não há caixas vinculados."),
+    onError: () => toast.error("Erro ao configurar caixa"),
   });
 
-  // Cash box mutations
-  const saveCashBoxMutation = useMutation({
-    mutationFn: async (cashBox: { name: string; category_id: string; initial_balance: number; current_balance: number }) => {
-      if (editingCashBox) {
-        const { error } = await supabase
-          .from("cash_boxes")
-          .update({ name: cashBox.name, category_id: cashBox.category_id })
-          .eq("id", editingCashBox.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("cash_boxes").insert([cashBox]);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cash_boxes"] });
-      toast.success(editingCashBox ? "Caixa atualizado!" : "Caixa criado!");
-      setCashBoxDialogOpen(false);
-      resetCashBoxForm();
-    },
-    onError: () => toast.error("Erro ao salvar caixa"),
-  });
+  // Update initial balance mutation
+  const updateInitialBalanceMutation = useMutation({
+    mutationFn: async (newBalance: number) => {
+      if (!cashBox?.id) throw new Error("Caixa não encontrado");
 
-  const deleteCashBoxMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("cash_boxes").delete().eq("id", id);
+      const { error } = await supabase
+        .from("cash_boxes")
+        .update({ initial_balance: newBalance })
+        .eq("id", cashBox.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cash_boxes"] });
-      toast.success("Caixa excluído!");
+      queryClient.invalidateQueries({ queryKey: ["single_cash_box"] });
+      toast.success("Saldo inicial atualizado!");
+      setConfigDialogOpen(false);
+      setInitialBalanceInput("");
     },
-    onError: () => toast.error("Erro ao excluir caixa. Verifique se não há movimentações vinculadas."),
+    onError: () => toast.error("Erro ao atualizar saldo"),
   });
 
-  // Handlers
-  const resetCategoryForm = () => {
-    setCategoryForm({ name: "", description: "" });
-    setEditingCategory(null);
-  };
-
-  const resetCashBoxForm = () => {
-    setCashBoxForm({ name: "", category_id: "", initial_balance: "" });
-    setEditingCashBox(null);
-  };
-
-  const handleSaveCategory = () => {
-    if (!categoryForm.name) {
-      toast.error("Preencha o nome da categoria");
-      return;
+  const handleConfigSave = () => {
+    const balance = parseFloat(initialBalanceInput) || 0;
+    if (cashBox) {
+      updateInitialBalanceMutation.mutate(balance);
+    } else {
+      createCashBoxMutation.mutate(balance);
     }
-    saveCategoryMutation.mutate(categoryForm);
   };
 
-  const handleEditCategory = (category: CashCategory) => {
-    setEditingCategory(category);
-    setCategoryForm({ name: category.name, description: category.description || "" });
-    setCategoryDialogOpen(true);
+  const openConfigDialog = () => {
+    setInitialBalanceInput(cashBox?.initial_balance?.toString() || "0");
+    setConfigDialogOpen(true);
   };
 
-  const handleSaveCashBox = () => {
-    if (!cashBoxForm.name || !cashBoxForm.category_id) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-    const initialBalance = parseFloat(cashBoxForm.initial_balance) || 0;
-    saveCashBoxMutation.mutate({
-      name: cashBoxForm.name,
-      category_id: cashBoxForm.category_id,
-      initial_balance: initialBalance,
-      current_balance: initialBalance,
-    });
-  };
+  // Combine all movements for display
+  const allMovements = [
+    ...paidCobrancas.map(c => ({
+      type: 'entrada' as const,
+      description: `Cobrança quitada - ${c.customer?.name || 'Cliente'}`,
+      amount: c.amount || 0,
+      date: c.due_date,
+      source: 'cobranca',
+    })),
+    ...paidReceivables.map(r => ({
+      type: 'entrada' as const,
+      description: `Conta recebida - ${r.customer?.name || 'Cliente'}`,
+      amount: Number(r.amount),
+      date: r.payment_date || r.due_date,
+      source: 'receivable',
+    })),
+    ...paidPayables.map(p => ({
+      type: 'saida' as const,
+      description: `Conta paga - ${p.supplier?.name || 'Fornecedor'}`,
+      amount: Number(p.amount),
+      date: p.payment_date || p.due_date,
+      source: 'payable',
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const handleEditCashBox = (cashBox: CashBox) => {
-    setEditingCashBox(cashBox);
-    setCashBoxForm({
-      name: cashBox.name,
-      category_id: cashBox.category_id,
-      initial_balance: cashBox.initial_balance.toString(),
-    });
-    setCashBoxDialogOpen(true);
-  };
-
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find((c) => c.id === categoryId);
-    return category?.name || "Categoria não encontrada";
-  };
+  if (loadingCashBox) {
+    return (
+      <div className="container mx-auto p-6">
+        <p>Carregando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Controle de Caixa</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Controle de Caixa</h1>
+        <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" onClick={openConfigDialog}>
+              <Settings className="mr-2 h-4 w-4" />
+              {cashBox ? "Configurar Saldo Inicial" : "Configurar Caixa"}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{cashBox ? "Alterar Saldo Inicial" : "Configurar Caixa"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Saldo Inicial</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={initialBalanceInput}
+                  onChange={(e) => setInitialBalanceInput(e.target.value)}
+                  placeholder="0,00"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  O saldo atual será calculado automaticamente baseado nas movimentações.
+                </p>
+              </div>
+              <Button onClick={handleConfigSave} className="w-full">
+                Salvar
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      <Tabs defaultValue="cashboxes" className="w-full">
-        <TabsList>
-          <TabsTrigger value="cashboxes" className="flex items-center gap-2">
-            <Wallet className="h-4 w-4" />
-            Caixas
-          </TabsTrigger>
-          <TabsTrigger value="categories" className="flex items-center gap-2">
-            <Tag className="h-4 w-4" />
-            Categorias
-          </TabsTrigger>
-        </TabsList>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Inicial</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {initialBalance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Cash Boxes Tab */}
-        <TabsContent value="cashboxes">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Caixas Cadastrados</CardTitle>
-                <Dialog open={cashBoxDialogOpen} onOpenChange={setCashBoxDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={resetCashBoxForm}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo Caixa
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{editingCashBox ? "Editar Caixa" : "Novo Caixa"}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Nome do Caixa *</Label>
-                        <Input
-                          value={cashBoxForm.name}
-                          onChange={(e) => setCashBoxForm({ ...cashBoxForm, name: e.target.value })}
-                          placeholder="Ex: Caixa Principal"
-                        />
-                      </div>
-                      <div>
-                        <Label>Categoria *</Label>
-                        <Select
-                          value={cashBoxForm.category_id}
-                          onValueChange={(value) => setCashBoxForm({ ...cashBoxForm, category_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a categoria" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {!editingCashBox && (
-                        <div>
-                          <Label>Saldo Inicial</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={cashBoxForm.initial_balance}
-                            onChange={(e) => setCashBoxForm({ ...cashBoxForm, initial_balance: e.target.value })}
-                            placeholder="0,00"
-                          />
-                        </div>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Entradas</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {totalEntradas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Cobranças + Contas a Receber
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Saídas</CardTitle>
+            <TrendingDown className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {totalSaidas.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Contas a Pagar
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo Atual</CardTitle>
+            <ArrowUpDown className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${saldoAtual >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {saldoAtual.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Movements Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Movimentações</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allMovements.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>Nenhuma movimentação registrada.</p>
+              <p className="text-sm">As cobranças quitadas e contas pagas aparecerão aqui.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allMovements.map((movement, index) => (
+                  <TableRow key={`${movement.source}-${index}`}>
+                    <TableCell>
+                      {format(new Date(movement.date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
+                    </TableCell>
+                    <TableCell>{movement.description}</TableCell>
+                    <TableCell>
+                      {movement.type === 'entrada' ? (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <TrendingUp className="h-4 w-4" /> Entrada
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-600">
+                          <TrendingDown className="h-4 w-4" /> Saída
+                        </span>
                       )}
-                      <Button onClick={handleSaveCashBox} className="w-full">
-                        {editingCashBox ? "Atualizar" : "Salvar"}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {categories.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma categoria cadastrada.</p>
-                  <p className="text-sm">Cadastre uma categoria primeiro para criar caixas.</p>
-                </div>
-              ) : cashBoxes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum caixa cadastrado.</p>
-                  <p className="text-sm">Clique em "Novo Caixa" para começar.</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Saldo Inicial</TableHead>
-                      <TableHead>Saldo Atual</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cashBoxes.map((cashBox) => (
-                      <TableRow key={cashBox.id}>
-                        <TableCell className="font-medium">{cashBox.name}</TableCell>
-                        <TableCell>{getCategoryName(cashBox.category_id)}</TableCell>
-                        <TableCell>
-                          {Number(cashBox.initial_balance).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {Number(cashBox.current_balance).toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={cashBox.is_active ? "default" : "secondary"}>
-                            {cashBox.is_active ? "Ativo" : "Inativo"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditCashBox(cashBox)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteCashBoxMutation.mutate(cashBox.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Categories Tab */}
-        <TabsContent value="categories">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Categorias de Caixa</CardTitle>
-                <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={resetCategoryForm}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nova Categoria
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{editingCategory ? "Editar Categoria" : "Nova Categoria"}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Nome *</Label>
-                        <Input
-                          value={categoryForm.name}
-                          onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                          placeholder="Ex: Operacional"
-                        />
-                      </div>
-                      <div>
-                        <Label>Descrição</Label>
-                        <Input
-                          value={categoryForm.description}
-                          onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                          placeholder="Descrição opcional"
-                        />
-                      </div>
-                      <Button onClick={handleSaveCategory} className="w-full">
-                        {editingCategory ? "Atualizar" : "Salvar"}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {categories.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma categoria cadastrada.</p>
-                  <p className="text-sm">Clique em "Nova Categoria" para começar.</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Caixas Vinculados</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {categories.map((category) => {
-                      const linkedBoxes = cashBoxes.filter((cb) => cb.category_id === category.id).length;
-                      return (
-                        <TableRow key={category.id}>
-                          <TableCell className="font-medium">{category.name}</TableCell>
-                          <TableCell>{category.description || "-"}</TableCell>
-                          <TableCell>{linkedBoxes}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditCategory(category)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteCategoryMutation.mutate(category.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${movement.type === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                      {movement.type === 'entrada' ? '+' : '-'} {movement.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
