@@ -27,6 +27,7 @@ import Reports from "./pages/Reports";
 import RepositoryFixed from "./pages/RepositoryFixed";
 import DuotekNotes from "./pages/DuotekNotes";
 import SettingsUnits from "./pages/SettingsUnits";
+import CompanySettings from "./pages/CompanySettings";
 import Account from "./pages/Account";
 import AccessUsers from "./pages/AccessUsers";
 import AccessUserGroups from "./pages/AccessUserGroups";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="repository/fixed" element={<RepositoryFixed />} />
             <Route path="repository/created/duotek-notes" element={<DuotekNotes />} />
             <Route path="settings/units" element={<SettingsUnits />} />
+            <Route path="settings/company" element={<CompanySettings />} />
             <Route path="account" element={<Account />} />
             <Route path="account/access/users" element={<AccessUsers />} />
             <Route path="account/access/user-groups" element={<AccessUserGroups />} />

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,21 +14,19 @@ import {
   Search, 
   Edit, 
   Trash2,
-  Calendar,
-  FileText
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface Vehicle {
   id: string;
-  licensePlate: string;
-  year: number;
-  model: string;
-  renavan: string;
-  vehicleType: string;
-  bodyType: string;
-  capacity: string;
-  status: "Disponível" | "Em Uso" | "Manutenção";
+  license_plate: string;
+  year: number | null;
+  model: string | null;
+  renavam: string | null;
+  vehicle_type: string | null;
+  body_type: string | null;
+  capacity: string | null;
+  status: string | null;
 }
 
 const vehicleTypes = [
@@ -49,115 +49,144 @@ const bodyTypes = [
 ];
 
 export default function Vehicles() {
-  const { toast } = useToast();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([
-    {
-      id: "1",
-      licensePlate: "ABC-1234",
-      year: 2020,
-      model: "Scania R450",
-      renavan: "123456789",
-      vehicleType: "Caminhão Truck",
-      bodyType: "Baú",
-      capacity: "25 toneladas",
-      status: "Disponível"
-    },
-    {
-      id: "2",
-      licensePlate: "DEF-5678",
-      year: 2019,
-      model: "Volvo FH540",
-      renavan: "987654321",
-      vehicleType: "Carreta",
-      bodyType: "Sider",
-      capacity: "30 toneladas",
-      status: "Em Uso"
-    }
-  ]);
-
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
-    licensePlate: "",
+    license_plate: "",
     year: "",
     model: "",
-    renavan: "",
-    vehicleType: "",
-    bodyType: "",
+    renavam: "",
+    vehicle_type: "",
+    body_type: "",
     capacity: ""
   });
 
+  const { data: vehicles = [], isLoading } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicles")
+        .select("*")
+        .order("license_plate");
+      if (error) throw error;
+      return data as Vehicle[];
+    },
+  });
+
   const filteredVehicles = vehicles.filter(vehicle =>
-    vehicle.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.vehicleType.toLowerCase().includes(searchTerm.toLowerCase())
+    vehicle.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    vehicle.vehicle_type?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const checkDuplicate = async (licensePlate: string, currentId?: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("vehicles")
+      .select("id")
+      .eq("license_plate", licensePlate.toUpperCase());
     
-    if (editingVehicle) {
-      setVehicles(vehicles.map(v => 
-        v.id === editingVehicle.id 
-          ? { ...editingVehicle, ...formData, year: parseInt(formData.year), status: "Disponível" as const }
-          : v
-      ));
-      toast({
-        title: "Veículo atualizado",
-        description: "As informações do veículo foram atualizadas com sucesso.",
-      });
-    } else {
-      const newVehicle: Vehicle = {
-        id: Date.now().toString(),
-        ...formData,
-        year: parseInt(formData.year),
-        status: "Disponível"
-      };
-      setVehicles([...vehicles, newVehicle]);
-      toast({
-        title: "Veículo cadastrado",
-        description: "Novo veículo foi adicionado ao sistema.",
-      });
-    }
+    if (error) return false;
+    if (!data || data.length === 0) return false;
+    if (currentId && data.length === 1 && data[0].id === currentId) return false;
+    return true;
+  };
 
-    setIsDialogOpen(false);
-    setEditingVehicle(null);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const plate = formData.license_plate.toUpperCase();
+      
+      // Check for duplicate
+      const isDuplicate = await checkDuplicate(plate, editingVehicle?.id);
+      if (isDuplicate) {
+        throw new Error("Já existe um veículo cadastrado com esta placa.");
+      }
+
+      const vehicleData = {
+        license_plate: plate,
+        year: formData.year ? parseInt(formData.year) : null,
+        model: formData.model || null,
+        renavam: formData.renavam || null,
+        vehicle_type: formData.vehicle_type || null,
+        body_type: formData.body_type || null,
+        capacity: formData.capacity || null,
+        status: "Disponível",
+      };
+
+      if (editingVehicle) {
+        const { error } = await supabase
+          .from("vehicles")
+          .update(vehicleData)
+          .eq("id", editingVehicle.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("vehicles").insert(vehicleData);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      setIsDialogOpen(false);
+      resetForm();
+      toast.success(editingVehicle ? "Veículo atualizado!" : "Veículo cadastrado!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao salvar veículo.");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("vehicles").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast.success("Veículo removido!");
+    },
+    onError: () => {
+      toast.error("Erro ao remover veículo.");
+    },
+  });
+
+  const resetForm = () => {
     setFormData({
-      licensePlate: "",
+      license_plate: "",
       year: "",
       model: "",
-      renavan: "",
-      vehicleType: "",
-      bodyType: "",
+      renavam: "",
+      vehicle_type: "",
+      body_type: "",
       capacity: ""
     });
+    setEditingVehicle(null);
   };
 
   const handleEdit = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
     setFormData({
-      licensePlate: vehicle.licensePlate,
-      year: vehicle.year.toString(),
-      model: vehicle.model,
-      renavan: vehicle.renavan,
-      vehicleType: vehicle.vehicleType,
-      bodyType: vehicle.bodyType,
-      capacity: vehicle.capacity
+      license_plate: vehicle.license_plate,
+      year: vehicle.year?.toString() || "",
+      model: vehicle.model || "",
+      renavam: vehicle.renavam || "",
+      vehicle_type: vehicle.vehicle_type || "",
+      body_type: vehicle.body_type || "",
+      capacity: vehicle.capacity || ""
     });
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    setVehicles(vehicles.filter(v => v.id !== id));
-    toast({
-      title: "Veículo removido",
-      description: "O veículo foi removido do sistema.",
-      variant: "destructive",
-    });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.license_plate) {
+      toast.error("Placa é obrigatória");
+      return;
+    }
+    saveMutation.mutate();
   };
 
-  const getStatusBadge = (status: Vehicle["status"]) => {
+  const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "Disponível":
         return <Badge className="bg-success/10 text-success border-success/20">Disponível</Badge>;
@@ -166,7 +195,7 @@ export default function Vehicles() {
       case "Manutenção":
         return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Manutenção</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline">{status || "Disponível"}</Badge>;
     }
   };
 
@@ -183,9 +212,12 @@ export default function Vehicles() {
             Cadastre e gerencie sua frota de veículos
           </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
-            <Button className="gap-2 mt-4 sm:mt-0">
+            <Button className="gap-2 mt-4 sm:mt-0" onClick={resetForm}>
               <Plus className="h-4 w-4" />
               Cadastrar Veículo
             </Button>
@@ -199,54 +231,51 @@ export default function Vehicles() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="licensePlate">Placa *</Label>
+                  <Label htmlFor="license_plate">Placa *</Label>
                   <Input
-                    id="licensePlate"
-                    placeholder="ABC-1234"
-                    value={formData.licensePlate}
-                    onChange={(e) => setFormData({...formData, licensePlate: e.target.value})}
+                    id="license_plate"
+                    placeholder="ABC-1234 ou ABC1D23"
+                    value={formData.license_plate}
+                    onChange={(e) => setFormData({...formData, license_plate: e.target.value.toUpperCase()})}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="year">Ano de Fabricação *</Label>
+                  <Label htmlFor="year">Ano de Fabricação</Label>
                   <Input
                     id="year"
                     type="number"
                     placeholder="2020"
                     value={formData.year}
                     onChange={(e) => setFormData({...formData, year: e.target.value})}
-                    required
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="model">Modelo *</Label>
+                <Label htmlFor="model">Modelo</Label>
                 <Input
                   id="model"
                   placeholder="Scania R450, Volvo FH540, etc."
                   value={formData.model}
                   onChange={(e) => setFormData({...formData, model: e.target.value})}
-                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="renavan">RENAVAN *</Label>
+                <Label htmlFor="renavam">RENAVAM</Label>
                 <Input
-                  id="renavan"
+                  id="renavam"
                   placeholder="123456789"
-                  value={formData.renavan}
-                  onChange={(e) => setFormData({...formData, renavan: e.target.value})}
-                  required
+                  value={formData.renavam}
+                  onChange={(e) => setFormData({...formData, renavam: e.target.value})}
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="vehicleType">Tipo de Veículo *</Label>
-                  <Select value={formData.vehicleType} onValueChange={(value) => setFormData({...formData, vehicleType: value})}>
+                  <Label htmlFor="vehicle_type">Tipo de Veículo</Label>
+                  <Select value={formData.vehicle_type} onValueChange={(value) => setFormData({...formData, vehicle_type: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o tipo" />
                     </SelectTrigger>
@@ -258,8 +287,8 @@ export default function Vehicles() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="bodyType">Tipo de Carroceria *</Label>
-                  <Select value={formData.bodyType} onValueChange={(value) => setFormData({...formData, bodyType: value})}>
+                  <Label htmlFor="body_type">Tipo de Carroceria</Label>
+                  <Select value={formData.body_type} onValueChange={(value) => setFormData({...formData, body_type: value})}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a carroceria" />
                     </SelectTrigger>
@@ -273,13 +302,12 @@ export default function Vehicles() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="capacity">Capacidade *</Label>
+                <Label htmlFor="capacity">Capacidade</Label>
                 <Input
                   id="capacity"
                   placeholder="25 toneladas, 50m³, etc."
                   value={formData.capacity}
                   onChange={(e) => setFormData({...formData, capacity: e.target.value})}
-                  required
                 />
               </div>
 
@@ -287,8 +315,8 @@ export default function Vehicles() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingVehicle ? "Atualizar" : "Cadastrar"}
+                <Button type="submit" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? "Salvando..." : editingVehicle ? "Atualizar" : "Cadastrar"}
                 </Button>
               </div>
             </form>
@@ -312,69 +340,73 @@ export default function Vehicles() {
       </Card>
 
       {/* Vehicles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
-          <Card key={vehicle.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">{vehicle.licensePlate}</CardTitle>
-                {getStatusBadge(vehicle.status)}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Modelo:</span>
-                  <span className="text-sm font-medium">{vehicle.model}</span>
+      {isLoading ? (
+        <div className="text-center py-8">Carregando...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredVehicles.map((vehicle) => (
+            <Card key={vehicle.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold">{vehicle.license_plate}</CardTitle>
+                  {getStatusBadge(vehicle.status)}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Ano:</span>
-                  <span className="text-sm font-medium">{vehicle.year}</span>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Modelo:</span>
+                    <span className="text-sm font-medium">{vehicle.model || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Ano:</span>
+                    <span className="text-sm font-medium">{vehicle.year || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Tipo:</span>
+                    <span className="text-sm font-medium">{vehicle.vehicle_type || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Carroceria:</span>
+                    <span className="text-sm font-medium">{vehicle.body_type || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Capacidade:</span>
+                    <span className="text-sm font-medium">{vehicle.capacity || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">RENAVAM:</span>
+                    <span className="text-sm font-medium">{vehicle.renavam || "-"}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Tipo:</span>
-                  <span className="text-sm font-medium">{vehicle.vehicleType}</span>
+                
+                <div className="flex gap-2 pt-3 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(vehicle)}
+                    className="flex-1 gap-2"
+                  >
+                    <Edit className="h-3 w-3" />
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => deleteMutation.mutate(vehicle.id)}
+                    className="gap-2 text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Remover
+                  </Button>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Carroceria:</span>
-                  <span className="text-sm font-medium">{vehicle.bodyType}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Capacidade:</span>
-                  <span className="text-sm font-medium">{vehicle.capacity}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">RENAVAN:</span>
-                  <span className="text-sm font-medium">{vehicle.renavan}</span>
-                </div>
-              </div>
-              
-              <div className="flex gap-2 pt-3 border-t">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(vehicle)}
-                  className="flex-1 gap-2"
-                >
-                  <Edit className="h-3 w-3" />
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDelete(vehicle.id)}
-                  className="gap-2 text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Remover
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {filteredVehicles.length === 0 && (
+      {filteredVehicles.length === 0 && !isLoading && (
         <Card className="border-0 shadow-md">
           <CardContent className="py-12 text-center">
             <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

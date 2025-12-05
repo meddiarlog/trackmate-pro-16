@@ -105,11 +105,36 @@ const CreditControl = () => {
     return (quantidade * 112) / 100;
   };
 
+  const checkDuplicateNfe = async (chaveAcesso: string, currentId?: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("credit_control")
+      .select("id")
+      .eq("chave_acesso", chaveAcesso);
+    
+    if (error) return false;
+    if (!data || data.length === 0) return false;
+    if (currentId && data.length === 1 && data[0].id === currentId) return false;
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const quantidade = parseFloat(formData.quantidade);
     const credito = calculateCredito(quantidade);
+
+    // Check for duplicate NF-e
+    if (!editingRecord) {
+      const isDuplicate = await checkDuplicateNfe(formData.chave_acesso);
+      if (isDuplicate) {
+        toast({
+          title: "NF-e Duplicada",
+          description: "Esta NF-e já está cadastrada no sistema. Não é permitido lançar notas duplicadas.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     const payload = {
       ...formData,
