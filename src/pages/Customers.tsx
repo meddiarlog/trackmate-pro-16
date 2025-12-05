@@ -167,10 +167,32 @@ export default function Customers() {
     mutationFn: async (customer: typeof formData) => {
       let customerId: string;
       
+      // Check for duplicate CPF/CNPJ
+      if (customer.cpf_cnpj) {
+        const cleanDoc = customer.cpf_cnpj.replace(/\D/g, "");
+        if (cleanDoc) {
+          const { data: existing } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("cpf_cnpj", cleanDoc);
+          
+          if (existing && existing.length > 0) {
+            if (!editingCustomer || (existing.length > 1 || existing[0].id !== editingCustomer.id)) {
+              throw new Error("Já existe um cliente cadastrado com este CPF/CNPJ.");
+            }
+          }
+        }
+      }
+      
+      const customerData = {
+        ...customer,
+        cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
+      };
+      
       if (editingCustomer) {
         const { error } = await supabase
           .from("customers")
-          .update(customer)
+          .update(customerData)
           .eq("id", editingCustomer.id);
         if (error) throw error;
         customerId = editingCustomer.id;
@@ -183,7 +205,7 @@ export default function Customers() {
       } else {
         const { data, error } = await supabase
           .from("customers")
-          .insert([customer])
+          .insert([customerData])
           .select()
           .single();
         if (error) throw error;

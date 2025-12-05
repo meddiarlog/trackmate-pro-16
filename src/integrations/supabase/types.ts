@@ -521,6 +521,51 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          cep: string | null
+          city: string | null
+          cnpj: string | null
+          created_at: string
+          id: string
+          inscricao_estadual: string | null
+          neighborhood: string | null
+          nome_fantasia: string | null
+          razao_social: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          inscricao_estadual?: string | null
+          neighborhood?: string | null
+          nome_fantasia?: string | null
+          razao_social: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          id?: string
+          inscricao_estadual?: string | null
+          neighborhood?: string | null
+          nome_fantasia?: string | null
+          razao_social?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contracts: {
         Row: {
           company_id: string
@@ -1217,6 +1262,48 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      vehicles: {
+        Row: {
+          body_type: string | null
+          capacity: string | null
+          created_at: string
+          id: string
+          license_plate: string
+          model: string | null
+          renavam: string | null
+          status: string | null
+          updated_at: string
+          vehicle_type: string | null
+          year: number | null
+        }
+        Insert: {
+          body_type?: string | null
+          capacity?: string | null
+          created_at?: string
+          id?: string
+          license_plate: string
+          model?: string | null
+          renavam?: string | null
+          status?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+          year?: number | null
+        }
+        Update: {
+          body_type?: string | null
+          capacity?: string | null
+          created_at?: string
+          id?: string
+          license_plate?: string
+          model?: string | null
+          renavam?: string | null
+          status?: string | null
+          updated_at?: string
+          vehicle_type?: string | null
+          year?: number | null
         }
         Relationships: []
       }

@@ -85,6 +85,7 @@ const menuItems = [
     title: "Configurações",
     icon: Settings,
     items: [
+      { title: "Dados da Empresa", url: "/settings/company", icon: Building2 },
       { title: "Unidades", url: "/settings/units", icon: Building2 },
     ],
   },

@@ -103,9 +103,26 @@ export default function Drivers() {
   // Save driver mutation
   const saveDriverMutation = useMutation({
     mutationFn: async () => {
+      // Check for duplicate CPF
+      if (formData.cpf) {
+        const cleanCpf = formData.cpf.replace(/\D/g, "");
+        if (cleanCpf) {
+          const { data: existing } = await supabase
+            .from("drivers")
+            .select("id")
+            .eq("cpf", cleanCpf);
+          
+          if (existing && existing.length > 0) {
+            if (!editingDriver || (existing.length > 1 || existing[0].id !== editingDriver.id)) {
+              throw new Error("Já existe um motorista cadastrado com este CPF.");
+            }
+          }
+        }
+      }
+
       const driverData = {
         name: formData.name,
-        cpf: formData.cpf || null,
+        cpf: formData.cpf?.replace(/\D/g, "") || null,
         cnh: formData.cnh || null,
         cnh_expiry: formData.cnh_expiry || null,
         phone: formData.phone || null,
@@ -133,10 +150,10 @@ export default function Drivers() {
         description: `O motorista foi ${editingDriver ? "atualizado" : "cadastrado"} com sucesso.`,
       });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Erro",
-        description: "Não foi possível salvar o motorista.",
+        description: error.message || "Não foi possível salvar o motorista.",
         variant: "destructive",
       });
     },
