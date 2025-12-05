@@ -42,6 +42,7 @@ type Cobranca = {
   status: string;
   type: string;
   amount: number | null;
+  cte_reference: string | null;
   created_at: string;
   customer?: {
     name: string;
@@ -80,6 +81,7 @@ const Cobrancas = () => {
     due_date: new Date().toISOString().split("T")[0],
     type: "boleto",
     amount: "",
+    cte_reference: "",
     file: null as File | null,
   });
 
@@ -309,6 +311,7 @@ const Cobrancas = () => {
         file_name: fileData.name,
         type: formData.type,
         amount: formData.amount ? parseFloat(formData.amount) : null,
+        cte_reference: formData.cte_reference || null,
         status: editingCobranca?.status || "Em aberto",
       };
 
@@ -397,6 +400,7 @@ const Cobrancas = () => {
       due_date: cobranca.due_date,
       type: cobranca.type || "boleto",
       amount: cobranca.amount?.toString() || "",
+      cte_reference: cobranca.cte_reference || "",
       file: null,
     });
     setDialogOpen(true);
@@ -459,6 +463,7 @@ const Cobrancas = () => {
       due_date: new Date().toISOString().split("T")[0],
       type: "boleto",
       amount: "",
+      cte_reference: "",
       file: null,
     });
     setEditingCobranca(null);
@@ -613,6 +618,16 @@ const Cobrancas = () => {
               </div>
 
               <div>
+                <Label htmlFor="cte_reference">Referente a CTE</Label>
+                <Input
+                  id="cte_reference"
+                  placeholder="Número do CTE"
+                  value={formData.cte_reference}
+                  onChange={(e) => setFormData({ ...formData, cte_reference: e.target.value })}
+                />
+              </div>
+
+              <div>
                 <Label htmlFor="file">
                   {editingCobranca ? "Substituir Arquivo (opcional)" : "Arquivo da Cobrança *"}
                 </Label>
@@ -735,6 +750,7 @@ const Cobrancas = () => {
                 <TableRow>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Ref. CTE</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead>Data de Emissão</TableHead>
                   <TableHead>Data de Vencimento</TableHead>
@@ -746,7 +762,7 @@ const Cobrancas = () => {
               <TableBody>
                 {filteredCobrancas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       Nenhuma cobrança encontrada
                     </TableCell>
                   </TableRow>
@@ -758,6 +774,9 @@ const Cobrancas = () => {
                       </TableCell>
                       <TableCell>
                         {getTypeBadge(cobranca.type)}
+                      </TableCell>
+                      <TableCell>
+                        {cobranca.cte_reference || "—"}
                       </TableCell>
                       <TableCell>
                         {cobranca.amount 
