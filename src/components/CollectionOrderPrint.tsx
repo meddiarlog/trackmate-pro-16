@@ -114,8 +114,11 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   <span className="font-semibold">FUNCIONÁRIO:</span> {order.employee_name || "-"}
                 </div>
                 
-                <div className="p-2">
+                <div className="p-2 border-b border-foreground">
                   <span className="font-semibold">FORMA DE PAGTO:</span> {order.payment_method}
+                </div>
+                <div className="p-2">
+                  <span className="font-semibold">TIPO DE FRETE:</span> {order.freight_mode || "-"}
                 </div>
               </div>
             </div>
