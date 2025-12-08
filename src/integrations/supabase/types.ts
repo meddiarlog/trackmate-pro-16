@@ -357,6 +357,7 @@ export type Database = {
         Row: {
           body_type_id: string | null
           code: string | null
+          collection_date: string | null
           created_at: string
           driver_cnh: string | null
           driver_cnh_expiry: string | null
@@ -365,8 +366,10 @@ export type Database = {
           driver_name: string | null
           driver_phone: string | null
           employee_name: string | null
+          freight_mode: string | null
           freight_type_id: string | null
           id: string
+          issue_date: string | null
           loading_city: string | null
           loading_state: string | null
           observations: string | null
@@ -390,6 +393,7 @@ export type Database = {
         Insert: {
           body_type_id?: string | null
           code?: string | null
+          collection_date?: string | null
           created_at?: string
           driver_cnh?: string | null
           driver_cnh_expiry?: string | null
@@ -398,8 +402,10 @@ export type Database = {
           driver_name?: string | null
           driver_phone?: string | null
           employee_name?: string | null
+          freight_mode?: string | null
           freight_type_id?: string | null
           id?: string
+          issue_date?: string | null
           loading_city?: string | null
           loading_state?: string | null
           observations?: string | null
@@ -423,6 +429,7 @@ export type Database = {
         Update: {
           body_type_id?: string | null
           code?: string | null
+          collection_date?: string | null
           created_at?: string
           driver_cnh?: string | null
           driver_cnh_expiry?: string | null
@@ -431,8 +438,10 @@ export type Database = {
           driver_name?: string | null
           driver_phone?: string | null
           employee_name?: string | null
+          freight_mode?: string | null
           freight_type_id?: string | null
           id?: string
+          issue_date?: string | null
           loading_city?: string | null
           loading_state?: string | null
           observations?: string | null
