@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CollectionOrderPrintProps {
   order: any;
@@ -9,6 +11,19 @@ interface CollectionOrderPrintProps {
 }
 
 export default function CollectionOrderPrint({ order, onClose }: CollectionOrderPrintProps) {
+  const { data: companySettings } = useQuery({
+    queryKey: ["company_settings_print"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const handlePrint = () => {
     window.print();
   };
@@ -32,11 +47,19 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
         <div className="border-2 border-foreground">
           {/* Header */}
           <div className="grid grid-cols-3 border-b-2 border-foreground">
-            <div className="p-4 border-r-2 border-foreground">
+            <div className="p-4 border-r-2 border-foreground flex items-center justify-center">
               {/* Company Logo Area */}
-              <div className="text-center text-xs text-muted-foreground">
-                [Logo da Empresa]
-              </div>
+              {(companySettings as any)?.logo_url ? (
+                <img
+                  src={(companySettings as any).logo_url}
+                  alt="Logo da empresa"
+                  className="h-16 w-auto max-w-full object-contain"
+                />
+              ) : (
+                <div className="text-center text-xs text-muted-foreground">
+                  [Logo da Empresa]
+                </div>
+              )}
             </div>
             <div className="col-span-2">
               <div className="bg-foreground text-background text-center py-2 font-bold text-lg">
