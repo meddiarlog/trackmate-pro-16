@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Building2, Save, Loader2 } from "lucide-react";
+import { Building2, Save, Loader2, Upload, X, Image } from "lucide-react";
 import { toast } from "sonner";
 
 interface CompanyData {
@@ -19,11 +19,14 @@ interface CompanyData {
   state: string;
   cep: string;
   neighborhood: string;
+  logo_url: string | null;
 }
 
 export default function CompanySettings() {
   const queryClient = useQueryClient();
   const [cnpjSearching, setCnpjSearching] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<CompanyData>({
     cnpj: "",
     inscricao_estadual: "",
@@ -34,6 +37,7 @@ export default function CompanySettings() {
     state: "",
     cep: "",
     neighborhood: "",
+    logo_url: null,
   });
 
   const { data: companyData, isLoading } = useQuery({
@@ -62,6 +66,7 @@ export default function CompanySettings() {
         state: companyData.state || "",
         cep: companyData.cep || "",
         neighborhood: companyData.neighborhood || "",
+        logo_url: (companyData as any).logo_url || null,
       });
     }
   }, [companyData]);
@@ -123,6 +128,47 @@ export default function CompanySettings() {
     }
   };
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Por favor, selecione um arquivo de imagem.");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `company-logo-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("company-logos")
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("company-logos")
+        .getPublicUrl(fileName);
+
+      setFormData({ ...formData, logo_url: urlData.publicUrl });
+      toast.success("Logo carregada com sucesso!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar a logo.");
+    } finally {
+      setUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData({ ...formData, logo_url: null });
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data: CompanyData) => {
       // Check for duplicate CNPJ (if there's already a company with this CNPJ and it's not the current one)
@@ -150,6 +196,7 @@ export default function CompanySettings() {
         state: data.state || null,
         cep: data.cep?.replace(/\D/g, "") || null,
         neighborhood: data.neighborhood || null,
+        logo_url: data.logo_url,
       };
 
       if (data.id) {
@@ -214,6 +261,62 @@ export default function CompanySettings() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Logo Upload Section */}
+            <div className="space-y-2">
+              <Label>Logo da Empresa</Label>
+              <div className="flex items-center gap-4">
+                {formData.logo_url ? (
+                  <div className="relative">
+                    <img
+                      src={formData.logo_url}
+                      alt="Logo da empresa"
+                      className="h-24 w-auto max-w-48 object-contain border rounded-md p-2"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6"
+                      onClick={handleRemoveLogo}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="h-24 w-48 border-2 border-dashed rounded-md flex items-center justify-center text-muted-foreground">
+                    <Image className="h-8 w-8" />
+                  </div>
+                )}
+                <div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingLogo}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {formData.logo_url ? "Trocar Logo" : "Carregar Logo"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Formatos: JPG, PNG, GIF. Será exibida nos documentos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4" />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cnpj">CNPJ</Label>

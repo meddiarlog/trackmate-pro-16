@@ -539,6 +539,7 @@ export type Database = {
           created_at: string
           id: string
           inscricao_estadual: string | null
+          logo_url: string | null
           neighborhood: string | null
           nome_fantasia: string | null
           razao_social: string
@@ -553,6 +554,7 @@ export type Database = {
           created_at?: string
           id?: string
           inscricao_estadual?: string | null
+          logo_url?: string | null
           neighborhood?: string | null
           nome_fantasia?: string | null
           razao_social: string
@@ -567,6 +569,7 @@ export type Database = {
           created_at?: string
           id?: string
           inscricao_estadual?: string | null
+          logo_url?: string | null
           neighborhood?: string | null
           nome_fantasia?: string | null
           razao_social?: string
