@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Printer, Eye, Trash2, X } from "lucide-react";
+import { Plus, Printer, Pencil, Trash2, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
@@ -20,9 +20,12 @@ const BRAZILIAN_STATES = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-const PAYMENT_METHODS = ["Pix", "Boleto", "Transferência", "Depósito", "Saldo"];
+const PAYMENT_METHODS = ["80% + SALDO", "Pix", "Boleto", "Transferência", "Depósito", "Saldo"];
+
+const FREIGHT_MODES = ["Frete FOB", "Frete CIF"];
 
 interface FormData {
+  id?: string;
   weight_tons: number;
   code: string;
   recipient_name: string;
@@ -49,6 +52,9 @@ interface FormData {
   sender_name: string;
   loading_city: string;
   loading_state: string;
+  issue_date: string;
+  collection_date: string;
+  freight_mode: string;
 }
 
 const initialFormData: FormData = {
@@ -78,11 +84,15 @@ const initialFormData: FormData = {
   sender_name: "",
   loading_city: "",
   loading_state: "",
+  issue_date: new Date().toISOString().split('T')[0],
+  collection_date: "",
+  freight_mode: "",
 };
 
 export default function CollectionOrders() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState("");
   const [newVehicleType, setNewVehicleType] = useState("");
   const [newBodyType, setNewBodyType] = useState("");
@@ -188,6 +198,9 @@ export default function CollectionOrders() {
         sender_name: data.sender_name || null,
         loading_city: data.loading_city || null,
         loading_state: data.loading_state || null,
+        issue_date: data.issue_date || null,
+        collection_date: data.collection_date || null,
+        freight_mode: data.freight_mode || null,
       });
       if (error) throw error;
     },
@@ -196,9 +209,59 @@ export default function CollectionOrders() {
       toast.success("Ordem de coleta criada com sucesso!");
       setIsDialogOpen(false);
       setFormData(initialFormData);
+      setEditingOrderId(null);
     },
     onError: (error) => {
       toast.error("Erro ao criar ordem: " + error.message);
+    },
+  });
+
+  // Update order mutation
+  const updateOrderMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      if (!data.id) throw new Error("ID da ordem não encontrado");
+      const { error } = await supabase.from("collection_orders").update({
+        weight_tons: data.weight_tons,
+        code: data.code || null,
+        recipient_name: data.recipient_name,
+        unloading_city: data.unloading_city,
+        unloading_state: data.unloading_state,
+        product_id: data.product_id || null,
+        freight_type_id: data.freight_type_id || null,
+        order_request_number: data.order_request_number || null,
+        observations: data.observations || null,
+        employee_name: data.employee_name || null,
+        payment_method: data.payment_method,
+        driver_id: data.driver_id || null,
+        driver_name: data.driver_name || null,
+        driver_cpf: data.driver_cpf || null,
+        driver_phone: data.driver_phone || null,
+        driver_cnh: data.driver_cnh || null,
+        driver_cnh_expiry: data.driver_cnh_expiry || null,
+        owner_name: data.owner_name || null,
+        owner_phone: data.owner_phone || null,
+        vehicle_plate: data.vehicle_plate || null,
+        trailer_plates: data.trailer_plates.filter(p => p.trim() !== ""),
+        vehicle_type_id: data.vehicle_type_id || null,
+        body_type_id: data.body_type_id || null,
+        sender_name: data.sender_name || null,
+        loading_city: data.loading_city || null,
+        loading_state: data.loading_state || null,
+        issue_date: data.issue_date || null,
+        collection_date: data.collection_date || null,
+        freight_mode: data.freight_mode || null,
+      }).eq("id", data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
+      toast.success("Ordem de coleta atualizada com sucesso!");
+      setIsDialogOpen(false);
+      setFormData(initialFormData);
+      setEditingOrderId(null);
+    },
+    onError: (error) => {
+      toast.error("Erro ao atualizar ordem: " + error.message);
     },
   });
 
@@ -284,7 +347,55 @@ export default function CollectionOrders() {
       toast.error("Preencha os campos obrigatórios");
       return;
     }
-    createOrderMutation.mutate(formData);
+    if (editingOrderId) {
+      updateOrderMutation.mutate({ ...formData, id: editingOrderId });
+    } else {
+      createOrderMutation.mutate(formData);
+    }
+  };
+
+  const handleEdit = (order: any) => {
+    setEditingOrderId(order.id);
+    setFormData({
+      weight_tons: order.weight_tons || 1,
+      code: order.code || "",
+      recipient_name: order.recipient_name || "",
+      unloading_city: order.unloading_city || "",
+      unloading_state: order.unloading_state || "",
+      product_id: order.product_id || "",
+      freight_type_id: order.freight_type_id || "",
+      order_request_number: order.order_request_number || "",
+      observations: order.observations || "",
+      employee_name: order.employee_name || "",
+      payment_method: order.payment_method || "",
+      driver_id: order.driver_id || "",
+      driver_name: order.driver_name || "",
+      driver_cpf: order.driver_cpf || "",
+      driver_phone: order.driver_phone || "",
+      driver_cnh: order.driver_cnh || "",
+      driver_cnh_expiry: order.driver_cnh_expiry || "",
+      owner_name: order.owner_name || "",
+      owner_phone: order.owner_phone || "",
+      vehicle_plate: order.vehicle_plate || "",
+      trailer_plates: order.trailer_plates?.length > 0 ? order.trailer_plates : [""],
+      vehicle_type_id: order.vehicle_type_id || "",
+      body_type_id: order.body_type_id || "",
+      sender_name: order.sender_name || "",
+      loading_city: order.loading_city || "",
+      loading_state: order.loading_state || "",
+      issue_date: order.issue_date || new Date().toISOString().split('T')[0],
+      collection_date: order.collection_date || "",
+      freight_mode: order.freight_mode || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      setFormData(initialFormData);
+      setEditingOrderId(null);
+    }
+    setIsDialogOpen(open);
   };
 
   const addTrailerPlate = () => {
@@ -318,13 +429,13 @@ export default function CollectionOrders() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Ordem de Coleta</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4 mr-2" /> Nova Ordem</Button>
+            <Button onClick={() => { setEditingOrderId(null); setFormData(initialFormData); }}><Plus className="h-4 w-4 mr-2" /> Nova Ordem</Button>
           </DialogTrigger>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Nova Ordem de Coleta</DialogTitle>
+              <DialogTitle>{editingOrderId ? "Editar Ordem de Coleta" : "Nova Ordem de Coleta"}</DialogTitle>
             </DialogHeader>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -334,6 +445,26 @@ export default function CollectionOrders() {
                   <CardTitle className="text-sm font-semibold">DESCRIÇÃO DA ORDEM DE COLETA</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
+                  {/* Issue Date and Collection Date */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Emissão</Label>
+                      <Input
+                        type="date"
+                        value={formData.issue_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label>Data da Coleta</Label>
+                      <Input
+                        type="date"
+                        value={formData.collection_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, collection_date: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
                   {/* Sender and Loading Location */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -467,6 +598,19 @@ export default function CollectionOrders() {
                       value={formData.order_request_number}
                       onChange={(e) => setFormData(prev => ({ ...prev, order_request_number: e.target.value }))}
                     />
+                  </div>
+
+                  {/* Freight Mode */}
+                  <div>
+                    <Label>Tipo de Frete</Label>
+                    <Select value={formData.freight_mode} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_mode: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FREIGHT_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Observations */}
@@ -679,9 +823,9 @@ export default function CollectionOrders() {
             </Card>
 
             <div className="flex justify-end gap-4 mt-4">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleSubmit} disabled={createOrderMutation.isPending}>
-                {createOrderMutation.isPending ? "Salvando..." : "Criar Ordem"}
+              <Button variant="outline" onClick={() => handleDialogClose(false)}>Cancelar</Button>
+              <Button onClick={handleSubmit} disabled={createOrderMutation.isPending || updateOrderMutation.isPending}>
+                {(createOrderMutation.isPending || updateOrderMutation.isPending) ? "Salvando..." : (editingOrderId ? "Salvar Alterações" : "Criar Ordem")}
               </Button>
             </div>
           </DialogContent>
@@ -718,10 +862,17 @@ export default function CollectionOrders() {
                   <TableCell>{order.weight_tons}T</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(order)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => setPrintOrder(order)}>
                         <Printer className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deleteOrderMutation.mutate(order.id)}>
+                      <Button variant="ghost" size="icon" onClick={() => {
+                        if (confirm("Deseja realmente excluir esta ordem?")) {
+                          deleteOrderMutation.mutate(order.id);
+                        }
+                      }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
