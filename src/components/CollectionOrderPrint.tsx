@@ -58,7 +58,7 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   <span className="font-semibold">REMETENTE:</span> {order.sender_name || "-"}
                 </div>
                 <div className="p-2">
-                  <span className="font-semibold">PLACA:</span> {order.vehicle_plate || "-"}
+                  <span className="font-semibold">EMISSÃO:</span> {order.issue_date ? format(new Date(order.issue_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : "-"}
                 </div>
               </div>
               <div className="p-2 text-sm border-t border-foreground">
