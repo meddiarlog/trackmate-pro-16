@@ -20,6 +20,7 @@ interface CompanyData {
   cep: string;
   neighborhood: string;
   logo_url: string | null;
+  collection_order_start_number: string;
 }
 
 export default function CompanySettings() {
@@ -38,6 +39,7 @@ export default function CompanySettings() {
     cep: "",
     neighborhood: "",
     logo_url: null,
+    collection_order_start_number: "",
   });
 
   const { data: companyData, isLoading } = useQuery({
@@ -49,7 +51,7 @@ export default function CompanySettings() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as CompanyData | null;
+      return data;
     },
   });
 
@@ -67,6 +69,7 @@ export default function CompanySettings() {
         cep: companyData.cep || "",
         neighborhood: companyData.neighborhood || "",
         logo_url: (companyData as any).logo_url || null,
+        collection_order_start_number: (companyData as any).collection_order_start_number?.toString() || "",
       });
     }
   }, [companyData]);
@@ -197,6 +200,7 @@ export default function CompanySettings() {
         cep: data.cep?.replace(/\D/g, "") || null,
         neighborhood: data.neighborhood || null,
         logo_url: data.logo_url,
+        collection_order_start_number: data.collection_order_start_number ? parseInt(data.collection_order_start_number) : null,
       };
 
       if (data.id) {
@@ -363,6 +367,24 @@ export default function CompanySettings() {
                 onChange={(e) => setFormData({ ...formData, nome_fantasia: e.target.value })}
                 placeholder="Nome Fantasia"
               />
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">Configurações de Numeração</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="collection_order_start_number">Nº Inicial da Ordem de Coleta</Label>
+              <Input
+                id="collection_order_start_number"
+                type="number"
+                value={formData.collection_order_start_number}
+                onChange={(e) => setFormData({ ...formData, collection_order_start_number: e.target.value })}
+                placeholder="Ex: 20251200001"
+              />
+              <p className="text-xs text-muted-foreground">
+                Define o número inicial para as ordens de coleta. A numeração continuará sequencialmente a partir deste número.
+              </p>
             </div>
 
             <div className="border-t pt-4">
