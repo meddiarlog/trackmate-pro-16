@@ -118,6 +118,20 @@ export default function CollectionOrders() {
     },
   });
 
+  // Fetch company settings for order number configuration
+  const { data: companySettings } = useQuery({
+    queryKey: ["company_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("collection_order_start_number")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch drivers
   const { data: drivers = [] } = useQuery({
     queryKey: ["drivers"],
@@ -171,7 +185,31 @@ export default function CollectionOrders() {
   // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      // Calculate the next order number
+      let nextOrderNumber: number | undefined = undefined;
+      
+      // Get the max existing order number
+      const { data: maxOrderData } = await supabase
+        .from("collection_orders")
+        .select("order_number")
+        .order("order_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      const maxExisting = maxOrderData?.order_number || 0;
+      const startNumber = companySettings?.collection_order_start_number || 1;
+      
+      // Use the greater of: configured start number or (max existing + 1)
+      if (maxExisting === 0 && startNumber > 1) {
+        // No orders yet and there's a custom start number
+        nextOrderNumber = startNumber;
+      } else {
+        // Use max existing + 1, but ensure it's at least the start number
+        nextOrderNumber = Math.max(maxExisting + 1, startNumber);
+      }
+
       const { error } = await supabase.from("collection_orders").insert({
+        order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
         recipient_name: data.recipient_name,

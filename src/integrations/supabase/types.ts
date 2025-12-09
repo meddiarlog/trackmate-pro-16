@@ -536,6 +536,7 @@ export type Database = {
           cep: string | null
           city: string | null
           cnpj: string | null
+          collection_order_start_number: number | null
           created_at: string
           id: string
           inscricao_estadual: string | null
@@ -551,6 +552,7 @@ export type Database = {
           cep?: string | null
           city?: string | null
           cnpj?: string | null
+          collection_order_start_number?: number | null
           created_at?: string
           id?: string
           inscricao_estadual?: string | null
@@ -566,6 +568,7 @@ export type Database = {
           cep?: string | null
           city?: string | null
           cnpj?: string | null
+          collection_order_start_number?: number | null
           created_at?: string
           id?: string
           inscricao_estadual?: string | null
