@@ -47,19 +47,36 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
         <div className="border-2 border-foreground">
           {/* Header */}
           <div className="grid grid-cols-3 border-b-2 border-foreground">
-            <div className="p-4 border-r-2 border-foreground flex items-center justify-center">
-              {/* Company Logo Area */}
+            <div className="p-2 border-r-2 border-foreground flex flex-col items-center justify-center">
+              {/* Company Logo and Data Area */}
               {(companySettings as any)?.logo_url ? (
                 <img
                   src={(companySettings as any).logo_url}
                   alt="Logo da empresa"
-                  className="h-16 w-auto max-w-full object-contain"
+                  className="h-12 w-auto max-w-full object-contain mb-1"
                 />
               ) : (
-                <div className="text-center text-xs text-muted-foreground">
+                <div className="text-center text-xs text-muted-foreground mb-1">
                   [Logo da Empresa]
                 </div>
               )}
+              <div className="text-center text-[8px] leading-tight">
+                {companySettings?.cnpj && (
+                  <div>
+                    <span className="font-semibold">CNPJ:</span> {companySettings.cnpj}
+                    {companySettings?.inscricao_estadual && ` - I.E.: ${companySettings.inscricao_estadual}`}
+                  </div>
+                )}
+                {companySettings?.address && (
+                  <div>{companySettings.address}{companySettings?.neighborhood && `, ${companySettings.neighborhood}`}</div>
+                )}
+                {(companySettings?.city || companySettings?.state || companySettings?.cep) && (
+                  <div>
+                    {companySettings?.city}{companySettings?.state && `-${companySettings.state}`}
+                    {companySettings?.cep && ` CEP ${companySettings.cep}`}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="col-span-2">
               <div className="bg-foreground text-background text-center py-2 font-bold text-lg">
