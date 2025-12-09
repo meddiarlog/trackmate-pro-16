@@ -83,12 +83,16 @@ export default function Customers() {
     return data as CustomerContact[];
   };
 
+  // Normalize search term for CNPJ/CPF comparison (remove special characters)
+  const normalizedSearchTerm = searchTerm.replace(/\D/g, "");
+  
   const filteredCustomers = customers.filter(
     (customer) =>
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      customer.cpf_cnpj?.includes(searchTerm)
+      customer.cpf_cnpj?.includes(searchTerm) ||
+      (normalizedSearchTerm && customer.cpf_cnpj?.includes(normalizedSearchTerm))
   );
 
   const formatCpfCnpj = (value: string) => {
