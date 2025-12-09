@@ -82,15 +82,12 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
               <div className="bg-foreground text-background text-center py-2 font-bold text-lg">
                 ORDEM DE COLETA DE CARGAS
               </div>
-              <div className="grid grid-cols-3 text-sm">
+              <div className="grid grid-cols-2 text-sm">
                 <div className="p-2 border-r border-foreground border-b">
-                  <span className="font-semibold">COLETA:</span> {format(new Date(order.order_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase()}
+                  <span className="font-semibold">EMISSÃO:</span> {order.issue_date ? format(new Date(order.issue_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : "-"}
                 </div>
-                <div className="p-2 border-r border-foreground border-b">
-                  <span className="font-semibold">No.</span>
-                </div>
-                <div className="p-2 border-b font-bold text-xl text-center">
-                  {order.order_number}
+                <div className="p-2 border-b">
+                  <span className="font-semibold">COLETA:</span> {order.collection_date ? format(new Date(order.collection_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : format(new Date(order.order_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase()}
                 </div>
               </div>
               <div className="grid grid-cols-2 text-sm">
@@ -98,7 +95,7 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   <span className="font-semibold">REMETENTE:</span> {order.sender_name || "-"}
                 </div>
                 <div className="p-2">
-                  <span className="font-semibold">EMISSÃO:</span> {order.issue_date ? format(new Date(order.issue_date), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : "-"}
+                  <span className="font-semibold">Nº:</span> {order.order_number}
                 </div>
               </div>
               <div className="p-2 text-sm border-t border-foreground">
