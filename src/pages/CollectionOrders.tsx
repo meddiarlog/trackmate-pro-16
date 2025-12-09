@@ -142,6 +142,20 @@ export default function CollectionOrders() {
     },
   });
 
+  // Fetch vehicles
+  const { data: vehicles = [] } = useQuery({
+    queryKey: ["vehicles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("vehicles").select("*").order("license_plate");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Filter vehicles by category
+  const cavalosVehicles = vehicles.filter((v: any) => v.category === "Cavalo");
+  const carretasVehicles = vehicles.filter((v: any) => v.category === "Carreta");
+
   // Fetch products
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
@@ -760,11 +774,21 @@ export default function CollectionOrders() {
                   <CardContent className="space-y-4 pt-4">
                     <div>
                       <Label>Placa (Cavalo)</Label>
-                      <Input
-                        value={formData.vehicle_plate}
-                        onChange={(e) => setFormData(prev => ({ ...prev, vehicle_plate: e.target.value.toUpperCase() }))}
-                        placeholder="ABC1234"
-                      />
+                      <Select 
+                        value={formData.vehicle_plate} 
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_plate: v }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o cavalo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cavalosVehicles.map((v: any) => (
+                            <SelectItem key={v.id} value={v.license_plate}>
+                              {v.license_plate} {v.model ? `- ${v.model}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
@@ -776,11 +800,21 @@ export default function CollectionOrders() {
                       </div>
                       {formData.trailer_plates.map((plate, index) => (
                         <div key={index} className="flex gap-2 mb-2">
-                          <Input
-                            value={plate}
-                            onChange={(e) => updateTrailerPlate(index, e.target.value.toUpperCase())}
-                            placeholder={`Carreta ${index + 1}`}
-                          />
+                          <Select 
+                            value={plate} 
+                            onValueChange={(v) => updateTrailerPlate(index, v)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder={`Selecione carreta ${index + 1}`} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {carretasVehicles.map((v: any) => (
+                                <SelectItem key={v.id} value={v.license_plate}>
+                                  {v.license_plate} {v.model ? `- ${v.model}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           {formData.trailer_plates.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeTrailerPlate(index)}>
                               <X className="h-4 w-4" />
