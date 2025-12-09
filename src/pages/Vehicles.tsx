@@ -110,6 +110,7 @@ export default function Vehicles() {
         license_plate: plate,
         year: formData.year ? parseInt(formData.year) : null,
         model: formData.model || null,
+        category: formData.category || null,
         renavam: formData.renavam || null,
         vehicle_type: formData.vehicle_type || null,
         body_type: formData.body_type || null,
