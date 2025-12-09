@@ -682,7 +682,7 @@ export type Database = {
           cargo_species: string | null
           cfop: string | null
           cfop_description: string | null
-          contract_id: string
+          contract_id: string | null
           created_at: string
           cte_number: string
           destination: string
@@ -747,7 +747,7 @@ export type Database = {
           cargo_species?: string | null
           cfop?: string | null
           cfop_description?: string | null
-          contract_id: string
+          contract_id?: string | null
           created_at?: string
           cte_number: string
           destination: string
@@ -812,7 +812,7 @@ export type Database = {
           cargo_species?: string | null
           cfop?: string | null
           cfop_description?: string | null
-          contract_id?: string
+          contract_id?: string | null
           created_at?: string
           cte_number?: string
           destination?: string
