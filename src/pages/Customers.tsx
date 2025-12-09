@@ -86,14 +86,16 @@ export default function Customers() {
   // Normalize search term for CNPJ/CPF comparison (remove special characters)
   const normalizedSearchTerm = searchTerm.replace(/\D/g, "");
   
-  const filteredCustomers = customers.filter(
-    (customer) =>
+  const filteredCustomers = customers.filter((customer) => {
+    const normalizedCpfCnpj = customer.cpf_cnpj?.replace(/\D/g, "") || "";
+    return (
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.cpf_cnpj?.includes(searchTerm) ||
-      (normalizedSearchTerm && customer.cpf_cnpj?.includes(normalizedSearchTerm))
-  );
+      (normalizedSearchTerm && normalizedCpfCnpj.includes(normalizedSearchTerm))
+    );
+  });
 
   const formatCpfCnpj = (value: string) => {
     const digits = value.replace(/\D/g, "");
