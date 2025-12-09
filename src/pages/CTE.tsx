@@ -52,6 +52,7 @@ export default function CTE() {
   // Form states
   const [accessKey, setAccessKey] = useState("");
   const [isLoadingAccessKey, setIsLoadingAccessKey] = useState(false);
+  const [isExtractingFromPdf, setIsExtractingFromPdf] = useState(false);
   const [cteNumber, setCteNumber] = useState("");
   const [cteSerie, setCteSerie] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
@@ -201,6 +202,115 @@ export default function CTE() {
       });
     } finally {
       setIsLoadingAccessKey(false);
+    }
+  };
+
+  const handlePdfExtract = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!validatePdfFile(file)) {
+      e.target.value = '';
+      return;
+    }
+
+    setIsExtractingFromPdf(true);
+    setPdfFile(file);
+
+    try {
+      toast({
+        title: "Processando PDF...",
+        description: "Extraindo dados do documento CT-e",
+      });
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-cte-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (response.status === 429) {
+        toast({
+          title: "Limite excedido",
+          description: "Muitas requisições. Aguarde alguns segundos e tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (response.status === 402) {
+        toast({
+          title: "Créditos insuficientes",
+          description: "Entre em contato com o suporte para adicionar créditos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error || 'Erro ao processar PDF');
+      }
+
+      const data = result.data;
+      
+      // Preencher todos os campos extraídos
+      if (data.chaveAcesso) setAccessKey(data.chaveAcesso);
+      if (data.numeroCte) setCteNumber(data.numeroCte);
+      if (data.serie) setCteSerie(data.serie);
+      if (data.dataEmissao) setIssueDate(data.dataEmissao);
+      if (data.origem) setOrigin(data.origem);
+      if (data.destino) setDestination(data.destino);
+      if (data.modalTransporte) setModalTransporte(data.modalTransporte);
+      if (data.valorTotal) setValue(data.valorTotal.toString());
+      if (data.valorFrete) setFreightValue(data.valorFrete.toString());
+      if (data.peso) setWeight(data.peso.toString());
+      if (data.produtoDescricao) setProductDescription(data.produtoDescricao);
+      
+      // Emitente
+      if (data.emitenteNome) setEmitenteName(data.emitenteNome);
+      if (data.emitenteCnpj) setEmitenteCnpj(data.emitenteCnpj);
+      if (data.emitenteEndereco) setEmitenteAddress(data.emitenteEndereco);
+      
+      // Remetente
+      if (data.remetenteNome) setSenderName(data.remetenteNome);
+      if (data.remetenteCnpj) setSenderCnpj(data.remetenteCnpj);
+      if (data.remetenteEndereco) setSenderAddress(data.remetenteEndereco);
+      
+      // Destinatário
+      if (data.destinatarioNome) setRecipientName(data.destinatarioNome);
+      if (data.destinatarioCnpj) setRecipientCnpj(data.destinatarioCnpj);
+      if (data.destinatarioEndereco) setRecipientAddress(data.destinatarioEndereco);
+      
+      // Transporte
+      if (data.motoristaNome) setDriverName(data.motoristaNome);
+      if (data.placaVeiculo) setVehiclePlate(data.placaVeiculo);
+
+      setImportedFromKey(true);
+
+      toast({
+        title: "Dados extraídos com sucesso!",
+        description: `CT-e ${data.numeroCte || ''} - Verifique e complete as informações.`,
+      });
+    } catch (error: any) {
+      console.error('Error extracting CTE from PDF:', error);
+      toast({
+        title: "Erro ao extrair dados",
+        description: error.message || "Não foi possível extrair os dados do PDF. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExtractingFromPdf(false);
+      e.target.value = '';
     }
   };
 
@@ -425,43 +535,78 @@ export default function CTE() {
                 <DialogTitle>{editingCte ? "Editar" : "Novo"} CT-e</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
-                {/* Importação via Chave de Acesso */}
+                {/* Importação via PDF ou Chave de Acesso */}
                 {!editingCte && (
                   <div className="border rounded-lg p-4 bg-muted/50">
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Search className="h-4 w-4" />
+                      <FileUp className="h-4 w-4" />
                       Importar dados da CT-e
                     </h3>
-                    <div className="flex gap-2">
-                      <Input
-                        value={accessKey}
-                        onChange={(e) => setAccessKey(e.target.value)}
-                        placeholder="Informe os 44 dígitos da chave de acesso"
-                        className="font-mono"
-                        maxLength={50}
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleAccessKeySearch}
-                        disabled={isLoadingAccessKey}
-                        className="min-w-[140px]"
-                      >
-                        {isLoadingAccessKey ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Buscando...
-                          </>
-                        ) : (
-                          <>
-                            <Search className="h-4 w-4 mr-2" />
-                            Importar Dados
-                          </>
+                    
+                    {/* Importação via PDF */}
+                    <div className="mb-4">
+                      <Label className="text-sm font-medium mb-2 block">Opção 1: Importar do PDF do DACTE</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="file"
+                          accept=".pdf"
+                          onChange={handlePdfExtract}
+                          disabled={isExtractingFromPdf}
+                          className="flex-1"
+                        />
+                        {isExtractingFromPdf && (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <RefreshCw className="h-4 w-4 animate-spin" />
+                            <span className="text-sm">Extraindo dados...</span>
+                          </div>
                         )}
-                      </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Envie o PDF do DACTE para extrair automaticamente todos os dados
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      A chave de acesso está localizada no DACTE (documento auxiliar do CT-e)
-                    </p>
+
+                    {/* Separador */}
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-muted px-2 text-muted-foreground">ou</span>
+                      </div>
+                    </div>
+
+                    {/* Importação via Chave de Acesso */}
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Opção 2: Importar pela Chave de Acesso</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={accessKey}
+                          onChange={(e) => setAccessKey(e.target.value)}
+                          placeholder="Informe os 44 dígitos da chave de acesso"
+                          className="font-mono flex-1"
+                          maxLength={50}
+                        />
+                        <Button
+                          type="button"
+                          onClick={handleAccessKeySearch}
+                          disabled={isLoadingAccessKey}
+                          className="min-w-[140px]"
+                        >
+                          {isLoadingAccessKey ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Buscando...
+                            </>
+                          ) : (
+                            <>
+                              <Search className="h-4 w-4 mr-2" />
+                              Importar
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                     
                     {importedFromKey && (
                       <Alert className="mt-3 bg-success/10 border-success/20">
