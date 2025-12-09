@@ -268,6 +268,16 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
             top: 0;
             width: 100%;
           }
+          /* Force print background colors */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
+          .bg-foreground {
+            background-color: #000 !important;
+            color: #fff !important;
+          }
         }
       `}</style>
     </div>
