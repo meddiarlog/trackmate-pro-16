@@ -172,18 +172,17 @@ export default function CTE() {
         setCteNumber(data.numeroCte || "");
         setCteSerie(data.serie || "");
         setIssueDate(data.dataEmissao || new Date().toISOString().split("T")[0]);
-        setOrigin(data.origem || data.uf || "");
+        setOrigin(data.origem || "");
         setModalTransporte(data.modalTransporte || "Rodoviário");
         
-        // Dados do emitente
+        // Dados do emitente (transportadora que emitiu o CT-e)
         setEmitenteName(data.razaoSocialEmitente || "");
         setEmitenteCnpj(data.cnpjEmitente || "");
-        setEmitenteAddress(data.enderecoEmitente || "");
+        setEmitenteAddress(data.enderecoEmitente ? `${data.enderecoEmitente} - ${data.municipioEmitente}/${data.ufEmitente}` : "");
         
-        // Preencher remetente com dados do emitente inicialmente
-        setSenderName(data.razaoSocialEmitente || "");
-        setSenderCnpj(data.cnpjEmitente || "");
-        setSenderAddress(data.enderecoEmitente || "");
+        // Remetente e Destinatário - NÃO preencher com dados do emitente
+        // O emitente é a transportadora, não o remetente da carga
+        // O usuário deve preencher manualmente ou através de consulta CNPJ
 
         setImportedFromKey(true);
 
