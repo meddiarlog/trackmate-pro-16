@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer } from "lucide-react";
 import { format } from "date-fns";
@@ -36,6 +35,72 @@ interface CTE {
   weight?: number;
   value: number;
   issue_date: string;
+  cfop?: string;
+  cfop_description?: string;
+  sender_name?: string;
+  sender_cnpj?: string;
+  sender_ie?: string;
+  sender_address?: string;
+  recipient_name?: string;
+  recipient_cnpj?: string;
+  recipient_ie?: string;
+  recipient_address?: string;
+  insurance_company?: string;
+  insurance_policy?: string;
+  driver_name?: string;
+  driver_cpf?: string;
+  driver_rg?: string;
+  driver_rg_issuer?: string;
+  driver_license?: string;
+  driver_phone?: string;
+  driver_cellphone?: string;
+  driver_pis?: string;
+  driver_city?: string;
+  driver_state?: string;
+  driver_bank?: string;
+  driver_account?: string;
+  driver_agency?: string;
+  owner_name?: string;
+  owner_cpf?: string;
+  owner_rg?: string;
+  owner_antt?: string;
+  owner_pis?: string;
+  owner_address?: string;
+  vehicle_plate?: string;
+  vehicle_rntrc?: string;
+  vehicle_renavam?: string;
+  vehicle_city?: string;
+  vehicle_state?: string;
+  vehicle_brand?: string;
+  cargo_species?: string;
+  cargo_quantity?: number;
+  cargo_invoice?: string;
+  observations?: string;
+}
+
+interface FreightComposition {
+  freightValue: number;
+  stayValue: number;
+  tollValue: number;
+  advanceValue: number;
+  irrfValue: number;
+  inssValue: number;
+  sestSenatValue: number;
+  insuranceValue: number;
+  breakageValue: number;
+  otherDiscountValue: number;
+}
+
+interface CompanySettings {
+  razao_social: string;
+  cnpj?: string;
+  inscricao_estadual?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  cep?: string;
+  logo_url?: string;
 }
 
 interface Contract {
@@ -50,6 +115,19 @@ interface Contract {
   companies: Company;
 }
 
+const defaultFreightComposition: FreightComposition = {
+  freightValue: 0,
+  stayValue: 0,
+  tollValue: 0,
+  advanceValue: 0,
+  irrfValue: 0,
+  inssValue: 0,
+  sestSenatValue: 0,
+  insuranceValue: 0,
+  breakageValue: 0,
+  otherDiscountValue: 0,
+};
+
 export default function Contracts() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -57,7 +135,8 @@ export default function Contracts() {
   const [isImportCteDialogOpen, setIsImportCteDialogOpen] = useState(false);
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
-  const [selectedPrintCte, setSelectedPrintCte] = useState<any>(null);
+  const [selectedPrintCtes, setSelectedPrintCtes] = useState<CTE[]>([]);
+  const [printFreightComposition, setPrintFreightComposition] = useState<FreightComposition>(defaultFreightComposition);
   const [editingContract, setEditingContract] = useState<string | null>(null);
   
   // Form states
@@ -66,6 +145,7 @@ export default function Contracts() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ctes, setCtes] = useState<CTE[]>([]);
+  const [freightComposition, setFreightComposition] = useState<FreightComposition>(defaultFreightComposition);
   
   // New company form
   const [newCompanyName, setNewCompanyName] = useState("");
@@ -75,6 +155,20 @@ export default function Contracts() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch company settings for logo and header
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CompanySettings | null;
+    },
+  });
 
   // Fetch CNPJ data automatically
   const fetchCnpjData = async (cnpj: string) => {
@@ -346,6 +440,7 @@ export default function Contracts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["available-ctes"] });
       resetForm();
       setIsCreateDialogOpen(false);
       toast({
@@ -370,6 +465,7 @@ export default function Contracts() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["available-ctes"] });
       toast({
         title: "Contrato excluído",
         description: "O contrato foi excluído com sucesso.",
@@ -390,6 +486,7 @@ export default function Contracts() {
     setTitle("");
     setDescription("");
     setCtes([]);
+    setFreightComposition(defaultFreightComposition);
     setEditingContract(null);
   };
 
@@ -428,23 +525,83 @@ export default function Contracts() {
       weight: cte.weight,
       value: cte.value,
       issue_date: cte.issue_date,
+      cfop: cte.cfop,
+      cfop_description: cte.cfop_description,
+      sender_name: cte.sender_name,
+      sender_cnpj: cte.sender_cnpj,
+      sender_ie: cte.sender_ie,
+      sender_address: cte.sender_address,
+      recipient_name: cte.recipient_name,
+      recipient_cnpj: cte.recipient_cnpj,
+      recipient_ie: cte.recipient_ie,
+      recipient_address: cte.recipient_address,
+      insurance_company: cte.insurance_company,
+      insurance_policy: cte.insurance_policy,
+      driver_name: cte.driver_name,
+      driver_cpf: cte.driver_cpf,
+      driver_rg: cte.driver_rg,
+      driver_rg_issuer: cte.driver_rg_issuer,
+      driver_license: cte.driver_license,
+      driver_phone: cte.driver_phone,
+      driver_cellphone: cte.driver_cellphone,
+      driver_pis: cte.driver_pis,
+      driver_city: cte.driver_city,
+      driver_state: cte.driver_state,
+      driver_bank: cte.driver_bank,
+      driver_account: cte.driver_account,
+      driver_agency: cte.driver_agency,
+      owner_name: cte.owner_name,
+      owner_cpf: cte.owner_cpf,
+      owner_rg: cte.owner_rg,
+      owner_antt: cte.owner_antt,
+      owner_pis: cte.owner_pis,
+      owner_address: cte.owner_address,
+      vehicle_plate: cte.vehicle_plate,
+      vehicle_rntrc: cte.vehicle_rntrc,
+      vehicle_renavam: cte.vehicle_renavam,
+      vehicle_city: cte.vehicle_city,
+      vehicle_state: cte.vehicle_state,
+      vehicle_brand: cte.vehicle_brand,
+      cargo_species: cte.cargo_species,
+      cargo_quantity: cte.cargo_quantity,
+      cargo_invoice: cte.cargo_invoice,
+      observations: cte.observations,
     }))]);
     setIsImportCteDialogOpen(false);
   };
 
+  const updateFreightField = (field: keyof FreightComposition, value: number) => {
+    setFreightComposition(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const handlePrintContract = async (contract: Contract) => {
-    const ctes = await fetchCTEsForContract(contract.id);
-    if (ctes.length > 0) {
-      setSelectedContract(contract);
-      setSelectedPrintCte(ctes[0]); // Use first CTE for now
-      setIsPrintDialogOpen(true);
-    } else {
+    const contractCtes = await fetchCTEsForContract(contract.id);
+    if (contractCtes.length === 0) {
       toast({
         title: "Sem CT-es",
         description: "Este contrato não possui CT-es vinculados.",
         variant: "destructive",
       });
+      return;
     }
+
+    // Check if CFOP is missing
+    const primaryCte = contractCtes[0];
+    if (!primaryCte.cfop) {
+      toast({
+        title: "Aviso",
+        description: "CFOP não encontrado na CTE vinculada.",
+        variant: "default",
+      });
+    }
+
+    setSelectedContract(contract);
+    setSelectedPrintCtes(contractCtes);
+    setPrintFreightComposition(defaultFreightComposition);
+    setIsPrintDialogOpen(true);
   };
 
   const handleEdit = async (contract: Contract) => {
@@ -456,6 +613,7 @@ export default function Contracts() {
     
     const contractCtes = await fetchCTEsForContract(contract.id);
     setCtes(contractCtes);
+    setFreightComposition(defaultFreightComposition);
     
     setIsCreateDialogOpen(true);
   };
@@ -521,6 +679,21 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
     };
 
     return <Badge variant={variants[status] || "default"}>{labels[status] || status}</Badge>;
+  };
+
+  // Calculate net value for display
+  const calculateNetValue = () => {
+    const totalDeductions = 
+      freightComposition.tollValue + 
+      freightComposition.advanceValue + 
+      freightComposition.irrfValue + 
+      freightComposition.inssValue + 
+      freightComposition.sestSenatValue + 
+      freightComposition.insuranceValue + 
+      freightComposition.breakageValue + 
+      freightComposition.otherDiscountValue;
+    
+    return freightComposition.freightValue + freightComposition.stayValue - totalDeductions;
   };
 
   return (
@@ -804,6 +977,28 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                           />
                         </div>
                       </div>
+
+                      {/* Show driver and owner info if available */}
+                      {(cte.driver_name || cte.owner_name) && (
+                        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Motorista</Label>
+                            <p className="text-sm">{cte.driver_name || '-'}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Proprietário</Label>
+                            <p className="text-sm">{cte.owner_name || '-'}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show CFOP if available */}
+                      {cte.cfop && (
+                        <div className="pt-2 border-t">
+                          <Label className="text-muted-foreground text-xs">CFOP</Label>
+                          <p className="text-sm">{cte.cfop} {cte.cfop_description && `- ${cte.cfop_description}`}</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -817,12 +1012,135 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                 )}
               </div>
 
+              {/* Freight Composition - Manual Fields */}
+              {ctes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Composição do Frete - Motorista</CardTitle>
+                    <CardDescription>Preencha manualmente os valores da composição do frete</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label>Frete Motorista (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.freightValue || ""}
+                          onChange={(e) => updateFreightField("freightValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>Estadia (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.stayValue || ""}
+                          onChange={(e) => updateFreightField("stayValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) Pedágio (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.tollValue || ""}
+                          onChange={(e) => updateFreightField("tollValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) Adiantamento (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.advanceValue || ""}
+                          onChange={(e) => updateFreightField("advanceValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) I.R.R.F. (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.irrfValue || ""}
+                          onChange={(e) => updateFreightField("irrfValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) INSS (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.inssValue || ""}
+                          onChange={(e) => updateFreightField("inssValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) SEST/SENAT (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.sestSenatValue || ""}
+                          onChange={(e) => updateFreightField("sestSenatValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) Seguro (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.insuranceValue || ""}
+                          onChange={(e) => updateFreightField("insuranceValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) Quebra (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.breakageValue || ""}
+                          onChange={(e) => updateFreightField("breakageValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                      <div>
+                        <Label>(-) Outros Descontos (R$)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={freightComposition.otherDiscountValue || ""}
+                          onChange={(e) => updateFreightField("otherDiscountValue", parseFloat(e.target.value) || 0)}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-4 bg-muted rounded-lg">
+                      <div className="flex justify-between items-center text-lg font-semibold">
+                        <span>Saldo a Receber:</span>
+                        <span className="text-primary">
+                          R$ {calculateNetValue().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {ctes.length > 0 && (
                 <div className="bg-muted p-4 rounded-lg">
                   <div className="flex justify-between items-center text-lg font-semibold">
-                    <span>Valor Total:</span>
+                    <span>Valor Total CTes:</span>
                     <span className="text-primary">
-                      R$ {ctes.reduce((sum, cte) => sum + Number(cte.value), 0).toFixed(2)}
+                      R$ {ctes.reduce((sum, cte) => sum + Number(cte.value), 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -886,7 +1204,7 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                   <TableCell>{contract.title}</TableCell>
                   <TableCell>{contract.companies.name}</TableCell>
                   <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                  <TableCell>R$ {contract.total_value.toFixed(2)}</TableCell>
+                  <TableCell>R$ {contract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                   <TableCell>
                     {format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}
                   </TableCell>
@@ -1005,7 +1323,7 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                             </div>
                             <div>
                               <span className="text-muted-foreground">Valor:</span> R${" "}
-                              {cte.value.toFixed(2)}
+                              {cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
                           </div>
                         </CardContent>
@@ -1018,7 +1336,7 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                   <div className="flex justify-between items-center text-lg font-semibold">
                     <span>Valor Total:</span>
                     <span className="text-primary">
-                      R$ {selectedContract.total_value.toFixed(2)}
+                      R$ {selectedContract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -1031,15 +1349,142 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
       {/* Print Contract Dialog */}
       <Dialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen}>
         <DialogContent className="max-w-[900px] max-h-[90vh] overflow-y-auto">
-          {selectedContract && selectedPrintCte && (
+          {selectedContract && selectedPrintCtes.length > 0 && (
             <>
               <DialogHeader>
                 <DialogTitle>Contrato de Serviço de Transporte</DialogTitle>
                 <DialogDescription>
-                  Use Ctrl+P para imprimir este contrato
+                  Preencha a composição do frete e use Ctrl+P para imprimir
                 </DialogDescription>
               </DialogHeader>
-              <ContractPrint contract={selectedContract} cte={selectedPrintCte} />
+
+              {/* Freight Composition for Print */}
+              <Card className="mb-4 print:hidden">
+                <CardHeader>
+                  <CardTitle className="text-base">Composição do Frete - Motorista</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div>
+                      <Label className="text-xs">Frete Motorista</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.freightValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, freightValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Estadia</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.stayValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, stayValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) Pedágio</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.tollValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, tollValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) Adiantamento</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.advanceValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, advanceValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) I.R.R.F.</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.irrfValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, irrfValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) INSS</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.inssValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, inssValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) SEST/SENAT</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.sestSenatValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, sestSenatValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) Seguro</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.insuranceValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, insuranceValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) Quebra</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.breakageValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, breakageValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">(-) Outros Desc.</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={printFreightComposition.otherDiscountValue || ""}
+                        onChange={(e) => setPrintFreightComposition(prev => ({...prev, otherDiscountValue: parseFloat(e.target.value) || 0}))}
+                        placeholder="0,00"
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <ContractPrint 
+                contract={selectedContract} 
+                ctes={selectedPrintCtes}
+                freightComposition={printFreightComposition}
+                companySettings={companySettings || undefined}
+              />
             </>
           )}
         </DialogContent>
