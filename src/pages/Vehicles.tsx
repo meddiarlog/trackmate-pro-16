@@ -48,6 +48,8 @@ const bodyTypes = [
   "Cegonheira"
 ];
 
+const vehicleCategories = ["Cavalo", "Carreta"];
+
 export default function Vehicles() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -57,6 +59,7 @@ export default function Vehicles() {
     license_plate: "",
     year: "",
     model: "",
+    category: "",
     renavam: "",
     vehicle_type: "",
     body_type: "",
@@ -155,6 +158,7 @@ export default function Vehicles() {
       license_plate: "",
       year: "",
       model: "",
+      category: "",
       renavam: "",
       vehicle_type: "",
       body_type: "",
@@ -169,6 +173,7 @@ export default function Vehicles() {
       license_plate: vehicle.license_plate,
       year: vehicle.year?.toString() || "",
       model: vehicle.model || "",
+      category: (vehicle as any).category || "",
       renavam: vehicle.renavam || "",
       vehicle_type: vehicle.vehicle_type || "",
       body_type: vehicle.body_type || "",
@@ -252,14 +257,29 @@ export default function Vehicles() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="model">Modelo</Label>
-                <Input
-                  id="model"
-                  placeholder="Scania R450, Volvo FH540, etc."
-                  value={formData.model}
-                  onChange={(e) => setFormData({...formData, model: e.target.value})}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="model">Modelo</Label>
+                  <Input
+                    id="model"
+                    placeholder="Scania R450, Volvo FH540, etc."
+                    value={formData.model}
+                    onChange={(e) => setFormData({...formData, model: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Tipo</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicleCategories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-2">
