@@ -1281,6 +1281,7 @@ export type Database = {
         Row: {
           body_type: string | null
           capacity: string | null
+          category: string | null
           created_at: string
           id: string
           license_plate: string
@@ -1294,6 +1295,7 @@ export type Database = {
         Insert: {
           body_type?: string | null
           capacity?: string | null
+          category?: string | null
           created_at?: string
           id?: string
           license_plate: string
@@ -1307,6 +1309,7 @@ export type Database = {
         Update: {
           body_type?: string | null
           capacity?: string | null
+          category?: string | null
           created_at?: string
           id?: string
           license_plate?: string
