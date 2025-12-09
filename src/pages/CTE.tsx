@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText } from "lucide-react";
+import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText, Search, CheckCircle, Upload, RefreshCw, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CTE {
   id: string;
@@ -25,40 +26,66 @@ interface CTE {
   product_description?: string;
   sender_name?: string;
   sender_cnpj?: string;
+  sender_address?: string;
   recipient_name?: string;
   recipient_cnpj?: string;
+  recipient_address?: string;
   driver_name?: string;
   vehicle_plate?: string;
   freight_value?: number;
   net_value?: number;
   pdf_url?: string;
+  cfop?: string;
 }
+
+const MAX_PDF_SIZE_MB = 10;
+const MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024;
 
 export default function CTE() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
   const [editingCte, setEditingCte] = useState<string | null>(null);
   const [selectedCte, setSelectedCte] = useState<CTE | null>(null);
+  const [importedFromKey, setImportedFromKey] = useState(false);
 
   // Form states
   const [accessKey, setAccessKey] = useState("");
   const [isLoadingAccessKey, setIsLoadingAccessKey] = useState(false);
   const [cteNumber, setCteNumber] = useState("");
+  const [cteSerie, setCteSerie] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [value, setValue] = useState("");
   const [weight, setWeight] = useState("");
   const [productDescription, setProductDescription] = useState("");
+  const [modalTransporte, setModalTransporte] = useState("");
+  
+  // Emitente (dados do emitente do CT-e)
+  const [emitenteName, setEmitenteName] = useState("");
+  const [emitenteCnpj, setEmitenteCnpj] = useState("");
+  const [emitenteAddress, setEmitenteAddress] = useState("");
+  
+  // Remetente
   const [senderName, setSenderName] = useState("");
   const [senderCnpj, setSenderCnpj] = useState("");
+  const [senderAddress, setSenderAddress] = useState("");
+  
+  // Destinatário
   const [recipientName, setRecipientName] = useState("");
   const [recipientCnpj, setRecipientCnpj] = useState("");
+  const [recipientAddress, setRecipientAddress] = useState("");
+  
+  // Transporte
   const [driverName, setDriverName] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [freightValue, setFreightValue] = useState("");
+  
+  // PDF
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [existingPdfUrl, setExistingPdfUrl] = useState<string | null>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -80,21 +107,30 @@ export default function CTE() {
   const resetForm = () => {
     setAccessKey("");
     setCteNumber("");
+    setCteSerie("");
     setIssueDate(new Date().toISOString().split("T")[0]);
     setOrigin("");
     setDestination("");
     setValue("");
     setWeight("");
     setProductDescription("");
+    setModalTransporte("");
+    setEmitenteName("");
+    setEmitenteCnpj("");
+    setEmitenteAddress("");
     setSenderName("");
     setSenderCnpj("");
+    setSenderAddress("");
     setRecipientName("");
     setRecipientCnpj("");
+    setRecipientAddress("");
     setDriverName("");
     setVehiclePlate("");
     setFreightValue("");
     setPdfFile(null);
     setEditingCte(null);
+    setImportedFromKey(false);
+    setExistingPdfUrl(null);
   };
 
   const handleAccessKeySearch = async () => {
@@ -111,8 +147,8 @@ export default function CTE() {
     
     if (cleanedKey.length !== 44) {
       toast({
-        title: "Erro",
-        description: "Chave de acesso inválida. Deve conter 44 dígitos.",
+        title: "Chave inválida",
+        description: "A chave de acesso deve conter exatamente 44 dígitos numéricos.",
         variant: "destructive",
       });
       return;
@@ -120,45 +156,83 @@ export default function CTE() {
 
     setIsLoadingAccessKey(true);
     try {
+      toast({
+        title: "Importando dados...",
+        description: "Buscando informações do CT-e",
+      });
+
       const { data, error } = await supabase.functions.invoke('fetch-cte', {
         body: { chaveAcesso: accessKey }
       });
 
       if (error) throw error;
 
-      if (data) {
+      if (data && !data.error) {
+        // Preencher dados básicos
         setCteNumber(data.numeroCte || "");
+        setCteSerie(data.serie || "");
         setIssueDate(data.dataEmissao || new Date().toISOString().split("T")[0]);
-        setSenderName(data.razaoSocial || "");
+        setOrigin(data.origem || data.uf || "");
+        setModalTransporte(data.modalTransporte || "Rodoviário");
+        
+        // Dados do emitente
+        setEmitenteName(data.razaoSocialEmitente || "");
+        setEmitenteCnpj(data.cnpjEmitente || "");
+        setEmitenteAddress(data.enderecoEmitente || "");
+        
+        // Preencher remetente com dados do emitente inicialmente
+        setSenderName(data.razaoSocialEmitente || "");
         setSenderCnpj(data.cnpjEmitente || "");
-        setOrigin(data.uf || "");
+        setSenderAddress(data.enderecoEmitente || "");
 
-        // Try to fetch recipient info if we have the CNPJ
-        if (data.cnpjDestinatario) {
-          setRecipientCnpj(data.cnpjDestinatario);
-          if (data.razaoSocialDestinatario) {
-            setRecipientName(data.razaoSocialDestinatario);
-          }
-        }
-
-        // Set value if available
-        if (data.valorServico) {
-          setValue(data.valorServico.toString());
-        }
+        setImportedFromKey(true);
 
         toast({
-          title: "Dados importados",
-          description: "Dados do CT-e foram carregados com sucesso!",
+          title: "CT-e encontrada e importada com sucesso!",
+          description: `Número: ${data.numeroCte} | Série: ${data.serie}`,
         });
+      } else {
+        throw new Error(data?.error || "Dados não encontrados");
       }
     } catch (error: any) {
       toast({
-        title: "Erro ao buscar CT-e",
-        description: error.message || "Não foi possível buscar os dados da chave de acesso",
+        title: "CT-e não encontrada",
+        description: error.message || "Chave inválida ou CT-e não encontrada. Verifique os dados e tente novamente.",
         variant: "destructive",
       });
     } finally {
       setIsLoadingAccessKey(false);
+    }
+  };
+
+  const validatePdfFile = (file: File): boolean => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione um arquivo PDF.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+      toast({
+        title: "Arquivo muito grande",
+        description: `O arquivo deve ter no máximo ${MAX_PDF_SIZE_MB}MB.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && validatePdfFile(file)) {
+      setPdfFile(file);
+    } else {
+      e.target.value = '';
     }
   };
 
@@ -189,7 +263,7 @@ export default function CTE() {
     mutationFn: async () => {
       setUploading(true);
       
-      let pdfUrl: string | null = null;
+      let pdfUrl: string | null = existingPdfUrl;
       if (pdfFile) {
         pdfUrl = await uploadPdf();
       }
@@ -199,13 +273,15 @@ export default function CTE() {
         issue_date: issueDate,
         origin,
         destination,
-        value: parseFloat(value),
+        value: parseFloat(value) || 0,
         weight: weight ? parseFloat(weight) : null,
         product_description: productDescription || null,
         sender_name: senderName || null,
         sender_cnpj: senderCnpj || null,
+        sender_address: senderAddress || null,
         recipient_name: recipientName || null,
         recipient_cnpj: recipientCnpj || null,
+        recipient_address: recipientAddress || null,
         driver_name: driverName || null,
         vehicle_plate: vehiclePlate || null,
         freight_value: freightValue ? parseFloat(freightValue) : null,
@@ -280,18 +356,28 @@ export default function CTE() {
     setProductDescription(cte.product_description || "");
     setSenderName(cte.sender_name || "");
     setSenderCnpj(cte.sender_cnpj || "");
+    setSenderAddress(cte.sender_address || "");
     setRecipientName(cte.recipient_name || "");
     setRecipientCnpj(cte.recipient_cnpj || "");
+    setRecipientAddress(cte.recipient_address || "");
     setDriverName(cte.driver_name || "");
     setVehiclePlate(cte.vehicle_plate || "");
     setFreightValue(cte.freight_value?.toString() || "");
     setEditingCte(cte.id);
+    setExistingPdfUrl(cte.pdf_url || null);
     setIsDialogOpen(true);
   };
 
   const handleView = (cte: CTE) => {
     setSelectedCte(cte);
     setIsViewDialogOpen(true);
+  };
+
+  const handleViewPdf = (cte: CTE) => {
+    if (cte.pdf_url) {
+      setSelectedCte(cte);
+      setIsPdfViewerOpen(true);
+    }
   };
 
   const handleDownloadPdf = async (cte: CTE) => {
@@ -335,34 +421,62 @@ export default function CTE() {
                 Novo CT-e
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingCte ? "Editar" : "Novo"} CT-e</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4">
+                {/* Importação via Chave de Acesso */}
                 {!editingCte && (
-                  <div className="border-b pb-4">
-                    <Label htmlFor="accessKey">Chave de Acesso do CT-e</Label>
-                    <div className="flex gap-2 mt-1">
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Importar dados da CT-e
+                    </h3>
+                    <div className="flex gap-2">
                       <Input
-                        id="accessKey"
                         value={accessKey}
                         onChange={(e) => setAccessKey(e.target.value)}
                         placeholder="Informe os 44 dígitos da chave de acesso"
-                        maxLength={44}
+                        className="font-mono"
+                        maxLength={50}
                       />
                       <Button
                         type="button"
                         onClick={handleAccessKeySearch}
                         disabled={isLoadingAccessKey}
+                        className="min-w-[140px]"
                       >
-                        {isLoadingAccessKey ? "Buscando..." : "Buscar"}
+                        {isLoadingAccessKey ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Buscando...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 mr-2" />
+                            Importar Dados
+                          </>
+                        )}
                       </Button>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      A chave de acesso está localizada no DACTE (documento auxiliar do CT-e)
+                    </p>
+                    
+                    {importedFromKey && (
+                      <Alert className="mt-3 bg-success/10 border-success/20">
+                        <CheckCircle className="h-4 w-4 text-success" />
+                        <AlertDescription className="text-success">
+                          Dados importados automaticamente. Verifique e complete as informações necessárias.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Dados Básicos */}
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <Label htmlFor="cteNumber">Número do CT-e*</Label>
                     <Input
@@ -370,6 +484,14 @@ export default function CTE() {
                       value={cteNumber}
                       onChange={(e) => setCteNumber(e.target.value)}
                       required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cteSerie">Série</Label>
+                    <Input
+                      id="cteSerie"
+                      value={cteSerie}
+                      onChange={(e) => setCteSerie(e.target.value)}
                     />
                   </div>
                   <div>
@@ -382,6 +504,15 @@ export default function CTE() {
                       required
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="modalTransporte">Modal</Label>
+                    <Input
+                      id="modalTransporte"
+                      value={modalTransporte}
+                      onChange={(e) => setModalTransporte(e.target.value)}
+                      placeholder="Ex: Rodoviário"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -391,6 +522,7 @@ export default function CTE() {
                       id="origin"
                       value={origin}
                       onChange={(e) => setOrigin(e.target.value)}
+                      placeholder="Cidade/UF"
                       required
                     />
                   </div>
@@ -400,6 +532,7 @@ export default function CTE() {
                       id="destination"
                       value={destination}
                       onChange={(e) => setDestination(e.target.value)}
+                      placeholder="Cidade/UF"
                       required
                     />
                   </div>
@@ -407,7 +540,7 @@ export default function CTE() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="value">Valor Total*</Label>
+                    <Label htmlFor="value">Valor Total do Serviço*</Label>
                     <Input
                       id="value"
                       type="number"
@@ -440,14 +573,35 @@ export default function CTE() {
                 </div>
 
                 <div>
-                  <Label htmlFor="productDescription">Descrição do Produto</Label>
+                  <Label htmlFor="productDescription">Descrição do Produto/Carga</Label>
                   <Textarea
                     id="productDescription"
                     value={productDescription}
                     onChange={(e) => setProductDescription(e.target.value)}
+                    placeholder="Descreva a mercadoria transportada"
                   />
                 </div>
 
+                {/* Emitente */}
+                {importedFromKey && emitenteName && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-primary/10">Emitente</Badge>
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Razão Social</Label>
+                        <Input value={emitenteName} disabled className="bg-muted" />
+                      </div>
+                      <div>
+                        <Label>CNPJ</Label>
+                        <Input value={emitenteCnpj} disabled className="bg-muted" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Remetente */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Remetente</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -468,8 +622,18 @@ export default function CTE() {
                       />
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <Label htmlFor="senderAddress">Endereço</Label>
+                    <Input
+                      id="senderAddress"
+                      value={senderAddress}
+                      onChange={(e) => setSenderAddress(e.target.value)}
+                      placeholder="Endereço completo"
+                    />
+                  </div>
                 </div>
 
+                {/* Destinatário */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Destinatário</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -490,8 +654,18 @@ export default function CTE() {
                       />
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <Label htmlFor="recipientAddress">Endereço</Label>
+                    <Input
+                      id="recipientAddress"
+                      value={recipientAddress}
+                      onChange={(e) => setRecipientAddress(e.target.value)}
+                      placeholder="Endereço completo"
+                    />
+                  </div>
                 </div>
 
+                {/* Transporte */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Transporte</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -508,30 +682,94 @@ export default function CTE() {
                       <Input
                         id="vehiclePlate"
                         value={vehiclePlate}
-                        onChange={(e) => setVehiclePlate(e.target.value)}
+                        onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())}
+                        placeholder="ABC1D23"
                       />
                     </div>
                   </div>
                 </div>
 
+                {/* Upload do PDF */}
                 <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Anexar PDF do CT-e</h3>
-                  <div className="space-y-2">
-                    <Input
-                      id="pdfFile"
-                      type="file"
-                      accept=".pdf"
-                      onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
-                    />
-                    {pdfFile && (
-                      <p className="text-sm text-muted-foreground">
-                        Arquivo selecionado: {pdfFile.name}
-                      </p>
-                    )}
-                  </div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <FileUp className="h-4 w-4" />
+                    PDF do CT-e
+                  </h3>
+                  
+                  {existingPdfUrl && !pdfFile && (
+                    <div className="mb-3 p-3 bg-muted rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                        <span className="text-sm">PDF anexado</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(existingPdfUrl, '_blank')}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Visualizar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setExistingPdfUrl(null)}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-1" />
+                          Substituir
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(!existingPdfUrl || pdfFile) && (
+                    <div className="space-y-2">
+                      <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                        <Input
+                          id="pdfFile"
+                          type="file"
+                          accept=".pdf"
+                          onChange={handlePdfChange}
+                          className="hidden"
+                        />
+                        <label htmlFor="pdfFile" className="cursor-pointer">
+                          <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">
+                            Clique para selecionar ou arraste o PDF aqui
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Máximo: {MAX_PDF_SIZE_MB}MB
+                          </p>
+                        </label>
+                      </div>
+                      
+                      {pdfFile && (
+                        <div className="flex items-center justify-between bg-muted p-2 rounded">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            <span className="text-sm truncate max-w-[200px]">{pdfFile.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                            </Badge>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setPdfFile(null)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="mt-4">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -542,7 +780,12 @@ export default function CTE() {
                   Cancelar
                 </Button>
                 <Button onClick={() => saveCTEMutation.mutate()} disabled={uploading}>
-                  {uploading ? "Salvando..." : editingCte ? "Atualizar" : "Criar"}
+                  {uploading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : editingCte ? "Atualizar" : "Criar CT-e"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -556,7 +799,9 @@ export default function CTE() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div>Carregando...</div>
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
           ) : ctes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Nenhum CT-e cadastrado. Clique em "Novo CT-e" para adicionar.
@@ -569,8 +814,7 @@ export default function CTE() {
                   <TableHead>Data</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead>Destino</TableHead>
-                  <TableHead>Motorista</TableHead>
-                  <TableHead>Placa</TableHead>
+                  <TableHead>Remetente</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>PDF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -583,14 +827,17 @@ export default function CTE() {
                     <TableCell>{format(new Date(cte.issue_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{cte.origin}</TableCell>
                     <TableCell>{cte.destination}</TableCell>
-                    <TableCell>{cte.driver_name || "-"}</TableCell>
-                    <TableCell>{cte.vehicle_plate || "-"}</TableCell>
+                    <TableCell>{cte.sender_name || "-"}</TableCell>
                     <TableCell className="text-right">
-                      R$ {cte.value.toFixed(2)}
+                      R$ {cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
                       {cte.pdf_url ? (
-                        <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-success/10 text-success border-success/20 cursor-pointer hover:bg-success/20"
+                          onClick={() => handleViewPdf(cte)}
+                        >
                           <FileText className="h-3 w-3 mr-1" />
                           Anexado
                         </Badge>
@@ -601,7 +848,7 @@ export default function CTE() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-1 justify-end">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -611,14 +858,24 @@ export default function CTE() {
                           <Eye className="h-4 w-4" />
                         </Button>
                         {cte.pdf_url && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDownloadPdf(cte)}
-                            title="Baixar PDF"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleViewPdf(cte)}
+                              title="Visualizar PDF"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDownloadPdf(cte)}
+                              title="Baixar PDF"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </>
                         )}
                         <Button
                           variant="ghost"
@@ -677,7 +934,7 @@ export default function CTE() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Valor Total</Label>
-                  <p className="font-medium">R$ {selectedCte.value.toFixed(2)}</p>
+                  <p className="font-medium">R$ {selectedCte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Peso</Label>
@@ -689,6 +946,7 @@ export default function CTE() {
                   <Label className="text-muted-foreground">Remetente</Label>
                   <p className="font-medium">{selectedCte.sender_name}</p>
                   {selectedCte.sender_cnpj && <p className="text-sm text-muted-foreground">CNPJ: {selectedCte.sender_cnpj}</p>}
+                  {selectedCte.sender_address && <p className="text-sm text-muted-foreground">{selectedCte.sender_address}</p>}
                 </div>
               )}
               {selectedCte.recipient_name && (
@@ -696,6 +954,7 @@ export default function CTE() {
                   <Label className="text-muted-foreground">Destinatário</Label>
                   <p className="font-medium">{selectedCte.recipient_name}</p>
                   {selectedCte.recipient_cnpj && <p className="text-sm text-muted-foreground">CNPJ: {selectedCte.recipient_cnpj}</p>}
+                  {selectedCte.recipient_address && <p className="text-sm text-muted-foreground">{selectedCte.recipient_address}</p>}
                 </div>
               )}
               {(selectedCte.driver_name || selectedCte.vehicle_plate) && (
@@ -706,15 +965,46 @@ export default function CTE() {
                 </div>
               )}
               {selectedCte.pdf_url && (
-                <div className="border-t pt-4">
-                  <Button onClick={() => handleDownloadPdf(selectedCte)} className="w-full">
+                <div className="border-t pt-4 flex gap-2">
+                  <Button onClick={() => handleViewPdf(selectedCte)} variant="outline" className="flex-1">
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar PDF
+                  </Button>
+                  <Button onClick={() => handleDownloadPdf(selectedCte)} className="flex-1">
                     <Download className="h-4 w-4 mr-2" />
-                    Baixar PDF do CT-e
+                    Baixar PDF
                   </Button>
                 </div>
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Viewer Dialog */}
+      <Dialog open={isPdfViewerOpen} onOpenChange={setIsPdfViewerOpen}>
+        <DialogContent className="max-w-5xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>PDF do CT-e {selectedCte?.cte_number}</DialogTitle>
+          </DialogHeader>
+          {selectedCte?.pdf_url && (
+            <div className="flex-1 h-full min-h-[70vh]">
+              <iframe
+                src={selectedCte.pdf_url}
+                className="w-full h-full min-h-[65vh] border rounded"
+                title={`PDF CT-e ${selectedCte.cte_number}`}
+              />
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPdfViewerOpen(false)}>
+              Fechar
+            </Button>
+            <Button onClick={() => selectedCte && handleDownloadPdf(selectedCte)}>
+              <Download className="h-4 w-4 mr-2" />
+              Baixar PDF
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
