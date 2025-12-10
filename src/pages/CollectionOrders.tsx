@@ -923,7 +923,7 @@ export default function CollectionOrders() {
                     <div>
                       <span className="font-bold text-lg">Nº {order.order_number}</span>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}
+                        {format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
                       </p>
                     </div>
                     <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded">
@@ -988,7 +988,7 @@ export default function CollectionOrders() {
                 {orders.map((order: any) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>{format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell>{format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell className="max-w-[150px] truncate">{order.recipient_name}</TableCell>
                     <TableCell className="hidden md:table-cell">{order.unloading_city} - {order.unloading_state}</TableCell>
                     <TableCell className="hidden lg:table-cell">{order.driver_name || "-"}</TableCell>
