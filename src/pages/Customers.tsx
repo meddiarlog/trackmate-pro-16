@@ -335,15 +335,15 @@ export default function Customers() {
   const prazoOptions = Array.from({ length: 100 }, (_, i) => i + 1);
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Users className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2 sm:gap-3">
+            <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             Gestão de Clientes
           </h1>
-          <p className="text-muted-foreground mt-1">Cadastre embarcadores e consignatários</p>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Cadastre embarcadores e consignatários</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -521,7 +521,7 @@ export default function Customers() {
       </Card>
 
       {/* Customers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {filteredCustomers.map((customer) => (
           <Card key={customer.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
