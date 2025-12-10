@@ -214,12 +214,14 @@ export type Database = {
           created_at: string
           cte_reference: string | null
           customer_id: string
+          data_acerto: string | null
           due_date: string
           file_name: string
           file_url: string
           id: string
           issue_date: string
           status: string
+          tratativa_status: string | null
           type: string
           updated_at: string
         }
@@ -228,12 +230,14 @@ export type Database = {
           created_at?: string
           cte_reference?: string | null
           customer_id: string
+          data_acerto?: string | null
           due_date: string
           file_name: string
           file_url: string
           id?: string
           issue_date?: string
           status?: string
+          tratativa_status?: string | null
           type?: string
           updated_at?: string
         }
@@ -242,12 +246,14 @@ export type Database = {
           created_at?: string
           cte_reference?: string | null
           customer_id?: string
+          data_acerto?: string | null
           due_date?: string
           file_name?: string
           file_url?: string
           id?: string
           issue_date?: string
           status?: string
+          tratativa_status?: string | null
           type?: string
           updated_at?: string
         }
