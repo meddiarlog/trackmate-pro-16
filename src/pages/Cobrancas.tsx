@@ -472,12 +472,25 @@ const Cobrancas = () => {
     }
   };
 
+  const isOverdue = (cobranca: Cobranca) => {
+    const today = new Date().toISOString().split("T")[0];
+    return cobranca.due_date < today && cobranca.status !== "Quitado";
+  };
+
   const filteredCobrancas = cobrancas.filter((cobranca) => {
     const matchesSearch = cobranca.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || cobranca.status === statusFilter;
     const matchesType = typeFilter === "all" || cobranca.type === typeFilter;
     const matchesStartDate = !startDate || cobranca.due_date >= startDate;
     const matchesEndDate = !endDate || cobranca.due_date <= endDate;
+    
+    let matchesStatus = false;
+    if (statusFilter === "all") {
+      matchesStatus = true;
+    } else if (statusFilter === "Em Atraso") {
+      matchesStatus = isOverdue(cobranca);
+    } else {
+      matchesStatus = cobranca.status === statusFilter;
+    }
     
     return matchesSearch && matchesStatus && matchesType && matchesStartDate && matchesEndDate;
   });
@@ -708,6 +721,7 @@ const Cobrancas = () => {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="Em aberto">Em aberto</SelectItem>
+            <SelectItem value="Em Atraso">Em Atraso</SelectItem>
             <SelectItem value="Quitado">Quitado</SelectItem>
             <SelectItem value="Em Análise">Em Análise</SelectItem>
           </SelectContent>
