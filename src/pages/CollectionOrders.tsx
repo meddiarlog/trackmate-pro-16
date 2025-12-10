@@ -478,14 +478,14 @@ export default function CollectionOrders() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Ordem de Coleta</h1>
+    <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold">Ordem de Coleta</h1>
         <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
           <DialogTrigger asChild>
-            <Button onClick={() => { setEditingOrderId(null); setFormData(initialFormData); }}><Plus className="h-4 w-4 mr-2" /> Nova Ordem</Button>
+            <Button onClick={() => { setEditingOrderId(null); setFormData(initialFormData); }} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" /> Nova Ordem</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>{editingOrderId ? "Editar Ordem de Coleta" : "Nova Ordem de Coleta"}</DialogTitle>
             </DialogHeader>
@@ -910,65 +910,124 @@ export default function CollectionOrders() {
       ) : orders.length === 0 ? (
         <p className="text-muted-foreground">Nenhuma ordem de coleta cadastrada.</p>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nº</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Destinatário</TableHead>
-                <TableHead>Descarregamento</TableHead>
-                <TableHead>Motorista</TableHead>
-                <TableHead>Peso</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {orders.map((order: any) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-medium">{order.order_number}</TableCell>
-                  <TableCell>{format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                  <TableCell>{order.recipient_name}</TableCell>
-                  <TableCell>{order.unloading_city} - {order.unloading_state}</TableCell>
-                  <TableCell>{order.driver_name || "-"}</TableCell>
-                  <TableCell>{order.weight_tons}T</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(order)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setPrintOrder(order)}>
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => {
-                          // Open print view first, then trigger print
-                          setPrintOrder(order);
-                          toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
-                          setTimeout(() => {
-                            window.open('https://web.whatsapp.com/', '_blank');
-                          }, 500);
-                        }}
-                        title="Compartilhar via WhatsApp"
-                      >
-                        <Share2 className="h-4 w-4 text-green-600" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => {
-                        if (confirm("Deseja realmente excluir esta ordem?")) {
-                          deleteOrderMutation.mutate(order.id);
-                        }
-                      }}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+        <>
+          {/* Mobile Cards View */}
+          <div className="block sm:hidden space-y-4">
+            {orders.map((order: any) => (
+              <Card key={order.id} className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <span className="font-bold text-lg">Nº {order.order_number}</span>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}
+                      </p>
                     </div>
-                  </TableCell>
+                    <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded">
+                      {order.weight_tons}T
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-muted-foreground">Destinatário:</span> {order.recipient_name}</p>
+                    <p><span className="text-muted-foreground">Destino:</span> {order.unloading_city} - {order.unloading_state}</p>
+                    {order.driver_name && (
+                      <p><span className="text-muted-foreground">Motorista:</span> {order.driver_name}</p>
+                    )}
+                  </div>
+                  <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(order)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setPrintOrder(order)}>
+                      <Printer className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setPrintOrder(order);
+                        toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
+                        setTimeout(() => {
+                          window.open('https://web.whatsapp.com/', '_blank');
+                        }, 500);
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 text-green-600" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      if (confirm("Deseja realmente excluir esta ordem?")) {
+                        deleteOrderMutation.mutate(order.id);
+                      }
+                    }}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <Card className="hidden sm:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nº</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Destinatário</TableHead>
+                  <TableHead className="hidden md:table-cell">Descarregamento</TableHead>
+                  <TableHead className="hidden lg:table-cell">Motorista</TableHead>
+                  <TableHead>Peso</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {orders.map((order: any) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.order_number}</TableCell>
+                    <TableCell>{format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{order.recipient_name}</TableCell>
+                    <TableCell className="hidden md:table-cell">{order.unloading_city} - {order.unloading_state}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{order.driver_name || "-"}</TableCell>
+                    <TableCell>{order.weight_tons}T</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(order)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPrintOrder(order)}>
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setPrintOrder(order);
+                            toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
+                            setTimeout(() => {
+                              window.open('https://web.whatsapp.com/', '_blank');
+                            }, 500);
+                          }}
+                          title="Compartilhar via WhatsApp"
+                        >
+                          <Share2 className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                          if (confirm("Deseja realmente excluir esta ordem?")) {
+                            deleteOrderMutation.mutate(order.id);
+                          }
+                        }}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   );

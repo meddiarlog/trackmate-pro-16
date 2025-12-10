@@ -268,15 +268,15 @@ export default function Vehicles() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Truck className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2 sm:gap-3">
+            <Truck className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             Gestão de Veículos
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Cadastre e gerencie sua frota de veículos
           </p>
         </div>
@@ -468,7 +468,7 @@ export default function Vehicles() {
       {isLoading ? (
         <div className="text-center py-8">Carregando...</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredVehicles.map((vehicle) => (
             <Card key={vehicle.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>

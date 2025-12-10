@@ -90,12 +90,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Visão geral das suas operações de frete
           </p>
         </div>
@@ -112,23 +112,23 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index} className="border-0 shadow-md bg-gradient-to-br from-card to-secondary/5">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 p-3 sm:p-6">
+                <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <Icon className={cn("h-5 w-5", stat.color)} />
+                <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", stat.color)} />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
+                <div className="text-lg sm:text-2xl font-bold text-foreground">{stat.value}</div>
                 <div className="flex items-center gap-1 mt-1">
-                  <TrendingUp className="h-3 w-3 text-success" />
-                  <span className="text-xs text-success">{stat.change}</span>
-                  <span className="text-xs text-muted-foreground">vs mês anterior</span>
+                  <TrendingUp className="h-2 w-2 sm:h-3 sm:w-3 text-success" />
+                  <span className="text-[10px] sm:text-xs text-success">{stat.change}</span>
+                  <span className="text-[10px] sm:text-xs text-muted-foreground hidden xs:inline">vs mês anterior</span>
                 </div>
               </CardContent>
             </Card>
@@ -136,7 +136,7 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Recent Freights */}
         <Card className="lg:col-span-2 border-0 shadow-md">
           <CardHeader>
