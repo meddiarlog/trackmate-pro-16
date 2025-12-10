@@ -407,6 +407,9 @@ export default function CollectionOrders() {
   };
 
   const handleEdit = (order: any) => {
+    // Force refetch to get latest data before editing
+    queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
+    
     setEditingOrderId(order.id);
     setFormData({
       weight_tons: order.weight_tons || 1,
@@ -435,7 +438,7 @@ export default function CollectionOrders() {
       sender_name: order.sender_name || "",
       loading_city: order.loading_city || "",
       loading_state: order.loading_state || "",
-      issue_date: order.issue_date || new Date().toISOString().split('T')[0],
+      issue_date: order.issue_date || "",
       collection_date: order.collection_date || "",
       freight_mode: order.freight_mode || "",
     });
