@@ -27,26 +27,18 @@ interface Vehicle {
   body_type: string | null;
   capacity: string | null;
   status: string | null;
+  category: string | null;
 }
 
-const vehicleTypes = [
-  "Caminhão Simples",
-  "Caminhão Toco",
-  "Caminhão Truck",
-  "Carreta",
-  "Bitrem",
-  "Rodotrem"
-];
+interface VehicleType {
+  id: string;
+  name: string;
+}
 
-const bodyTypes = [
-  "Baú",
-  "Carroceria",
-  "Sider",
-  "Frigorífico",
-  "Tanque",
-  "Graneleiro",
-  "Cegonheira"
-];
+interface BodyType {
+  id: string;
+  name: string;
+}
 
 const vehicleCategories = ["Cavalo", "Carreta"];
 
@@ -55,6 +47,8 @@ export default function Vehicles() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [newVehicleType, setNewVehicleType] = useState("");
+  const [newBodyType, setNewBodyType] = useState("");
   const [formData, setFormData] = useState({
     license_plate: "",
     year: "",
@@ -78,6 +72,30 @@ export default function Vehicles() {
     },
   });
 
+  const { data: vehicleTypes = [] } = useQuery({
+    queryKey: ["vehicle_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicle_types")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data as VehicleType[];
+    },
+  });
+
+  const { data: bodyTypes = [] } = useQuery({
+    queryKey: ["body_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("body_types")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data as BodyType[];
+    },
+  });
+
   const filteredVehicles = vehicles.filter(vehicle =>
     vehicle.license_plate.toLowerCase().includes(searchTerm.toLowerCase()) ||
     vehicle.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,6 +113,48 @@ export default function Vehicles() {
     if (currentId && data.length === 1 && data[0].id === currentId) return false;
     return true;
   };
+
+  const createVehicleTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from("vehicle_types")
+        .insert({ name: name.toUpperCase() })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["vehicle_types"] });
+      setFormData({ ...formData, vehicle_type: data.name });
+      setNewVehicleType("");
+      toast.success("Tipo de veículo cadastrado!");
+    },
+    onError: () => {
+      toast.error("Erro ao cadastrar tipo de veículo");
+    },
+  });
+
+  const createBodyTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from("body_types")
+        .insert({ name: name.toUpperCase() })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["body_types"] });
+      setFormData({ ...formData, body_type: data.name });
+      setNewBodyType("");
+      toast.success("Tipo de carroceria cadastrado!");
+    },
+    onError: () => {
+      toast.error("Erro ao cadastrar tipo de carroceria");
+    },
+  });
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -166,6 +226,8 @@ export default function Vehicles() {
       capacity: ""
     });
     setEditingVehicle(null);
+    setNewVehicleType("");
+    setNewBodyType("");
   };
 
   const handleEdit = (vehicle: Vehicle) => {
@@ -174,7 +236,7 @@ export default function Vehicles() {
       license_plate: vehicle.license_plate,
       year: vehicle.year?.toString() || "",
       model: vehicle.model || "",
-      category: (vehicle as any).category || "",
+      category: vehicle.category || "",
       renavam: vehicle.renavam || "",
       vehicle_type: vehicle.vehicle_type || "",
       body_type: vehicle.body_type || "",
@@ -269,10 +331,10 @@ export default function Vehicles() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="category">Tipo</Label>
+                  <Label htmlFor="category">Categoria</Label>
                   <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione o tipo" />
+                      <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent>
                       {vehicleCategories.map((cat) => (
@@ -302,10 +364,31 @@ export default function Vehicles() {
                     </SelectTrigger>
                     <SelectContent>
                       {vehicleTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                        <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Novo tipo de veículo"
+                      value={newVehicleType}
+                      onChange={(e) => setNewVehicleType(e.target.value)}
+                      className="text-xs"
+                    />
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        if (newVehicleType.trim()) {
+                          createVehicleTypeMutation.mutate(newVehicleType.trim());
+                        }
+                      }}
+                      disabled={!newVehicleType.trim() || createVehicleTypeMutation.isPending}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="body_type">Tipo de Carroceria</Label>
@@ -315,10 +398,31 @@ export default function Vehicles() {
                     </SelectTrigger>
                     <SelectContent>
                       {bodyTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                        <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Novo tipo de carroceria"
+                      value={newBodyType}
+                      onChange={(e) => setNewBodyType(e.target.value)}
+                      className="text-xs"
+                    />
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        if (newBodyType.trim()) {
+                          createBodyTypeMutation.mutate(newBodyType.trim());
+                        }
+                      }}
+                      disabled={!newBodyType.trim() || createBodyTypeMutation.isPending}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -382,6 +486,10 @@ export default function Vehicles() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Ano:</span>
                     <span className="text-sm font-medium">{vehicle.year || "-"}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Categoria:</span>
+                    <span className="text-sm font-medium">{vehicle.category || "-"}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Tipo:</span>
