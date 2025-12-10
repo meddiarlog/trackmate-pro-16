@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Printer, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Printer, Pencil, Trash2, X, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
@@ -939,6 +939,17 @@ export default function CollectionOrders() {
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => setPrintOrder(order)}>
                         <Printer className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => {
+                          const message = `*Ordem de Coleta Nº ${order.order_number}*%0A%0ADestinatário: ${order.recipient_name}%0ADescarregamento: ${order.unloading_city} - ${order.unloading_state}%0AMotorista: ${order.driver_name || "N/A"}%0APeso: ${order.weight_tons}T%0AData: ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}`;
+                          window.open(`https://wa.me/?text=${message}`, '_blank');
+                        }}
+                        title="Compartilhar via WhatsApp"
+                      >
+                        <Share2 className="h-4 w-4 text-green-600" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => {
                         if (confirm("Deseja realmente excluir esta ordem?")) {
