@@ -15,6 +15,7 @@ import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer, Share2
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ContractPrint } from "@/components/ContractPrint";
+import html2canvas from 'html2canvas';
 import { ImportCteDialog } from "@/components/ImportCteDialog";
 
 interface Company {
@@ -1235,9 +1236,62 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => {
-                          const message = `*Contrato Nº ${contract.contract_number}*%0A%0ATítulo: ${contract.title}%0AEmpresa: ${contract.companies.name}%0AValor Total: R$ ${contract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%0AData: ${format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}`;
-                          window.open(`https://wa.me/?text=${message}`, '_blank');
+                        onClick={async () => {
+                          setPrintContract(contract);
+                          toast({ title: "Preparando documento..." });
+                          
+                          setTimeout(async () => {
+                            const printElement = document.getElementById('contract-print-content');
+                            if (printElement) {
+                              try {
+                                const canvas = await html2canvas(printElement, {
+                                  scale: 2,
+                                  useCORS: true,
+                                  backgroundColor: '#ffffff'
+                                });
+                                
+                                canvas.toBlob(async (blob) => {
+                                  if (blob) {
+                                    const file = new File([blob], `Contrato_${contract.contract_number}.png`, { type: 'image/png' });
+                                    
+                                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                                      try {
+                                        await navigator.share({
+                                          files: [file],
+                                          title: `Contrato ${contract.contract_number}`,
+                                          text: `Contrato Nº ${contract.contract_number}`
+                                        });
+                                        toast({ title: "Documento compartilhado!" });
+                                      } catch (err) {
+                                        if ((err as Error).name !== 'AbortError') {
+                                          toast({ title: "Erro ao compartilhar", variant: "destructive" });
+                                        }
+                                      }
+                                    } else {
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `Contrato_${contract.contract_number}.png`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      URL.revokeObjectURL(url);
+                                      
+                                      toast({ title: "Documento baixado! Anexe-o no WhatsApp." });
+                                      window.open('https://web.whatsapp.com/', '_blank');
+                                    }
+                                  }
+                                  setPrintContract(null);
+                                }, 'image/png');
+                              } catch (error) {
+                                toast({ title: "Erro ao preparar documento", variant: "destructive" });
+                                setPrintContract(null);
+                              }
+                            } else {
+                              toast({ title: "Documento não encontrado", variant: "destructive" });
+                              setPrintContract(null);
+                            }
+                          }, 500);
                         }}
                         title="Compartilhar via WhatsApp"
                       >

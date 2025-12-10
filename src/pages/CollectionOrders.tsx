@@ -14,6 +14,7 @@ import { Plus, Printer, Pencil, Trash2, X, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
+import html2canvas from 'html2canvas';
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -943,9 +944,72 @@ export default function CollectionOrders() {
                       <Button 
                         variant="ghost" 
                         size="icon" 
-                        onClick={() => {
-                          const message = `*Ordem de Coleta Nº ${order.order_number}*%0A%0ADestinatário: ${order.recipient_name}%0ADescarregamento: ${order.unloading_city} - ${order.unloading_state}%0AMotorista: ${order.driver_name || "N/A"}%0APeso: ${order.weight_tons}T%0AData: ${format(new Date(order.order_date), "dd/MM/yyyy", { locale: ptBR })}`;
-                          window.open(`https://wa.me/?text=${message}`, '_blank');
+                        onClick={async () => {
+                          // Set print order to render the document
+                          setPrintOrder(order);
+                          toast.loading("Preparando documento...", { id: "share-loading" });
+                          
+                          // Wait for the print component to render
+                          setTimeout(async () => {
+                            const printElement = document.getElementById('print-content');
+                            if (printElement) {
+                              try {
+                                const canvas = await html2canvas(printElement, {
+                                  scale: 2,
+                                  useCORS: true,
+                                  backgroundColor: '#ffffff'
+                                });
+                                
+                                canvas.toBlob(async (blob) => {
+                                  if (blob) {
+                                    const file = new File([blob], `Ordem_Coleta_${order.order_number}.png`, { type: 'image/png' });
+                                    
+                                    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                                      try {
+                                        await navigator.share({
+                                          files: [file],
+                                          title: `Ordem de Coleta ${order.order_number}`,
+                                          text: `Ordem de Coleta Nº ${order.order_number}`
+                                        });
+                                        toast.dismiss("share-loading");
+                                        toast.success("Documento compartilhado!");
+                                      } catch (err) {
+                                        if ((err as Error).name !== 'AbortError') {
+                                          toast.dismiss("share-loading");
+                                          toast.error("Erro ao compartilhar");
+                                        } else {
+                                          toast.dismiss("share-loading");
+                                        }
+                                      }
+                                    } else {
+                                      // Fallback: Download and open WhatsApp Web
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = `Ordem_Coleta_${order.order_number}.png`;
+                                      document.body.appendChild(a);
+                                      a.click();
+                                      document.body.removeChild(a);
+                                      URL.revokeObjectURL(url);
+                                      
+                                      toast.dismiss("share-loading");
+                                      toast.info("Documento baixado! Anexe-o no WhatsApp.", { duration: 5000 });
+                                      window.open('https://web.whatsapp.com/', '_blank');
+                                    }
+                                  }
+                                  setPrintOrder(null);
+                                }, 'image/png');
+                              } catch (error) {
+                                toast.dismiss("share-loading");
+                                toast.error("Erro ao preparar documento");
+                                setPrintOrder(null);
+                              }
+                            } else {
+                              toast.dismiss("share-loading");
+                              toast.error("Documento não encontrado");
+                              setPrintOrder(null);
+                            }
+                          }, 500);
                         }}
                         title="Compartilhar via WhatsApp"
                       >
