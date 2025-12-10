@@ -109,14 +109,14 @@ export default function CashBoxes() {
     enabled: !!defaultCategory?.id,
   });
 
-  // Fetch paid cobranças (boletos)
+  // Fetch paid cobranças (boletos) - includes both "Quitado" and "Recebido" status
   const { data: paidCobrancas = [] } = useQuery({
     queryKey: ["paid_cobrancas"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("boletos")
         .select(`*, customer:customers(name)`)
-        .eq("status", "Quitado")
+        .in("status", ["Quitado", "Recebido"])
         .order("due_date", { ascending: false });
 
       if (error) throw error;
