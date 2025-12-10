@@ -40,7 +40,7 @@ const menuItems = [
     ],
   },
   {
-    title: "Fretes",
+    title: "Serviços",
     icon: ClipboardList,
     items: [
       { title: "Ordem de Coleta", url: "/collection-orders", icon: MapPin },

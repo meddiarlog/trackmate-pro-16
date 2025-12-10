@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer } from "lucide-react";
+import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ContractPrint } from "@/components/ContractPrint";
@@ -1231,6 +1231,17 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
                         onClick={() => handleDownload(contract)}
                       >
                         <Download className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const message = `*Contrato Nº ${contract.contract_number}*%0A%0ATítulo: ${contract.title}%0AEmpresa: ${contract.companies.name}%0AValor Total: R$ ${contract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%0AData: ${format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}`;
+                          window.open(`https://wa.me/?text=${message}`, '_blank');
+                        }}
+                        title="Compartilhar via WhatsApp"
+                      >
+                        <Share2 className="h-4 w-4 text-green-600" />
                       </Button>
                       <Button
                         variant="ghost"
