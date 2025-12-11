@@ -925,6 +925,7 @@ const Cobrancas = () => {
                 <TableRow>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Tratativa</TableHead>
                   <TableHead>Ref. CTE</TableHead>
                   <TableHead>Valor</TableHead>
                   <TableHead className="hidden md:table-cell">Emissão</TableHead>
@@ -936,7 +937,7 @@ const Cobrancas = () => {
               <TableBody>
                 {filteredCobrancas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       Nenhuma cobrança encontrada
                     </TableCell>
                   </TableRow>
@@ -948,6 +949,18 @@ const Cobrancas = () => {
                       </TableCell>
                       <TableCell>
                         {getTypeBadge(cobranca.type)}
+                      </TableCell>
+                      <TableCell>
+                        {cobranca.tratativa_status === "acertado" && (
+                          <Badge variant="outline" className="border-green-500 text-green-600 text-xs">Acertado</Badge>
+                        )}
+                        {cobranca.tratativa_status === "pendente_cliente" && (
+                          <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-xs">Pend. Cliente</Badge>
+                        )}
+                        {cobranca.tratativa_status === "pendente_nos" && (
+                          <Badge variant="outline" className="border-red-500 text-red-600 text-xs">Pend. Nós</Badge>
+                        )}
+                        {!cobranca.tratativa_status && "—"}
                       </TableCell>
                       <TableCell>
                         {cobranca.cte_reference || "—"}
@@ -977,11 +990,11 @@ const Cobrancas = () => {
                           <DropdownMenuContent align="end" className="w-48">
                             <DropdownMenuItem onClick={() => handleToggleStatus(cobranca, "Recebido")}>
                               <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" />
-                              Marcar Recebido
+                              Recebido
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(cobranca, "Em aberto")}>
                               <XCircle className="mr-2 h-4 w-4 text-green-500" />
-                              Marcar A Receber
+                              A Receber
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleReschedule(cobranca)}>
                               <Calendar className="mr-2 h-4 w-4 text-orange-500" />

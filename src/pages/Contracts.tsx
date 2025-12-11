@@ -11,7 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer, Share2 } from "lucide-react";
+import { FileText, Plus, Download, Eye, Edit, Trash2, X, FileUp, Printer, Share2, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ContractPrint } from "@/components/ContractPrint";
@@ -294,7 +301,7 @@ export default function Contracts() {
     },
   });
 
-  // Fetch contracts
+  // Fetch contracts with their CTEs
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ["contracts"],
     queryFn: async () => {
@@ -309,11 +316,18 @@ export default function Contracts() {
             address,
             phone,
             email
+          ),
+          ctes (
+            id,
+            cte_number,
+            driver_name,
+            owner_name,
+            value
           )
         `)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Contract[];
+      return data as (Contract & { ctes?: { id: string; cte_number: string; driver_name?: string; owner_name?: string; value: number }[] })[];
     },
   });
 
@@ -1189,78 +1203,76 @@ Data de Criação: ${format(new Date(contract.created_at), "dd/MM/yyyy HH:mm", {
             <TableHeader>
               <TableRow>
                 <TableHead>Número</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Empresa</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Valor Total</TableHead>
                 <TableHead>Data</TableHead>
+                <TableHead>Motorista</TableHead>
+                <TableHead>Proprietário</TableHead>
+                <TableHead>CTE(s)</TableHead>
+                <TableHead>Valor</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contracts.map((contract) => (
-                <TableRow key={contract.id}>
-                  <TableCell className="font-medium">{contract.contract_number}</TableCell>
-                  <TableCell>{contract.title}</TableCell>
-                  <TableCell>{contract.companies.name}</TableCell>
-                  <TableCell>{getStatusBadge(contract.status)}</TableCell>
-                  <TableCell>R$ {contract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                  <TableCell>
-                    {format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handlePrintContract(contract)}
-                        title="Imprimir contrato"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleView(contract)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownload(contract)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          const message = `*Contrato Nº ${contract.contract_number}*%0A%0ATítulo: ${contract.title}%0AEmpresa: ${contract.companies.name}%0AValor Total: R$ ${contract.total_value?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0,00'}%0AData: ${format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}`;
-                          window.open(`https://web.whatsapp.com/send?text=${message}`, '_blank');
-                        }}
-                        title="Compartilhar via WhatsApp"
-                      >
-                        <Share2 className="h-4 w-4 text-green-600" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(contract)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteContractMutation.mutate(contract.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {contracts.map((contract) => {
+                const contractCtes = (contract as any).ctes || [];
+                const cteNumbers = contractCtes.map((c: any) => c.cte_number).join(' / ');
+                const driverName = contractCtes[0]?.driver_name || '-';
+                const ownerName = contractCtes[0]?.owner_name || '-';
+                
+                return (
+                  <TableRow key={contract.id}>
+                    <TableCell className="font-medium">{contract.contract_number}</TableCell>
+                    <TableCell>
+                      {format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                    </TableCell>
+                    <TableCell>{driverName}</TableCell>
+                    <TableCell>{ownerName}</TableCell>
+                    <TableCell>{cteNumbers || '-'}</TableCell>
+                    <TableCell>R$ {contract.total_value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => handlePrintContract(contract)}>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Imprimir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleView(contract)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownload(contract)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Baixar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            const message = `*Contrato Nº ${contract.contract_number}*%0A%0ATítulo: ${contract.title}%0AEmpresa: ${contract.companies.name}%0AValor Total: R$ ${contract.total_value?.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0,00'}%0AData: ${format(new Date(contract.created_at), "dd/MM/yyyy", { locale: ptBR })}`;
+                            window.open(`https://web.whatsapp.com/send?text=${message}`, '_blank');
+                          }}>
+                            <Share2 className="mr-2 h-4 w-4 text-green-600" />
+                            Compartilhar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEdit(contract)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => deleteContractMutation.mutate(contract.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>
