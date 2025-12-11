@@ -692,6 +692,7 @@ export type Database = {
           created_at: string
           cte_number: string
           destination: string
+          doc_number: string | null
           driver_account: string | null
           driver_agency: string | null
           driver_bank: string | null
@@ -734,6 +735,7 @@ export type Database = {
           sender_name: string | null
           sest_senat_value: number | null
           toll_value: number | null
+          tomador_id: string | null
           value: number
           vehicle_account: string | null
           vehicle_agency: string | null
@@ -757,6 +759,7 @@ export type Database = {
           created_at?: string
           cte_number: string
           destination: string
+          doc_number?: string | null
           driver_account?: string | null
           driver_agency?: string | null
           driver_bank?: string | null
@@ -799,6 +802,7 @@ export type Database = {
           sender_name?: string | null
           sest_senat_value?: number | null
           toll_value?: number | null
+          tomador_id?: string | null
           value: number
           vehicle_account?: string | null
           vehicle_agency?: string | null
@@ -822,6 +826,7 @@ export type Database = {
           created_at?: string
           cte_number?: string
           destination?: string
+          doc_number?: string | null
           driver_account?: string | null
           driver_agency?: string | null
           driver_bank?: string | null
@@ -864,6 +869,7 @@ export type Database = {
           sender_name?: string | null
           sest_senat_value?: number | null
           toll_value?: number | null
+          tomador_id?: string | null
           value?: number
           vehicle_account?: string | null
           vehicle_agency?: string | null
@@ -881,6 +887,13 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ctes_tomador_id_fkey"
+            columns: ["tomador_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]

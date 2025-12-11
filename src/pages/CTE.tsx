@@ -8,16 +8,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText, Search, CheckCircle, Upload, RefreshCw, ExternalLink } from "lucide-react";
+import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText, Search, CheckCircle, Upload, RefreshCw, ExternalLink, MoreVertical } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface Customer {
+  id: string;
+  name: string;
+}
 
 interface CTE {
   id: string;
   cte_number: string;
+  doc_number?: string;
   issue_date: string;
   origin: string;
   destination: string;
@@ -36,6 +50,8 @@ interface CTE {
   net_value?: number;
   pdf_url?: string;
   cfop?: string;
+  tomador_id?: string;
+  tomador?: Customer;
 }
 
 const MAX_PDF_SIZE_MB = 10;
@@ -54,6 +70,8 @@ export default function CTE() {
   const [isLoadingAccessKey, setIsLoadingAccessKey] = useState(false);
   const [isExtractingFromPdf, setIsExtractingFromPdf] = useState(false);
   const [cteNumber, setCteNumber] = useState("");
+  const [docNumber, setDocNumber] = useState("");
+  const [tomadorId, setTomadorId] = useState("");
   const [cteSerie, setCteSerie] = useState("");
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [origin, setOrigin] = useState("");
@@ -97,7 +115,7 @@ export default function CTE() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ctes")
-        .select("*")
+        .select(`*, tomador:customers(id, name)`)
         .is("contract_id", null)
         .order("issue_date", { ascending: false });
       if (error) throw error;
@@ -105,9 +123,24 @@ export default function CTE() {
     },
   });
 
+  // Fetch customers for Tomador select
+  const { data: customers = [] } = useQuery({
+    queryKey: ["customers-tomador"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data as Customer[];
+    },
+  });
+
   const resetForm = () => {
     setAccessKey("");
     setCteNumber("");
+    setDocNumber("");
+    setTomadorId("");
     setCteSerie("");
     setIssueDate(new Date().toISOString().split("T")[0]);
     setOrigin("");
@@ -378,7 +411,9 @@ export default function CTE() {
       }
 
       const cteData: any = {
-        cte_number: cteNumber,
+        cte_number: cteNumber.padStart(6, '0').slice(0, 6),
+        doc_number: docNumber || null,
+        tomador_id: tomadorId || null,
         issue_date: issueDate,
         origin,
         destination,
@@ -457,6 +492,8 @@ export default function CTE() {
 
   const handleEdit = (cte: CTE) => {
     setCteNumber(cte.cte_number);
+    setDocNumber((cte as any).doc_number || "");
+    setTomadorId((cte as any).tomador_id || "");
     setIssueDate(cte.issue_date);
     setOrigin(cte.origin);
     setDestination(cte.destination);
@@ -620,14 +657,28 @@ export default function CTE() {
                 )}
 
                 {/* Dados Básicos */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <Label htmlFor="cteNumber">Número do CT-e*</Label>
+                    <Label htmlFor="cteNumber">Número do CT-e* (6 dígitos)</Label>
                     <Input
                       id="cteNumber"
                       value={cteNumber}
-                      onChange={(e) => setCteNumber(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                        setCteNumber(val);
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
                       required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="docNumber">Doc.</Label>
+                    <Input
+                      id="docNumber"
+                      value={docNumber}
+                      onChange={(e) => setDocNumber(e.target.value)}
+                      placeholder="Número do documento"
                     />
                   </div>
                   <div>
@@ -647,6 +698,24 @@ export default function CTE() {
                       onChange={(e) => setIssueDate(e.target.value)}
                       required
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="tomadorId">Tomador</Label>
+                    <Select value={tomadorId} onValueChange={setTomadorId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tomador" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="modalTransporte">Modal</Label>
@@ -955,10 +1024,12 @@ export default function CTE() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Número</TableHead>
+                  <TableHead>Doc.</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Origem</TableHead>
                   <TableHead>Destino</TableHead>
                   <TableHead>Remetente</TableHead>
+                  <TableHead>Tomador</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead>PDF</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -968,10 +1039,12 @@ export default function CTE() {
                 {ctes.map((cte) => (
                   <TableRow key={cte.id}>
                     <TableCell className="font-medium">{cte.cte_number}</TableCell>
+                    <TableCell>{(cte as any).doc_number || "-"}</TableCell>
                     <TableCell>{format(new Date(cte.issue_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                     <TableCell>{cte.origin}</TableCell>
                     <TableCell>{cte.destination}</TableCell>
                     <TableCell>{cte.sender_name || "-"}</TableCell>
+                    <TableCell>{(cte as any).tomador?.name || "-"}</TableCell>
                     <TableCell className="text-right">
                       R$ {cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </TableCell>
@@ -992,52 +1065,43 @@ export default function CTE() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleView(cte)}
-                          title="Visualizar"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {cte.pdf_url && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleViewPdf(cte)}
-                              title="Visualizar PDF"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDownloadPdf(cte)}
-                              title="Baixar PDF"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(cte)}
-                          title="Editar"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteCTEMutation.mutate(cte.id)}
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem onClick={() => handleView(cte)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          {cte.pdf_url && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleViewPdf(cte)}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Visualizar PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDownloadPdf(cte)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Baixar PDF
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEdit(cte)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => deleteCTEMutation.mutate(cte.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

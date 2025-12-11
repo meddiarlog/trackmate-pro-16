@@ -53,6 +53,7 @@ const CreditControl = () => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState("");
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -298,7 +299,14 @@ const CreditControl = () => {
     const matchesStartDate = !startDate || recordDate >= startDate;
     const matchesEndDate = !endDate || recordDate <= endDate;
     
-    return matchesSearch && matchesStartDate && matchesEndDate;
+    // Month filter
+    let matchesMonth = true;
+    if (selectedMonth) {
+      const recordMonth = recordDate.substring(0, 7); // YYYY-MM
+      matchesMonth = recordMonth === selectedMonth;
+    }
+    
+    return matchesSearch && matchesStartDate && matchesEndDate && matchesMonth;
   });
 
   const totalCredito = filteredRecords.reduce(
@@ -505,6 +513,15 @@ const CreditControl = () => {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground">Mês:</Label>
+          <Input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="w-40"
+          />
+        </div>
+        <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground">De:</Label>
           <Input
             type="date"
@@ -522,8 +539,8 @@ const CreditControl = () => {
             className="w-40"
           />
         </div>
-        {(startDate || endDate) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); }}>
+        {(startDate || endDate || selectedMonth) && (
+          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setSelectedMonth(""); }}>
             Limpar
           </Button>
         )}
