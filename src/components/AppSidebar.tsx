@@ -37,6 +37,7 @@ const menuItems = [
       { title: "Veículos", url: "/vehicles", icon: Truck },
       { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
       { title: "Fornecedores", url: "/suppliers", icon: Briefcase },
+      { title: "Produtos", url: "/products", icon: Package },
     ],
   },
   {
