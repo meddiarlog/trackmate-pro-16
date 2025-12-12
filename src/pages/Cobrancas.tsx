@@ -925,10 +925,10 @@ const Cobrancas = () => {
                 <TableRow>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Tratativa</TableHead>
-                  <TableHead>Ref. CTE</TableHead>
+                  <TableHead>Acordado</TableHead>
+                  <TableHead>CTE</TableHead>
+                  <TableHead>Doc</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead className="hidden md:table-cell">Emissão</TableHead>
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
@@ -937,7 +937,7 @@ const Cobrancas = () => {
               <TableBody>
                 {filteredCobrancas.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">
+                    <TableCell colSpan={10} className="text-center">
                       Nenhuma cobrança encontrada
                     </TableCell>
                   </TableRow>
@@ -966,13 +966,13 @@ const Cobrancas = () => {
                         {cobranca.cte_reference || "—"}
                       </TableCell>
                       <TableCell>
+                        {(cobranca as any).doc_number || "—"}
+                      </TableCell>
+                      <TableCell>
                         {cobranca.amount 
                           ? `R$ ${cobranca.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                           : "—"
                         }
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {format(new Date(cobranca.issue_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
                         {format(new Date(cobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}

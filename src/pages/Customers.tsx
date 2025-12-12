@@ -92,6 +92,7 @@ export default function Customers() {
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.state?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.responsavel?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.cpf_cnpj?.includes(searchTerm) ||
       (normalizedSearchTerm && normalizedCpfCnpj.includes(normalizedSearchTerm))
     );

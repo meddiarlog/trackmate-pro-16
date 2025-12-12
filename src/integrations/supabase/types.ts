@@ -215,6 +215,7 @@ export type Database = {
           cte_reference: string | null
           customer_id: string
           data_acerto: string | null
+          doc_number: string | null
           due_date: string
           file_name: string
           file_url: string
@@ -231,6 +232,7 @@ export type Database = {
           cte_reference?: string | null
           customer_id: string
           data_acerto?: string | null
+          doc_number?: string | null
           due_date: string
           file_name: string
           file_url: string
@@ -247,6 +249,7 @@ export type Database = {
           cte_reference?: string | null
           customer_id?: string
           data_acerto?: string | null
+          doc_number?: string | null
           due_date?: string
           file_name?: string
           file_url?: string
@@ -1141,6 +1144,97 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      quotes: {
+        Row: {
+          contato: string | null
+          created_at: string
+          customer_id: string | null
+          delivery_days: number | null
+          destination_city: string | null
+          destination_state: string | null
+          freight_value: number | null
+          id: string
+          munck_value: number | null
+          observations: string | null
+          origin_city: string | null
+          origin_state: string | null
+          payment_method: string | null
+          product_id: string | null
+          quote_number: number
+          responsavel: string | null
+          service_type: string
+          status: string | null
+          updated_at: string
+          vehicle_type_id: string | null
+        }
+        Insert: {
+          contato?: string | null
+          created_at?: string
+          customer_id?: string | null
+          delivery_days?: number | null
+          destination_city?: string | null
+          destination_state?: string | null
+          freight_value?: number | null
+          id?: string
+          munck_value?: number | null
+          observations?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          payment_method?: string | null
+          product_id?: string | null
+          quote_number?: number
+          responsavel?: string | null
+          service_type?: string
+          status?: string | null
+          updated_at?: string
+          vehicle_type_id?: string | null
+        }
+        Update: {
+          contato?: string | null
+          created_at?: string
+          customer_id?: string | null
+          delivery_days?: number | null
+          destination_city?: string | null
+          destination_state?: string | null
+          freight_value?: number | null
+          id?: string
+          munck_value?: number | null
+          observations?: string | null
+          origin_city?: string | null
+          origin_state?: string | null
+          payment_method?: string | null
+          product_id?: string | null
+          quote_number?: number
+          responsavel?: string | null
+          service_type?: string
+          status?: string | null
+          updated_at?: string
+          vehicle_type_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_vehicle_type_id_fkey"
+            columns: ["vehicle_type_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       repository_files: {
         Row: {
