@@ -94,6 +94,7 @@ const Cobrancas = () => {
     type: "boleto",
     amount: "",
     cte_reference: "",
+    doc_number: "",
     tratativa_status: "",
     data_acerto: "",
     file: null as File | null,
@@ -339,6 +340,7 @@ const Cobrancas = () => {
         type: formData.type,
         amount: formData.amount ? parseFloat(formData.amount) : null,
         cte_reference: formData.cte_reference || null,
+        doc_number: formData.doc_number || null,
         tratativa_status: formData.tratativa_status || null,
         data_acerto: formData.data_acerto || null,
         status: editingCobranca?.status || "Em aberto",
@@ -430,6 +432,7 @@ const Cobrancas = () => {
       type: cobranca.type || "boleto",
       amount: cobranca.amount?.toString() || "",
       cte_reference: cobranca.cte_reference || "",
+      doc_number: (cobranca as any).doc_number || "",
       tratativa_status: cobranca.tratativa_status || "",
       data_acerto: cobranca.data_acerto || "",
       file: null,
@@ -568,6 +571,7 @@ const Cobrancas = () => {
       type: "boleto",
       amount: "",
       cte_reference: "",
+      doc_number: "",
       tratativa_status: "",
       data_acerto: "",
       file: null,
@@ -756,14 +760,25 @@ const Cobrancas = () => {
                 </p>
               </div>
 
-              <div>
-                <Label htmlFor="cte_reference">Referente a CTE</Label>
-                <Input
-                  id="cte_reference"
-                  placeholder="Número do CTE"
-                  value={formData.cte_reference}
-                  onChange={(e) => setFormData({ ...formData, cte_reference: e.target.value })}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="cte_reference">CTE</Label>
+                  <Input
+                    id="cte_reference"
+                    placeholder="Número do CTE"
+                    value={formData.cte_reference}
+                    onChange={(e) => setFormData({ ...formData, cte_reference: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="doc_number">Doc</Label>
+                  <Input
+                    id="doc_number"
+                    placeholder="Número das notas"
+                    value={formData.doc_number}
+                    onChange={(e) => setFormData({ ...formData, doc_number: e.target.value })}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

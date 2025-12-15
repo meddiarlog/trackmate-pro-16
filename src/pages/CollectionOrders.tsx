@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Plus, Printer, Pencil, Trash2, X, Share2 } from "lucide-react";
+import { Plus, Printer, Pencil, Trash2, X, Share2, MoreVertical, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
@@ -58,7 +59,7 @@ interface FormData {
 }
 
 const initialFormData: FormData = {
-  weight_tons: 1,
+  weight_tons: 0,
   code: "",
   recipient_name: "",
   unloading_city: "",
@@ -97,6 +98,26 @@ export default function CollectionOrders() {
   const [newVehicleType, setNewVehicleType] = useState("");
   const [newBodyType, setNewBodyType] = useState("");
   const [printOrder, setPrintOrder] = useState<any>(null);
+  
+  // Quick add dialogs
+  const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
+  const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false);
+  const [vehicleCategory, setVehicleCategory] = useState<"Cavalo" | "Carreta">("Cavalo");
+  
+  // Quick add form data
+  const [newDriverData, setNewDriverData] = useState({
+    name: "",
+    cpf: "",
+    cnh: "",
+    cnh_expiry: "",
+    phone: "",
+  });
+  const [newVehicleData, setNewVehicleData] = useState({
+    license_plate: "",
+    model: "",
+    category: "Cavalo" as "Cavalo" | "Carreta",
+  });
+  
   const queryClient = useQueryClient();
 
   // Fetch orders
@@ -226,9 +247,9 @@ export default function CollectionOrders() {
         order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
-        recipient_name: data.recipient_name,
-        unloading_city: data.unloading_city,
-        unloading_state: data.unloading_state,
+        recipient_name: data.recipient_name || "",
+        unloading_city: data.unloading_city || "",
+        unloading_state: data.unloading_state || "",
         product_id: data.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_request_number: data.order_request_number || null,
@@ -275,9 +296,9 @@ export default function CollectionOrders() {
       const { error } = await supabase.from("collection_orders").update({
         weight_tons: data.weight_tons,
         code: data.code || null,
-        recipient_name: data.recipient_name,
-        unloading_city: data.unloading_city,
-        unloading_state: data.unloading_state,
+        recipient_name: data.recipient_name || "",
+        unloading_city: data.unloading_city || "",
+        unloading_state: data.unloading_state || "",
         product_id: data.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_request_number: data.order_request_number || null,
@@ -365,6 +386,76 @@ export default function CollectionOrders() {
     onError: () => toast.error("Erro ao cadastrar carroceria"),
   });
 
+  // Add driver mutation (quick add)
+  const addDriverMutation = useMutation({
+    mutationFn: async (driverData: typeof newDriverData) => {
+      const { data, error } = await supabase.from("drivers").insert({
+        name: driverData.name,
+        cpf: driverData.cpf?.replace(/\D/g, "") || null,
+        cnh: driverData.cnh || null,
+        cnh_expiry: driverData.cnh_expiry || null,
+        phone: driverData.phone || null,
+        status: "Ativo",
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      // Auto-select the new driver
+      setFormData(prev => ({
+        ...prev,
+        driver_id: data.id,
+        driver_name: data.name || "",
+        driver_cpf: data.cpf || "",
+        driver_phone: data.phone || "",
+        driver_cnh: data.cnh || "",
+        driver_cnh_expiry: data.cnh_expiry || "",
+      }));
+      setNewDriverData({ name: "", cpf: "", cnh: "", cnh_expiry: "", phone: "" });
+      setIsDriverDialogOpen(false);
+      toast.success("Motorista cadastrado e selecionado!");
+    },
+    onError: (error: any) => toast.error(error.message || "Erro ao cadastrar motorista"),
+  });
+
+  // Add vehicle mutation (quick add)
+  const addVehicleMutation = useMutation({
+    mutationFn: async (vehicleData: typeof newVehicleData) => {
+      const { data, error } = await supabase.from("vehicles").insert({
+        license_plate: vehicleData.license_plate.toUpperCase(),
+        model: vehicleData.model || null,
+        category: vehicleData.category,
+        status: "Disponível",
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      // Auto-select the new vehicle based on category
+      if (data.category === "Cavalo") {
+        setFormData(prev => ({ ...prev, vehicle_plate: data.license_plate }));
+      } else {
+        // Add to trailer plates
+        setFormData(prev => {
+          const plates = [...prev.trailer_plates];
+          const emptyIndex = plates.findIndex(p => p === "");
+          if (emptyIndex >= 0) {
+            plates[emptyIndex] = data.license_plate;
+          } else {
+            plates.push(data.license_plate);
+          }
+          return { ...prev, trailer_plates: plates };
+        });
+      }
+      setNewVehicleData({ license_plate: "", model: "", category: "Cavalo" });
+      setIsVehicleDialogOpen(false);
+      toast.success("Veículo cadastrado e selecionado!");
+    },
+    onError: (error: any) => toast.error(error.message || "Erro ao cadastrar veículo"),
+  });
+
   // Delete order mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -380,6 +471,18 @@ export default function CollectionOrders() {
 
   // Handle driver selection
   const handleDriverSelect = (driverId: string) => {
+    if (driverId === "__none__") {
+      setFormData(prev => ({
+        ...prev,
+        driver_id: "",
+        driver_name: "",
+        driver_cpf: "",
+        driver_phone: "",
+        driver_cnh: "",
+        driver_cnh_expiry: "",
+      }));
+      return;
+    }
     const driver = drivers.find((d: any) => d.id === driverId);
     if (driver) {
       setFormData(prev => ({
@@ -395,8 +498,12 @@ export default function CollectionOrders() {
   };
 
   const handleSubmit = () => {
-    if (!formData.recipient_name || !formData.unloading_city || !formData.unloading_state || !formData.payment_method) {
-      toast.error("Preencha os campos obrigatórios");
+    if (!formData.payment_method) {
+      toast.error("Preencha a forma de pagamento");
+      return;
+    }
+    if (formData.weight_tons <= 0) {
+      toast.error("Informe o peso");
       return;
     }
     if (editingOrderId) {
@@ -412,7 +519,7 @@ export default function CollectionOrders() {
     
     setEditingOrderId(order.id);
     setFormData({
-      weight_tons: order.weight_tons || 1,
+      weight_tons: order.weight_tons || 0,
       code: order.code || "",
       recipient_name: order.recipient_name || "",
       unloading_city: order.unloading_city || "",
@@ -474,6 +581,17 @@ export default function CollectionOrders() {
         trailer_plates: prev.trailer_plates.filter((_, i) => i !== index),
       }));
     }
+  };
+
+  const openQuickDriverDialog = () => {
+    setNewDriverData({ name: "", cpf: "", cnh: "", cnh_expiry: "", phone: "" });
+    setIsDriverDialogOpen(true);
+  };
+
+  const openQuickVehicleDialog = (category: "Cavalo" | "Carreta") => {
+    setVehicleCategory(category);
+    setNewVehicleData({ license_plate: "", model: "", category });
+    setIsVehicleDialogOpen(true);
   };
 
   if (printOrder) {
@@ -551,20 +669,18 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Weight and Code */}
+                  {/* Weight and Code - Weight now accepts decimal */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Peso (Ton) *</Label>
-                      <Select value={String(formData.weight_tons)} onValueChange={(v) => setFormData(prev => ({ ...prev, weight_tons: Number(v) }))}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 100 }, (_, i) => i + 1).map(n => (
-                            <SelectItem key={n} value={String(n)}>{n}T</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        placeholder="Ex: 18,5"
+                        value={formData.weight_tons || ""}
+                        onChange={(e) => setFormData(prev => ({ ...prev, weight_tons: parseFloat(e.target.value) || 0 }))}
+                      />
                     </div>
                     <div>
                       <Label>Cód.</Label>
@@ -575,9 +691,9 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Recipient */}
+                  {/* Recipient - Not required */}
                   <div>
-                    <Label>Destinatário *</Label>
+                    <Label>Destinatário</Label>
                     <Input
                       value={formData.recipient_name}
                       onChange={(e) => setFormData(prev => ({ ...prev, recipient_name: e.target.value }))}
@@ -585,9 +701,9 @@ export default function CollectionOrders() {
                     />
                   </div>
 
-                  {/* Unloading Location */}
+                  {/* Unloading Location - Not required */}
                   <div>
-                    <Label>Descarregamento *</Label>
+                    <Label>Descarregamento</Label>
                     <div className="flex gap-2">
                       <Input
                         value={formData.unloading_city}
@@ -600,6 +716,7 @@ export default function CollectionOrders() {
                           <SelectValue placeholder="UF" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__">-</SelectItem>
                           {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                         </SelectContent>
                       </Select>
@@ -610,11 +727,12 @@ export default function CollectionOrders() {
                   <div>
                     <Label>Produto</Label>
                     <div className="flex gap-2">
-                      <Select value={formData.product_id} onValueChange={(v) => setFormData(prev => ({ ...prev, product_id: v }))}>
+                      <Select value={formData.product_id} onValueChange={(v) => setFormData(prev => ({ ...prev, product_id: v === "__none__" ? "" : v }))}>
                         <SelectTrigger className="flex-1">
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="__none__">Nenhum</SelectItem>
                           {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                         </SelectContent>
                       </Select>
@@ -636,11 +754,12 @@ export default function CollectionOrders() {
                   {/* Freight Type */}
                   <div>
                     <Label>Tipo</Label>
-                    <Select value={formData.freight_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_type_id: v }))}>
+                    <Select value={formData.freight_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_type_id: v === "__none__" ? "" : v }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
                         {freightTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -658,11 +777,12 @@ export default function CollectionOrders() {
                   {/* Freight Mode */}
                   <div>
                     <Label>Tipo de Frete</Label>
-                    <Select value={formData.freight_mode} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_mode: v }))}>
+                    <Select value={formData.freight_mode} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_mode: v === "__none__" ? "" : v }))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
                         {FREIGHT_MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -712,14 +832,20 @@ export default function CollectionOrders() {
                   <CardContent className="space-y-4 pt-4">
                     <div>
                       <Label>Motorista</Label>
-                      <Select value={formData.driver_id} onValueChange={handleDriverSelect}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o motorista" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {drivers.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select value={formData.driver_id} onValueChange={handleDriverSelect}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione o motorista" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
+                            {drivers.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="icon" onClick={openQuickDriverDialog}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -777,40 +903,52 @@ export default function CollectionOrders() {
                   <CardContent className="space-y-4 pt-4">
                     <div>
                       <Label>Placa (Cavalo)</Label>
-                      <Select 
-                        value={formData.vehicle_plate} 
-                        onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_plate: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o cavalo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cavalosVehicles.map((v: any) => (
-                            <SelectItem key={v.id} value={v.license_plate}>
-                              {v.license_plate} {v.model ? `- ${v.model}` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select 
+                          value={formData.vehicle_plate} 
+                          onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_plate: v === "__none__" ? "" : v }))}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecione o cavalo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
+                            {cavalosVehicles.map((v: any) => (
+                              <SelectItem key={v.id} value={v.license_plate}>
+                                {v.license_plate} {v.model ? `- ${v.model}` : ''}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="icon" onClick={() => openQuickVehicleDialog("Cavalo")}>
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center mb-2">
                         <Label>Carreta(s)</Label>
-                        <Button type="button" variant="outline" size="sm" onClick={addTrailerPlate}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button type="button" variant="outline" size="sm" onClick={() => openQuickVehicleDialog("Carreta")}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={addTrailerPlate}>
+                            Adicionar
+                          </Button>
+                        </div>
                       </div>
                       {formData.trailer_plates.map((plate, index) => (
                         <div key={index} className="flex gap-2 mb-2">
                           <Select 
                             value={plate} 
-                            onValueChange={(v) => updateTrailerPlate(index, v)}
+                            onValueChange={(v) => updateTrailerPlate(index, v === "__none__" ? "" : v)}
                           >
                             <SelectTrigger className="flex-1">
                               <SelectValue placeholder={`Selecione carreta ${index + 1}`} />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="__none__">Nenhum</SelectItem>
                               {carretasVehicles.map((v: any) => (
                                 <SelectItem key={v.id} value={v.license_plate}>
                                   {v.license_plate} {v.model ? `- ${v.model}` : ''}
@@ -827,15 +965,16 @@ export default function CollectionOrders() {
                       ))}
                     </div>
 
-                    {/* Vehicle Type with add option */}
+                    {/* Vehicle Type with add option - can be cleared */}
                     <div>
                       <Label>Tipo de Veículo</Label>
                       <div className="flex gap-2">
-                        <Select value={formData.vehicle_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_type_id: v }))}>
+                        <Select value={formData.vehicle_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_type_id: v === "__none__" ? "" : v }))}>
                           <SelectTrigger className="flex-1">
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
                             {vehicleTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -854,15 +993,16 @@ export default function CollectionOrders() {
                       </div>
                     </div>
 
-                    {/* Body Type with add option */}
+                    {/* Body Type with add option - can be cleared */}
                     <div>
                       <Label>Carroceria</Label>
                       <div className="flex gap-2">
-                        <Select value={formData.body_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, body_type_id: v }))}>
+                        <Select value={formData.body_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, body_type_id: v === "__none__" ? "" : v }))}>
                           <SelectTrigger className="flex-1">
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="__none__">Nenhum</SelectItem>
                             {bodyTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -907,6 +1047,119 @@ export default function CollectionOrders() {
         </Dialog>
       </div>
 
+      {/* Quick Add Driver Dialog */}
+      <Dialog open={isDriverDialogOpen} onOpenChange={setIsDriverDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Cadastro Rápido de Motorista</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Nome *</Label>
+              <Input
+                value={newDriverData.name}
+                onChange={(e) => setNewDriverData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>CPF</Label>
+                <Input
+                  value={newDriverData.cpf}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, cpf: e.target.value }))}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+              <div>
+                <Label>Telefone</Label>
+                <Input
+                  value={newDriverData.phone}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>CNH</Label>
+                <Input
+                  value={newDriverData.cnh}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, cnh: e.target.value }))}
+                  placeholder="Número da CNH"
+                />
+              </div>
+              <div>
+                <Label>Validade CNH</Label>
+                <Input
+                  type="date"
+                  value={newDriverData.cnh_expiry}
+                  onChange={(e) => setNewDriverData(prev => ({ ...prev, cnh_expiry: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDriverDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              onClick={() => {
+                if (!newDriverData.name) {
+                  toast.error("Informe o nome do motorista");
+                  return;
+                }
+                addDriverMutation.mutate(newDriverData);
+              }}
+              disabled={addDriverMutation.isPending}
+            >
+              {addDriverMutation.isPending ? "Salvando..." : "Cadastrar e Selecionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Vehicle Dialog */}
+      <Dialog open={isVehicleDialogOpen} onOpenChange={setIsVehicleDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Cadastro Rápido de {vehicleCategory}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Placa *</Label>
+              <Input
+                value={newVehicleData.license_plate}
+                onChange={(e) => setNewVehicleData(prev => ({ ...prev, license_plate: e.target.value.toUpperCase() }))}
+                placeholder="ABC1234"
+                maxLength={7}
+              />
+            </div>
+            <div>
+              <Label>Modelo</Label>
+              <Input
+                value={newVehicleData.model}
+                onChange={(e) => setNewVehicleData(prev => ({ ...prev, model: e.target.value }))}
+                placeholder="Ex: Volvo FH 540"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsVehicleDialogOpen(false)}>Cancelar</Button>
+            <Button 
+              onClick={() => {
+                if (!newVehicleData.license_plate) {
+                  toast.error("Informe a placa do veículo");
+                  return;
+                }
+                addVehicleMutation.mutate({ ...newVehicleData, category: vehicleCategory });
+              }}
+              disabled={addVehicleMutation.isPending}
+            >
+              {addVehicleMutation.isPending ? "Salvando..." : "Cadastrar e Selecionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Orders List */}
       {isLoading ? (
         <p className="text-muted-foreground">Carregando...</p>
@@ -926,44 +1179,52 @@ export default function CollectionOrders() {
                         {format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
                       </p>
                     </div>
-                    <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded">
-                      {order.weight_tons}T
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded">
+                        {order.weight_tons}T
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(order)}>
+                            <Pencil className="h-4 w-4 mr-2" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setPrintOrder(order)}>
+                            <Printer className="h-4 w-4 mr-2" /> Imprimir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setPrintOrder(order);
+                            toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
+                            setTimeout(() => {
+                              window.open('https://web.whatsapp.com/', '_blank');
+                            }, 500);
+                          }}>
+                            <Share2 className="h-4 w-4 mr-2 text-green-600" /> Compartilhar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => {
+                              if (confirm("Deseja realmente excluir esta ordem?")) {
+                                deleteOrderMutation.mutate(order.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   <div className="space-y-2 text-sm">
-                    <p><span className="text-muted-foreground">Destinatário:</span> {order.recipient_name}</p>
-                    <p><span className="text-muted-foreground">Destino:</span> {order.unloading_city} - {order.unloading_state}</p>
+                    <p><span className="text-muted-foreground">Destinatário:</span> {order.recipient_name || "-"}</p>
+                    <p><span className="text-muted-foreground">Destino:</span> {order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-"}</p>
                     {order.driver_name && (
                       <p><span className="text-muted-foreground">Motorista:</span> {order.driver_name}</p>
                     )}
-                  </div>
-                  <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(order)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setPrintOrder(order)}>
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => {
-                        setPrintOrder(order);
-                        toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
-                        setTimeout(() => {
-                          window.open('https://web.whatsapp.com/', '_blank');
-                        }, 500);
-                      }}
-                    >
-                      <Share2 className="h-4 w-4 text-green-600" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => {
-                      if (confirm("Deseja realmente excluir esta ordem?")) {
-                        deleteOrderMutation.mutate(order.id);
-                      }
-                    }}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -989,41 +1250,45 @@ export default function CollectionOrders() {
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
                     <TableCell>{format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell className="max-w-[150px] truncate">{order.recipient_name}</TableCell>
-                    <TableCell className="hidden md:table-cell">{order.unloading_city} - {order.unloading_state}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{order.recipient_name || "-"}</TableCell>
+                    <TableCell className="hidden md:table-cell">{order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-"}</TableCell>
                     <TableCell className="hidden lg:table-cell">{order.driver_name || "-"}</TableCell>
                     <TableCell>{order.weight_tons}T</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(order)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPrintOrder(order)}>
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => {
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(order)}>
+                            <Pencil className="h-4 w-4 mr-2" /> Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setPrintOrder(order)}>
+                            <Printer className="h-4 w-4 mr-2" /> Imprimir
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
                             setPrintOrder(order);
                             toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
                             setTimeout(() => {
                               window.open('https://web.whatsapp.com/', '_blank');
                             }, 500);
-                          }}
-                          title="Compartilhar via WhatsApp"
-                        >
-                          <Share2 className="h-4 w-4 text-green-600" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                          if (confirm("Deseja realmente excluir esta ordem?")) {
-                            deleteOrderMutation.mutate(order.id);
-                          }
-                        }}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                          }}>
+                            <Share2 className="h-4 w-4 mr-2 text-green-600" /> Compartilhar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => {
+                              if (confirm("Deseja realmente excluir esta ordem?")) {
+                                deleteOrderMutation.mutate(order.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

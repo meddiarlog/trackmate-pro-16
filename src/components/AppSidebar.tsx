@@ -92,18 +92,16 @@ const menuItems = [
   },
   {
     title: "Minha Conta",
+    url: "/account",
     icon: User,
+  },
+  {
+    title: "Gestão de Acessos",
+    icon: Shield,
     items: [
-      { title: "Conta", url: "/account", icon: User },
-      {
-        title: "Gestão de Acessos",
-        icon: Shield,
-        items: [
-          { title: "Usuários", url: "/account/access/users", icon: Users },
-          { title: "Grupo de Usuários", url: "/account/access/user-groups", icon: Users },
-          { title: "Permissões", url: "/account/access/permissions", icon: Shield },
-        ],
-      },
+      { title: "Usuários", url: "/access/users", icon: Users },
+      { title: "Grupo de Usuários", url: "/access/user-groups", icon: Users },
+      { title: "Permissões", url: "/access/permissions", icon: Shield },
     ],
   },
   {
