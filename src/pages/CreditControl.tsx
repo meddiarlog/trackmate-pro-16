@@ -25,9 +25,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Download, Copy, Check } from "lucide-react";
+import { Pencil, Trash2, Plus, Search, Download, Copy, Check, Calculator } from "lucide-react";
 
 type CreditRecord = {
   id: string;
@@ -41,6 +46,168 @@ type CreditRecord = {
   credito: number;
   chave_acesso: string;
   uf: string;
+};
+
+// Calculator component for quantity field
+const QuantityCalculator = ({ onResult }: { onResult: (result: number) => void }) => {
+  const [display, setDisplay] = useState("0");
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [operation, setOperation] = useState<string | null>(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const inputDigit = (digit: string) => {
+    if (waitingForOperand) {
+      setDisplay(digit);
+      setWaitingForOperand(false);
+    } else {
+      setDisplay(display === "0" ? digit : display + digit);
+    }
+  };
+
+  const inputDecimal = () => {
+    if (waitingForOperand) {
+      setDisplay("0.");
+      setWaitingForOperand(false);
+      return;
+    }
+    if (!display.includes(".")) {
+      setDisplay(display + ".");
+    }
+  };
+
+  const clear = () => {
+    setDisplay("0");
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForOperand(false);
+  };
+
+  const performOperation = (nextOperation: string) => {
+    const inputValue = parseFloat(display);
+
+    if (previousValue === null) {
+      setPreviousValue(inputValue);
+    } else if (operation) {
+      const currentValue = previousValue;
+      let newValue: number;
+
+      switch (operation) {
+        case "+":
+          newValue = currentValue + inputValue;
+          break;
+        case "-":
+          newValue = currentValue - inputValue;
+          break;
+        case "×":
+          newValue = currentValue * inputValue;
+          break;
+        case "÷":
+          newValue = currentValue / inputValue;
+          break;
+        default:
+          newValue = inputValue;
+      }
+
+      setDisplay(String(newValue));
+      setPreviousValue(newValue);
+    }
+
+    setWaitingForOperand(true);
+    setOperation(nextOperation);
+  };
+
+  const calculate = () => {
+    if (!operation || previousValue === null) return;
+
+    const inputValue = parseFloat(display);
+    let newValue: number;
+
+    switch (operation) {
+      case "+":
+        newValue = previousValue + inputValue;
+        break;
+      case "-":
+        newValue = previousValue - inputValue;
+        break;
+      case "×":
+        newValue = previousValue * inputValue;
+        break;
+      case "÷":
+        newValue = previousValue / inputValue;
+        break;
+      default:
+        newValue = inputValue;
+    }
+
+    setDisplay(String(newValue));
+    setPreviousValue(null);
+    setOperation(null);
+    setWaitingForOperand(true);
+  };
+
+  const useResult = () => {
+    const result = parseFloat(display);
+    if (!isNaN(result)) {
+      onResult(result);
+      clear();
+      setIsOpen(false);
+    }
+  };
+
+  const CalcButton = ({ onClick, children, className = "" }: { onClick: () => void; children: React.ReactNode; className?: string }) => (
+    <Button
+      type="button"
+      variant="outline"
+      className={`h-10 w-10 text-lg font-medium ${className}`}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="icon">
+          <Calculator className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="end">
+        <div className="space-y-2">
+          <div className="bg-muted p-2 rounded text-right text-xl font-mono min-h-[40px]">
+            {display}
+          </div>
+          <div className="grid grid-cols-4 gap-1">
+            <CalcButton onClick={clear} className="col-span-2 w-full bg-destructive/10 hover:bg-destructive/20">C</CalcButton>
+            <CalcButton onClick={() => performOperation("÷")}>÷</CalcButton>
+            <CalcButton onClick={() => performOperation("×")}>×</CalcButton>
+            
+            <CalcButton onClick={() => inputDigit("7")}>7</CalcButton>
+            <CalcButton onClick={() => inputDigit("8")}>8</CalcButton>
+            <CalcButton onClick={() => inputDigit("9")}>9</CalcButton>
+            <CalcButton onClick={() => performOperation("-")}>-</CalcButton>
+            
+            <CalcButton onClick={() => inputDigit("4")}>4</CalcButton>
+            <CalcButton onClick={() => inputDigit("5")}>5</CalcButton>
+            <CalcButton onClick={() => inputDigit("6")}>6</CalcButton>
+            <CalcButton onClick={() => performOperation("+")}>+</CalcButton>
+            
+            <CalcButton onClick={() => inputDigit("1")}>1</CalcButton>
+            <CalcButton onClick={() => inputDigit("2")}>2</CalcButton>
+            <CalcButton onClick={() => inputDigit("3")}>3</CalcButton>
+            <CalcButton onClick={calculate} className="row-span-2 h-full">=</CalcButton>
+            
+            <CalcButton onClick={() => inputDigit("0")} className="col-span-2 w-full">0</CalcButton>
+            <CalcButton onClick={inputDecimal}>.</CalcButton>
+          </div>
+          <Button type="button" className="w-full" onClick={useResult}>
+            Usar Resultado
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 };
 
 const CreditControl = () => {
@@ -449,16 +616,21 @@ const CreditControl = () => {
                 </div>
                 <div>
                   <Label htmlFor="quantidade">Quantidade</Label>
-                  <Input
-                    id="quantidade"
-                    type="number"
-                    step="0.01"
-                    value={formData.quantidade}
-                    onChange={(e) =>
-                      setFormData({ ...formData, quantidade: e.target.value })
-                    }
-                    required
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      id="quantidade"
+                      type="number"
+                      step="0.01"
+                      value={formData.quantidade}
+                      onChange={(e) =>
+                        setFormData({ ...formData, quantidade: e.target.value })
+                      }
+                      required
+                    />
+                    <QuantityCalculator 
+                      onResult={(result) => setFormData({ ...formData, quantidade: result.toString() })}
+                    />
+                  </div>
                 </div>
               </div>
 
