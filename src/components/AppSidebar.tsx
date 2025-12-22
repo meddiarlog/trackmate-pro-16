@@ -34,8 +34,14 @@ const menuItems = [
     items: [
       { title: "Clientes", url: "/customers", icon: Users },
       { title: "Motoristas", url: "/drivers", icon: UserCircle },
-      { title: "Veículos", url: "/vehicles", icon: Truck },
-      { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
+      {
+        title: "Veículo",
+        icon: Truck,
+        items: [
+          { title: "Veículos", url: "/vehicles", icon: Truck },
+          { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
+        ],
+      },
       { title: "Fornecedores", url: "/suppliers", icon: Briefcase },
       { title: "Produtos", url: "/products", icon: Package },
     ],
@@ -44,11 +50,17 @@ const menuItems = [
     title: "Serviços",
     icon: ClipboardList,
     items: [
-      { title: "Ordem de Coleta", url: "/collection-orders", icon: MapPin },
-      { title: "CTE", url: "/cte", icon: FileText },
-      { title: "MDF-e", url: "/mdfe", icon: FileCheck },
-      { title: "Frete", url: "/freights", icon: Package },
-      { title: "Contrato", url: "/contracts", icon: FileText },
+      {
+        title: "Frete",
+        icon: Package,
+        items: [
+          { title: "Contratar", url: "/freights", icon: Package },
+          { title: "Ordem de Coleta", url: "/collection-orders", icon: MapPin },
+          { title: "CTE", url: "/cte", icon: FileText },
+          { title: "Contrato", url: "/contracts", icon: FileText },
+          { title: "MDF-e", url: "/mdfe", icon: FileCheck },
+        ],
+      },
       { title: "Cotação", url: "/quotes", icon: Calculator, badge: "Novo" },
     ],
   },

@@ -221,6 +221,7 @@ export type Database = {
           file_url: string
           id: string
           issue_date: string
+          pagador_id: string | null
           status: string
           tratativa_status: string | null
           type: string
@@ -238,6 +239,7 @@ export type Database = {
           file_url: string
           id?: string
           issue_date?: string
+          pagador_id?: string | null
           status?: string
           tratativa_status?: string | null
           type?: string
@@ -255,6 +257,7 @@ export type Database = {
           file_url?: string
           id?: string
           issue_date?: string
+          pagador_id?: string | null
           status?: string
           tratativa_status?: string | null
           type?: string
@@ -264,6 +267,13 @@ export type Database = {
           {
             foreignKeyName: "boletos_customer_id_fkey"
             columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boletos_pagador_id_fkey"
+            columns: ["pagador_id"]
             isOneToOne: false
             referencedRelation: "customers"
             referencedColumns: ["id"]

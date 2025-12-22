@@ -34,14 +34,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare } from "lucide-react";
 import { format, addDays, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type Cobranca = {
   id: string;
   customer_id: string;
+  pagador_id: string | null;
   issue_date: string;
   due_date: string;
   file_url: string;
@@ -50,19 +64,37 @@ type Cobranca = {
   type: string;
   amount: number | null;
   cte_reference: string | null;
+  doc_number: string | null;
   tratativa_status: string | null;
   data_acerto: string | null;
   created_at: string;
   customer?: {
     name: string;
     prazo_dias?: number;
+    cpf_cnpj?: string;
+    phone?: string;
   };
+  pagador?: {
+    name: string;
+    cpf_cnpj?: string;
+    phone?: string;
+  } | null;
 };
 
 type Customer = {
   id: string;
   name: string;
   prazo_dias: number | null;
+  cpf_cnpj: string | null;
+  phone: string | null;
+};
+
+type CustomerContact = {
+  id: string;
+  customer_id: string;
+  tipo: string;
+  telefone: string | null;
+  email: string | null;
 };
 
 const Cobrancas = () => {
@@ -89,6 +121,7 @@ const Cobrancas = () => {
 
   const [formData, setFormData] = useState({
     customer_id: "",
+    pagador_id: "",
     issue_date: new Date().toISOString().split("T")[0],
     due_date: new Date().toISOString().split("T")[0],
     type: "boleto",
@@ -99,6 +132,14 @@ const Cobrancas = () => {
     data_acerto: "",
     file: null as File | null,
   });
+
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [pagadorSearch, setPagadorSearch] = useState("");
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [pagadorPopoverOpen, setPagadorPopoverOpen] = useState(false);
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [selectedCobrancaForWhatsapp, setSelectedCobrancaForWhatsapp] = useState<Cobranca | null>(null);
+  const [availableContacts, setAvailableContacts] = useState<Array<{ phone: string; type: string; name: string }>>([]);
 
   const [rescheduleData, setRescheduleData] = useState({
     new_due_date: "",
@@ -116,7 +157,8 @@ const Cobrancas = () => {
         .from("boletos")
         .select(`
           *,
-          customer:customers(name, prazo_dias)
+          customer:customers!boletos_customer_id_fkey(name, prazo_dias, cpf_cnpj, phone),
+          pagador:customers!boletos_pagador_id_fkey(name, cpf_cnpj, phone)
         `)
         .order("due_date", { ascending: false });
 
@@ -137,7 +179,7 @@ const Cobrancas = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, prazo_dias")
+        .select("id, name, prazo_dias, cpf_cnpj, phone")
         .order("name");
 
       if (error) throw error;
@@ -333,6 +375,7 @@ const Cobrancas = () => {
 
       const payload = {
         customer_id: formData.customer_id,
+        pagador_id: formData.pagador_id || null,
         issue_date: formData.issue_date,
         due_date: formData.due_date,
         file_url: fileData.url,
@@ -427,12 +470,13 @@ const Cobrancas = () => {
     setEditingCobranca(cobranca);
     setFormData({
       customer_id: cobranca.customer_id,
+      pagador_id: cobranca.pagador_id || "",
       issue_date: cobranca.issue_date,
       due_date: cobranca.due_date,
       type: cobranca.type || "boleto",
       amount: cobranca.amount?.toString() || "",
       cte_reference: cobranca.cte_reference || "",
-      doc_number: (cobranca as any).doc_number || "",
+      doc_number: cobranca.doc_number || "",
       tratativa_status: cobranca.tratativa_status || "",
       data_acerto: cobranca.data_acerto || "",
       file: null,
@@ -566,6 +610,7 @@ const Cobrancas = () => {
   const resetForm = () => {
     setFormData({
       customer_id: "",
+      pagador_id: "",
       issue_date: new Date().toISOString().split("T")[0],
       due_date: new Date().toISOString().split("T")[0],
       type: "boleto",
@@ -577,9 +622,128 @@ const Cobrancas = () => {
       file: null,
     });
     setEditingCobranca(null);
+    setCustomerSearch("");
+    setPagadorSearch("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  // Filter customers by search (name or CNPJ)
+  const filteredCustomerOptions = customers.filter((customer) => {
+    const search = customerSearch.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(search) ||
+      (customer.cpf_cnpj && customer.cpf_cnpj.replace(/\D/g, "").includes(search.replace(/\D/g, "")))
+    );
+  });
+
+  const filteredPagadorOptions = customers.filter((customer) => {
+    const search = pagadorSearch.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(search) ||
+      (customer.cpf_cnpj && customer.cpf_cnpj.replace(/\D/g, "").includes(search.replace(/\D/g, "")))
+    );
+  });
+
+  const getSelectedCustomerName = () => {
+    const customer = customers.find(c => c.id === formData.customer_id);
+    return customer ? customer.name : "";
+  };
+
+  const getSelectedPagadorName = () => {
+    const pagador = customers.find(c => c.id === formData.pagador_id);
+    return pagador ? pagador.name : "";
+  };
+
+  const handleCobrar = async (cobranca: Cobranca) => {
+    // Get contacts for pagador (if exists) or customer
+    const targetCustomerId = cobranca.pagador_id || cobranca.customer_id;
+    const targetName = cobranca.pagador?.name || cobranca.customer?.name || "Cliente";
+    
+    // Fetch all contacts for this customer
+    const { data: contacts, error } = await supabase
+      .from("customer_contacts")
+      .select("*")
+      .eq("customer_id", targetCustomerId);
+
+    if (error) {
+      console.error("Erro ao buscar contatos:", error);
+    }
+
+    const allContacts: Array<{ phone: string; type: string; name: string }> = [];
+    
+    // Add main phone from customer/pagador
+    const targetCustomer = customers.find(c => c.id === targetCustomerId);
+    if (targetCustomer?.phone) {
+      allContacts.push({
+        phone: targetCustomer.phone,
+        type: "Principal",
+        name: targetName
+      });
+    }
+
+    // Add additional contacts
+    if (contacts) {
+      contacts.forEach((contact: CustomerContact) => {
+        if (contact.telefone) {
+          allContacts.push({
+            phone: contact.telefone,
+            type: contact.tipo,
+            name: targetName
+          });
+        }
+      });
+    }
+
+    if (allContacts.length === 0) {
+      toast({
+        title: "Sem contato",
+        description: "Não há telefone cadastrado para este cliente/pagador",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (allContacts.length === 1) {
+      // Only one contact, send directly
+      sendWhatsappMessage(cobranca, allContacts[0].phone);
+    } else {
+      // Multiple contacts, show selection dialog
+      setSelectedCobrancaForWhatsapp(cobranca);
+      setAvailableContacts(allContacts);
+      setWhatsappDialogOpen(true);
+    }
+  };
+
+  const sendWhatsappMessage = (cobranca: Cobranca, phone: string) => {
+    const cleanPhone = phone.replace(/\D/g, "");
+    const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    
+    const customerName = cobranca.pagador?.name || cobranca.customer?.name || "Cliente";
+    const amount = cobranca.amount 
+      ? `R$ ${cobranca.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+      : "valor não informado";
+    const dueDate = format(new Date(cobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR });
+    
+    const message = `Olá ${customerName}! 👋
+
+Gostaríamos de informar sobre a cobrança:
+
+📄 *Tipo:* ${cobranca.type === "boleto" ? "Boleto" : cobranca.type === "fatura" ? "Fatura" : cobranca.type === "pix" ? "Pix" : "A Combinar"}
+💰 *Valor:* ${amount}
+📅 *Vencimento:* ${dueDate}
+${cobranca.cte_reference ? `🚚 *CTE:* ${cobranca.cte_reference}` : ""}
+${cobranca.doc_number ? `📋 *Doc:* ${cobranca.doc_number}` : ""}
+
+Por favor, entre em contato para mais informações.
+
+Atenciosamente,
+Equipe de Cobrança`;
+
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/${formattedPhone}?text=${encodedMessage}`, "_blank");
+    setWhatsappDialogOpen(false);
   };
 
   const getEffectiveStatus = (cobranca: Cobranca): string => {
@@ -694,22 +858,108 @@ const Cobrancas = () => {
               </div>
 
               <div>
-                <Label htmlFor="customer_id">Cliente *</Label>
-                <Select
-                  value={formData.customer_id}
-                  onValueChange={handleCustomerChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name} {customer.prazo_dias ? `(${customer.prazo_dias} dias)` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="customer_id">Cliente * (busque por nome ou CNPJ)</Label>
+                <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerPopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {formData.customer_id ? getSelectedCustomerName() : "Selecione um cliente..."}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar por nome ou CNPJ..." 
+                        value={customerSearch}
+                        onValueChange={setCustomerSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {filteredCustomerOptions.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.id}
+                              onSelect={() => {
+                                handleCustomerChange(customer.id);
+                                setCustomerPopoverOpen(false);
+                              }}
+                            >
+                              <div className="flex flex-col">
+                                <span>{customer.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {customer.cpf_cnpj || "Sem CNPJ"} {customer.prazo_dias ? `• ${customer.prazo_dias} dias` : ""}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div>
+                <Label htmlFor="pagador_id">Pagador (opcional)</Label>
+                <Popover open={pagadorPopoverOpen} onOpenChange={setPagadorPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={pagadorPopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {formData.pagador_id ? getSelectedPagadorName() : "Selecione um pagador..."}
+                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar por nome ou CNPJ..." 
+                        value={pagadorSearch}
+                        onValueChange={setPagadorSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>Nenhum pagador encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="none"
+                            onSelect={() => {
+                              setFormData({ ...formData, pagador_id: "" });
+                              setPagadorPopoverOpen(false);
+                            }}
+                          >
+                            <span className="text-muted-foreground">Nenhum (usar cliente)</span>
+                          </CommandItem>
+                          {filteredPagadorOptions.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.id}
+                              onSelect={() => {
+                                setFormData({ ...formData, pagador_id: customer.id });
+                                setPagadorPopoverOpen(false);
+                              }}
+                            >
+                              <div className="flex flex-col">
+                                <span>{customer.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {customer.cpf_cnpj || "Sem CNPJ"}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -981,7 +1231,7 @@ const Cobrancas = () => {
                         {cobranca.cte_reference || "—"}
                       </TableCell>
                       <TableCell>
-                        {(cobranca as any).doc_number || "—"}
+                        {cobranca.doc_number || "—"}
                       </TableCell>
                       <TableCell>
                         {cobranca.amount 
@@ -1014,6 +1264,10 @@ const Cobrancas = () => {
                             <DropdownMenuItem onClick={() => handleReschedule(cobranca)}>
                               <Calendar className="mr-2 h-4 w-4 text-orange-500" />
                               Reagendar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleCobrar(cobranca)} className="text-green-600">
+                              <MessageSquare className="mr-2 h-4 w-4" />
+                              Cobrar (WhatsApp)
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {cobranca.file_url && (
@@ -1202,6 +1456,36 @@ const Cobrancas = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Contact Selection Dialog */}
+      <Dialog open={whatsappDialogOpen} onOpenChange={setWhatsappDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Selecionar Contato</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Escolha para qual número deseja enviar a mensagem de cobrança:
+            </p>
+            <div className="space-y-2">
+              {availableContacts.map((contact, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => selectedCobrancaForWhatsapp && sendWhatsappMessage(selectedCobrancaForWhatsapp, contact.phone)}
+                >
+                  <Phone className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col items-start">
+                    <span>{contact.phone}</span>
+                    <span className="text-xs text-muted-foreground">{contact.type}</span>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
