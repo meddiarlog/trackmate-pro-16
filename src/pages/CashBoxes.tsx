@@ -115,7 +115,7 @@ export default function CashBoxes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("boletos")
-        .select(`*, customer:customers(name)`)
+        .select(`*, customer:customers!boletos_customer_id_fkey(name)`)
         .in("status", ["Quitado", "Recebido"])
         .order("due_date", { ascending: false });
 
