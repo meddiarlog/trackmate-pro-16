@@ -872,7 +872,7 @@ Equipe de Cobrança`;
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
-                    <Command>
+                    <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder="Buscar por nome ou CNPJ..." 
                         value={customerSearch}
@@ -920,7 +920,7 @@ Equipe de Cobrança`;
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-full p-0" align="start">
-                    <Command>
+                    <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder="Buscar por nome ou CNPJ..." 
                         value={pagadorSearch}
