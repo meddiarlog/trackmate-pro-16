@@ -18,14 +18,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -34,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare } from "lucide-react";
+import { Plus, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare, Search } from "lucide-react";
 import { format, addDays, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +43,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 type Cobranca = {
   id: string;
@@ -79,6 +73,14 @@ type Cobranca = {
     cpf_cnpj?: string;
     phone?: string;
   } | null;
+  // Computed fields for filtering
+  customerName?: string;
+  pagadorName?: string;
+  effectiveStatus?: string;
+  formattedAmount?: string;
+  formattedDueDate?: string;
+  typeLabel?: string;
+  tratativaLabel?: string;
 };
 
 type Customer = {
@@ -109,13 +111,8 @@ const Cobrancas = () => {
   const [viewingCobranca, setViewingCobranca] = useState<Cobranca | null>(null);
   const [viewBlobUrl, setViewBlobUrl] = useState<string | null>(null);
   const [loadingView, setLoadingView] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [uploading, setUploading] = useState(false);
   const [extractingValue, setExtractingValue] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rescheduleFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,6 +142,39 @@ const Cobrancas = () => {
     new_due_date: "",
     file: null as File | null,
   });
+
+  // Transform cobrancas with computed fields for filtering
+  const transformedCobrancas = cobrancas.map(cobranca => {
+    const effectiveStatus = getEffectiveStatus(cobranca);
+    return {
+      ...cobranca,
+      customerName: cobranca.customer?.name || "",
+      pagadorName: cobranca.pagador?.name || "",
+      effectiveStatus,
+      formattedAmount: cobranca.amount 
+        ? `R$ ${cobranca.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+        : "",
+      formattedDueDate: format(new Date(cobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }),
+      typeLabel: getTypeLabel(cobranca.type),
+      tratativaLabel: getTratativaLabel(cobranca.tratativa_status),
+    };
+  });
+
+  const {
+    globalSearch,
+    setGlobalSearch,
+    columnFilters,
+    updateColumnFilter,
+    sortConfig,
+    toggleSort,
+    clearAllFilters,
+    filteredData,
+    hasActiveFilters,
+    totalCount,
+    filteredCount,
+  } = useTableFilters(transformedCobrancas, [
+    'customerName', 'pagadorName', 'cte_reference', 'doc_number', 'typeLabel', 'effectiveStatus', 'formattedAmount'
+  ]);
 
   useEffect(() => {
     fetchCobrancas();
@@ -272,7 +302,6 @@ const Cobrancas = () => {
 
     setFormData({ ...formData, file });
 
-    // Try to extract value from PDF
     if (file.name.toLowerCase().endsWith('.pdf')) {
       toast({
         title: "Processando PDF",
@@ -339,7 +368,6 @@ const Cobrancas = () => {
       return;
     }
 
-    // File is only required for new charges when type is not "a_combinar"
     const isFileRequired = !editingCobranca && formData.type !== "a_combinar";
     if (isFileRequired && !formData.file) {
       toast({
@@ -364,7 +392,6 @@ const Cobrancas = () => {
         fileData = await uploadFile(formData.file);
       }
 
-      // For "a_combinar" type without file, use empty values
       if (!fileData && formData.type === "a_combinar") {
         fileData = { url: "", name: "" };
       }
@@ -629,7 +656,6 @@ const Cobrancas = () => {
     }
   };
 
-  // Filter customers by search (name or CNPJ)
   const filteredCustomerOptions = customers.filter((customer) => {
     const search = customerSearch.toLowerCase();
     return (
@@ -657,11 +683,9 @@ const Cobrancas = () => {
   };
 
   const handleCobrar = async (cobranca: Cobranca) => {
-    // Get contacts for pagador (if exists) or customer
     const targetCustomerId = cobranca.pagador_id || cobranca.customer_id;
     const targetName = cobranca.pagador?.name || cobranca.customer?.name || "Cliente";
     
-    // Fetch all contacts for this customer
     const { data: contacts, error } = await supabase
       .from("customer_contacts")
       .select("*")
@@ -673,7 +697,6 @@ const Cobrancas = () => {
 
     const allContacts: Array<{ phone: string; type: string; name: string }> = [];
     
-    // Add main phone from customer/pagador
     const targetCustomer = customers.find(c => c.id === targetCustomerId);
     if (targetCustomer?.phone) {
       allContacts.push({
@@ -683,7 +706,6 @@ const Cobrancas = () => {
       });
     }
 
-    // Add additional contacts
     if (contacts) {
       contacts.forEach((contact: CustomerContact) => {
         if (contact.telefone) {
@@ -706,10 +728,8 @@ const Cobrancas = () => {
     }
 
     if (allContacts.length === 1) {
-      // Only one contact, send directly
       sendWhatsappMessage(cobranca, allContacts[0].phone);
     } else {
-      // Multiple contacts, show selection dialog
       setSelectedCobrancaForWhatsapp(cobranca);
       setAvailableContacts(allContacts);
       setWhatsappDialogOpen(true);
@@ -746,44 +766,41 @@ Equipe de Cobrança`;
     setWhatsappDialogOpen(false);
   };
 
-  const getEffectiveStatus = (cobranca: Cobranca): string => {
-    // If already has a final status, return it
+  function getEffectiveStatus(cobranca: Cobranca): string {
     if (cobranca.status === "Recebido" || cobranca.status === "Reagendado") {
       return cobranca.status;
     }
-    // Check if overdue
     const today = new Date().toISOString().split("T")[0];
     if (cobranca.due_date < today && cobranca.status !== "Recebido") {
       return "Atrasado";
     }
-    // If "Em aberto" or "Quitado" (legacy), map to new statuses
     if (cobranca.status === "Quitado") {
       return "Recebido";
     }
     return "A Receber";
-  };
+  }
 
-  const filteredCobrancas = cobrancas.filter((cobranca) => {
-    const matchesSearch = cobranca.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || cobranca.type === typeFilter;
-    const matchesStartDate = !startDate || cobranca.due_date >= startDate;
-    const matchesEndDate = !endDate || cobranca.due_date <= endDate;
-    
-    const effectiveStatus = getEffectiveStatus(cobranca);
-    let matchesStatus = false;
-    if (statusFilter === "all") {
-      matchesStatus = true;
-    } else {
-      matchesStatus = effectiveStatus === statusFilter;
+  function getTypeLabel(type: string): string {
+    switch (type) {
+      case "boleto": return "Boleto";
+      case "fatura": return "Fatura";
+      case "pix": return "Pix";
+      case "a_combinar": return "A Combinar";
+      default: return "Boleto";
     }
-    
-    return matchesSearch && matchesStatus && matchesType && matchesStartDate && matchesEndDate;
-  });
+  }
 
-  const getStatusBadge = (cobranca: Cobranca) => {
-    const effectiveStatus = getEffectiveStatus(cobranca);
-    
-    switch (effectiveStatus) {
+  function getTratativaLabel(tratativa: string | null): string {
+    switch (tratativa) {
+      case "acertado": return "Acertado";
+      case "pendente_cliente": return "Pend. Cliente";
+      case "pendente_nos": return "Pend. Nós";
+      default: return "";
+    }
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
       case "Recebido":
         return <Badge className="bg-blue-500 hover:bg-blue-600 text-white">Recebido</Badge>;
       case "A Receber":
@@ -812,11 +829,136 @@ Equipe de Cobrança`;
     }
   };
 
+  const getTratativaBadge = (tratativa: string | null) => {
+    switch (tratativa) {
+      case "acertado":
+        return <Badge variant="outline" className="border-green-500 text-green-600 text-xs">Acertado</Badge>;
+      case "pendente_cliente":
+        return <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-xs">Pend. Cliente</Badge>;
+      case "pendente_nos":
+        return <Badge variant="outline" className="border-red-500 text-red-600 text-xs">Pend. Nós</Badge>;
+      default:
+        return <span className="text-muted-foreground">—</span>;
+    }
+  };
+
   const isFilePreviewable = (fileName: string) => {
     if (!fileName) return false;
     const ext = fileName.split(".").pop()?.toLowerCase();
     return ["pdf", "jpg", "jpeg", "png", "gif", "webp"].includes(ext || "");
   };
+
+  const columns: FilterableColumn<Cobranca>[] = [
+    {
+      key: "customerName",
+      header: "Cliente",
+      sortable: true,
+      render: (item) => (
+        <span className="font-medium">{item.customer?.name || "—"}</span>
+      ),
+    },
+    {
+      key: "typeLabel",
+      header: "Tipo",
+      sortable: true,
+      render: (item) => getTypeBadge(item.type),
+    },
+    {
+      key: "tratativaLabel",
+      header: "Acordado",
+      sortable: true,
+      render: (item) => getTratativaBadge(item.tratativa_status),
+    },
+    {
+      key: "cte_reference",
+      header: "CTE",
+      sortable: true,
+      render: (item) => item.cte_reference || "—",
+    },
+    {
+      key: "doc_number",
+      header: "Doc",
+      sortable: true,
+      render: (item) => item.doc_number || "—",
+    },
+    {
+      key: "formattedAmount",
+      header: "Valor",
+      sortable: true,
+      render: (item) => item.formattedAmount || "—",
+    },
+    {
+      key: "due_date",
+      header: "Vencimento",
+      sortable: true,
+      render: (item) => item.formattedDueDate,
+    },
+    {
+      key: "effectiveStatus",
+      header: "Status",
+      sortable: true,
+      render: (item) => getStatusBadge(item.effectiveStatus || "A Receber"),
+    },
+    {
+      key: "actions",
+      header: "Ações",
+      filterable: false,
+      className: "text-right",
+      headerClassName: "text-right",
+      render: (item) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => handleToggleStatus(item, "Recebido")}>
+              <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" />
+              Recebido
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleToggleStatus(item, "Em aberto")}>
+              <XCircle className="mr-2 h-4 w-4 text-green-500" />
+              A Receber
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleReschedule(item)}>
+              <Calendar className="mr-2 h-4 w-4 text-orange-500" />
+              Reagendar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCobrar(item)} className="text-green-600">
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Cobrar (WhatsApp)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {item.file_url && (
+              <>
+                <DropdownMenuItem onClick={() => handleView(item)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Visualizar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload(item)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuItem onClick={() => handleEdit(item)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => handleDelete(item)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -1118,191 +1260,28 @@ Equipe de Cobrança`;
         </Dialog>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar por cliente..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="boleto">Boleto</SelectItem>
-            <SelectItem value="fatura">Fatura</SelectItem>
-            <SelectItem value="pix">Pix</SelectItem>
-            <SelectItem value="a_combinar">A Combinar</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="A Receber">A Receber</SelectItem>
-            <SelectItem value="Atrasado">Atrasado</SelectItem>
-            <SelectItem value="Recebido">Recebido</SelectItem>
-            <SelectItem value="Reagendado">Reagendado</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">De:</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-36"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground whitespace-nowrap">Até:</Label>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-36"
-          />
-        </div>
-        {(startDate || endDate || statusFilter !== "all" || typeFilter !== "all") && (
-          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setStatusFilter("all"); setTypeFilter("all"); }}>
-            Limpar
-          </Button>
-        )}
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>Lista de Cobranças</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {loading ? (
-            <p>Carregando...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Acordado</TableHead>
-                  <TableHead>CTE</TableHead>
-                  <TableHead>Doc</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCobrancas.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center">
-                      Nenhuma cobrança encontrada
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredCobrancas.map((cobranca) => (
-                    <TableRow key={cobranca.id}>
-                      <TableCell className="font-medium">
-                        {cobranca.customer?.name || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {getTypeBadge(cobranca.type)}
-                      </TableCell>
-                      <TableCell>
-                        {cobranca.tratativa_status === "acertado" && (
-                          <Badge variant="outline" className="border-green-500 text-green-600 text-xs">Acertado</Badge>
-                        )}
-                        {cobranca.tratativa_status === "pendente_cliente" && (
-                          <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-xs">Pend. Cliente</Badge>
-                        )}
-                        {cobranca.tratativa_status === "pendente_nos" && (
-                          <Badge variant="outline" className="border-red-500 text-red-600 text-xs">Pend. Nós</Badge>
-                        )}
-                        {!cobranca.tratativa_status && "—"}
-                      </TableCell>
-                      <TableCell>
-                        {cobranca.cte_reference || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {cobranca.doc_number || "—"}
-                      </TableCell>
-                      <TableCell>
-                        {cobranca.amount 
-                          ? `R$ ${cobranca.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                          : "—"
-                        }
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(cobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(cobranca)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={() => handleToggleStatus(cobranca, "Recebido")}>
-                              <CheckCircle2 className="mr-2 h-4 w-4 text-blue-500" />
-                              Recebido
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleStatus(cobranca, "Em aberto")}>
-                              <XCircle className="mr-2 h-4 w-4 text-green-500" />
-                              A Receber
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleReschedule(cobranca)}>
-                              <Calendar className="mr-2 h-4 w-4 text-orange-500" />
-                              Reagendar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCobrar(cobranca)} className="text-green-600">
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Cobrar (WhatsApp)
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {cobranca.file_url && (
-                              <>
-                                <DropdownMenuItem onClick={() => handleView(cobranca)}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Visualizar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDownload(cobranca)}>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  Baixar
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuItem onClick={() => handleEdit(cobranca)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(cobranca)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
+        <CardContent>
+          <FilterableTable
+            data={filteredData}
+            columns={columns}
+            globalSearch={globalSearch}
+            onGlobalSearchChange={setGlobalSearch}
+            columnFilters={columnFilters}
+            onColumnFilterChange={updateColumnFilter}
+            sortConfig={sortConfig}
+            onSort={toggleSort}
+            onClearFilters={clearAllFilters}
+            hasActiveFilters={hasActiveFilters}
+            totalCount={totalCount}
+            filteredCount={filteredCount}
+            keyExtractor={(item) => item.id}
+            isLoading={loading}
+            emptyMessage="Nenhuma cobrança encontrada"
+          />
         </CardContent>
       </Card>
 
@@ -1411,7 +1390,7 @@ Equipe de Cobrança`;
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <div className="mt-1">{getStatusBadge(viewingCobranca)}</div>
+                  <div className="mt-1">{getStatusBadge(getEffectiveStatus(viewingCobranca))}</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Arquivo:</span>
