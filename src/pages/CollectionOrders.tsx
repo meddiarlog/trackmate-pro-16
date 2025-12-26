@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Plus, Printer, Pencil, Trash2, X, Share2, MoreVertical, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
+import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -89,6 +90,139 @@ const initialFormData: FormData = {
   collection_date: "",
   freight_mode: "",
 };
+
+interface OrderTableData {
+  id: string;
+  order_number: number;
+  formattedDate: string;
+  recipient_name: string;
+  unloadingLocation: string;
+  driver_name: string | null;
+  weight_tons: number;
+  weightDisplay: string;
+  originalOrder: any;
+}
+
+interface CollectionOrdersFilterableTableProps {
+  orders: any[];
+  isLoading: boolean;
+  handleEdit: (order: any) => void;
+  setPrintOrder: (order: any) => void;
+  deleteOrderMutation: any;
+}
+
+function CollectionOrdersFilterableTable({
+  orders,
+  isLoading,
+  handleEdit,
+  setPrintOrder,
+  deleteOrderMutation,
+}: CollectionOrdersFilterableTableProps) {
+  const transformedData: OrderTableData[] = useMemo(() => {
+    return orders.map((order: any) => ({
+      id: order.id,
+      order_number: order.order_number,
+      formattedDate: format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR }),
+      recipient_name: order.recipient_name || "-",
+      unloadingLocation: order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-",
+      driver_name: order.driver_name || "-",
+      weight_tons: order.weight_tons,
+      weightDisplay: `${order.weight_tons}T`,
+      originalOrder: order,
+    }));
+  }, [orders]);
+
+  const {
+    globalSearch,
+    setGlobalSearch,
+    columnFilters,
+    updateColumnFilter,
+    sortConfig,
+    toggleSort,
+    clearAllFilters,
+    filteredData,
+    hasActiveFilters,
+    totalCount,
+    filteredCount,
+  } = useTableFilters(transformedData, [
+    'order_number', 'recipient_name', 'unloadingLocation', 'driver_name', 'formattedDate'
+  ]);
+
+  const columns: FilterableColumn<OrderTableData>[] = [
+    { key: 'order_number', header: 'Nº', sortable: true, filterable: true,
+      render: (item) => <span className="font-medium">{item.order_number}</span> },
+    { key: 'formattedDate', header: 'Data', sortable: true, filterable: true },
+    { key: 'recipient_name', header: 'Destinatário', sortable: true, filterable: true },
+    { key: 'unloadingLocation', header: 'Descarregamento', sortable: true, filterable: true },
+    { key: 'driver_name', header: 'Motorista', sortable: true, filterable: true },
+    { key: 'weightDisplay', header: 'Peso', sortable: true, filterable: false },
+    { key: 'id', header: 'Ações', sortable: false, filterable: false,
+      render: (item) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleEdit(item.originalOrder)}>
+              <Pencil className="h-4 w-4 mr-2" /> Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setPrintOrder(item.originalOrder)}>
+              <Printer className="h-4 w-4 mr-2" /> Imprimir
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              setPrintOrder(item.originalOrder);
+              toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
+              setTimeout(() => {
+                window.open('https://web.whatsapp.com/', '_blank');
+              }, 500);
+            }}>
+              <Share2 className="h-4 w-4 mr-2 text-green-600" /> Compartilhar
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              className="text-destructive"
+              onClick={() => {
+                if (confirm("Deseja realmente excluir esta ordem?")) {
+                  deleteOrderMutation.mutate(item.id);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+  ];
+
+  if (isLoading) {
+    return <p className="text-muted-foreground">Carregando...</p>;
+  }
+
+  if (orders.length === 0) {
+    return <p className="text-muted-foreground">Nenhuma ordem de coleta cadastrada.</p>;
+  }
+
+  return (
+    <FilterableTable
+      data={filteredData}
+      columns={columns}
+      globalSearch={globalSearch}
+      onGlobalSearchChange={setGlobalSearch}
+      columnFilters={columnFilters}
+      onColumnFilterChange={updateColumnFilter}
+      sortConfig={sortConfig}
+      onSort={toggleSort}
+      onClearFilters={clearAllFilters}
+      hasActiveFilters={hasActiveFilters}
+      totalCount={totalCount}
+      filteredCount={filteredCount}
+      keyExtractor={(item) => item.id}
+      emptyMessage="Nenhuma ordem de coleta encontrada."
+    />
+  );
+}
 
 export default function CollectionOrders() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1160,143 +1294,13 @@ export default function CollectionOrders() {
         </DialogContent>
       </Dialog>
 
-      {/* Orders List */}
-      {isLoading ? (
-        <p className="text-muted-foreground">Carregando...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-muted-foreground">Nenhuma ordem de coleta cadastrada.</p>
-      ) : (
-        <>
-          {/* Mobile Cards View */}
-          <div className="block sm:hidden space-y-4">
-            {orders.map((order: any) => (
-              <Card key={order.id} className="border-0 shadow-md">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <span className="font-bold text-lg">Nº {order.order_number}</span>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium bg-primary/10 text-primary px-2 py-1 rounded">
-                        {order.weight_tons}T
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(order)}>
-                            <Pencil className="h-4 w-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setPrintOrder(order)}>
-                            <Printer className="h-4 w-4 mr-2" /> Imprimir
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setPrintOrder(order);
-                            toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
-                            setTimeout(() => {
-                              window.open('https://web.whatsapp.com/', '_blank');
-                            }, 500);
-                          }}>
-                            <Share2 className="h-4 w-4 mr-2 text-green-600" /> Compartilhar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => {
-                              if (confirm("Deseja realmente excluir esta ordem?")) {
-                                deleteOrderMutation.mutate(order.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <p><span className="text-muted-foreground">Destinatário:</span> {order.recipient_name || "-"}</p>
-                    <p><span className="text-muted-foreground">Destino:</span> {order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-"}</p>
-                    {order.driver_name && (
-                      <p><span className="text-muted-foreground">Motorista:</span> {order.driver_name}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop Table View */}
-          <Card className="hidden sm:block overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nº</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Destinatário</TableHead>
-                  <TableHead className="hidden md:table-cell">Descarregamento</TableHead>
-                  <TableHead className="hidden lg:table-cell">Motorista</TableHead>
-                  <TableHead>Peso</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order: any) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>{format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell className="max-w-[150px] truncate">{order.recipient_name || "-"}</TableCell>
-                    <TableCell className="hidden md:table-cell">{order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-"}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{order.driver_name || "-"}</TableCell>
-                    <TableCell>{order.weight_tons}T</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(order)}>
-                            <Pencil className="h-4 w-4 mr-2" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setPrintOrder(order)}>
-                            <Printer className="h-4 w-4 mr-2" /> Imprimir
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setPrintOrder(order);
-                            toast.info("Use Ctrl+P para salvar como PDF e compartilhar via WhatsApp", { duration: 5000 });
-                            setTimeout(() => {
-                              window.open('https://web.whatsapp.com/', '_blank');
-                            }, 500);
-                          }}>
-                            <Share2 className="h-4 w-4 mr-2 text-green-600" /> Compartilhar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => {
-                              if (confirm("Deseja realmente excluir esta ordem?")) {
-                                deleteOrderMutation.mutate(order.id);
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </>
-      )}
+      <CollectionOrdersFilterableTable
+        orders={orders}
+        isLoading={isLoading}
+        handleEdit={handleEdit}
+        setPrintOrder={setPrintOrder}
+        deleteOrderMutation={deleteOrderMutation}
+      />
     </div>
   );
 }
