@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { FileUp, Plus, Eye, Edit, Trash2, Download, FileText, Search, CheckCircle, Upload, RefreshCw, ExternalLink, MoreVertical } from "lucide-react";
+import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { useTableFilters } from "@/hooks/useTableFilters";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +57,180 @@ interface CTE {
 
 const MAX_PDF_SIZE_MB = 10;
 const MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024;
+
+interface CTETableData extends CTE {
+  formattedDate: string;
+  formattedValue: string;
+  tomadorName: string;
+  docNumberDisplay: string;
+}
+
+interface CTEFilterableTableProps {
+  ctes: CTE[];
+  isLoading: boolean;
+  handleView: (cte: CTE) => void;
+  handleViewPdf: (cte: CTE) => void;
+  handleDownloadPdf: (cte: CTE) => void;
+  handleEdit: (cte: CTE) => void;
+  deleteCTEMutation: any;
+}
+
+function CTEFilterableTable({
+  ctes,
+  isLoading,
+  handleView,
+  handleViewPdf,
+  handleDownloadPdf,
+  handleEdit,
+  deleteCTEMutation,
+}: CTEFilterableTableProps) {
+  const transformedData: CTETableData[] = useMemo(() => {
+    return ctes.map((cte) => ({
+      ...cte,
+      formattedDate: format(new Date(cte.issue_date), "dd/MM/yyyy", { locale: ptBR }),
+      formattedValue: `R$ ${cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      tomadorName: (cte as any).tomador?.name || "-",
+      docNumberDisplay: (cte as any).doc_number || "-",
+    }));
+  }, [ctes]);
+
+  const {
+    globalSearch,
+    setGlobalSearch,
+    columnFilters,
+    updateColumnFilter,
+    sortConfig,
+    toggleSort,
+    clearAllFilters,
+    filteredData,
+    hasActiveFilters,
+    totalCount,
+    filteredCount,
+  } = useTableFilters(transformedData, [
+    'cte_number', 'origin', 'destination', 'sender_name', 'tomadorName', 'docNumberDisplay', 'formattedDate'
+  ]);
+
+  const columns: FilterableColumn<CTETableData>[] = [
+    { key: 'cte_number', header: 'Número', sortable: true, filterable: true },
+    { key: 'docNumberDisplay', header: 'Doc.', sortable: true, filterable: true },
+    { key: 'formattedDate', header: 'Data', sortable: true, filterable: true },
+    { key: 'origin', header: 'Origem', sortable: true, filterable: true },
+    { key: 'destination', header: 'Destino', sortable: true, filterable: true },
+    { key: 'sender_name', header: 'Remetente', sortable: true, filterable: true,
+      render: (item) => item.sender_name || "-" },
+    { key: 'tomadorName', header: 'Tomador', sortable: true, filterable: true },
+    { key: 'formattedValue', header: 'Valor', sortable: true, filterable: false,
+      render: (item) => <span className="text-right block">{item.formattedValue}</span> },
+    { key: 'pdf_url', header: 'PDF', sortable: false, filterable: false,
+      render: (item) => item.pdf_url ? (
+        <Badge 
+          variant="outline" 
+          className="bg-success/10 text-success border-success/20 cursor-pointer hover:bg-success/20"
+          onClick={() => handleViewPdf(item)}
+        >
+          <FileText className="h-3 w-3 mr-1" />
+          Anexado
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="text-muted-foreground">
+          Sem PDF
+        </Badge>
+      )
+    },
+    { key: 'id', header: 'Ações', sortable: false, filterable: false,
+      render: (item) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={() => handleView(item)}>
+              <Eye className="mr-2 h-4 w-4" />
+              Visualizar
+            </DropdownMenuItem>
+            {item.pdf_url && (
+              <>
+                <DropdownMenuItem onClick={() => handleViewPdf(item)}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Visualizar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownloadPdf(item)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Baixar PDF
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleEdit(item)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => deleteCTEMutation.mutate(item.id)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="flex items-center justify-center">
+            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (ctes.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="text-center text-muted-foreground">
+            Nenhum CT-e cadastrado. Clique em "Novo CT-e" para adicionar.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>CT-es Disponíveis</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <FilterableTable
+          data={filteredData}
+          columns={columns}
+          globalSearch={globalSearch}
+          onGlobalSearchChange={setGlobalSearch}
+          columnFilters={columnFilters}
+          onColumnFilterChange={updateColumnFilter}
+          sortConfig={sortConfig}
+          onSort={toggleSort}
+          onClearFilters={clearAllFilters}
+          hasActiveFilters={hasActiveFilters}
+          totalCount={totalCount}
+          filteredCount={filteredCount}
+          keyExtractor={(item) => item.id}
+          emptyMessage="Nenhum CT-e encontrado."
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export default function CTE() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -1006,110 +1181,15 @@ export default function CTE() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>CT-es Disponíveis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : ctes.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhum CT-e cadastrado. Clique em "Novo CT-e" para adicionar.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Doc.</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Origem</TableHead>
-                  <TableHead>Destino</TableHead>
-                  <TableHead>Remetente</TableHead>
-                  <TableHead>Tomador</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>PDF</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ctes.map((cte) => (
-                  <TableRow key={cte.id}>
-                    <TableCell className="font-medium">{cte.cte_number}</TableCell>
-                    <TableCell>{(cte as any).doc_number || "-"}</TableCell>
-                    <TableCell>{format(new Date(cte.issue_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
-                    <TableCell>{cte.origin}</TableCell>
-                    <TableCell>{cte.destination}</TableCell>
-                    <TableCell>{cte.sender_name || "-"}</TableCell>
-                    <TableCell>{(cte as any).tomador?.name || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      R$ {cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell>
-                      {cte.pdf_url ? (
-                        <Badge 
-                          variant="outline" 
-                          className="bg-success/10 text-success border-success/20 cursor-pointer hover:bg-success/20"
-                          onClick={() => handleViewPdf(cte)}
-                        >
-                          <FileText className="h-3 w-3 mr-1" />
-                          Anexado
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-muted-foreground">
-                          Sem PDF
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleView(cte)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Visualizar
-                          </DropdownMenuItem>
-                          {cte.pdf_url && (
-                            <>
-                              <DropdownMenuItem onClick={() => handleViewPdf(cte)}>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Visualizar PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDownloadPdf(cte)}>
-                                <Download className="mr-2 h-4 w-4" />
-                                Baixar PDF
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleEdit(cte)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => deleteCTEMutation.mutate(cte.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <CTEFilterableTable 
+        ctes={ctes}
+        isLoading={isLoading}
+        handleView={handleView}
+        handleViewPdf={handleViewPdf}
+        handleDownloadPdf={handleDownloadPdf}
+        handleEdit={handleEdit}
+        deleteCTEMutation={deleteCTEMutation}
+      />
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
