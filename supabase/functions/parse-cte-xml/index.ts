@@ -1,15 +1,28 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { parse } from "https://deno.land/x/xml@5.4.13/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to get text content from XML element
-function getElementText(doc: Document, tagName: string, parentElement?: Element): string {
-  const parent = parentElement || doc;
-  const element = parent.getElementsByTagName(tagName)[0];
-  return element?.textContent?.trim() || '';
+// Helper function to safely get nested value
+function getNestedValue(obj: any, ...keys: string[]): any {
+  let current = obj;
+  for (const key of keys) {
+    if (current === null || current === undefined) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+// Helper function to get text from XML element
+function getText(element: any): string {
+  if (element === null || element === undefined) return '';
+  if (typeof element === 'string') return element.trim();
+  if (typeof element === 'number') return String(element);
+  if (element['#text'] !== undefined) return String(element['#text']).trim();
+  return '';
 }
 
 // Helper function to format date from XML
@@ -25,35 +38,46 @@ function formatDate(dateStr: string): string {
 
 // Parse CT-e XML and extract relevant data
 function parseCteXml(xmlContent: string): Record<string, any> {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlContent, 'text/xml');
+  const doc = parse(xmlContent);
 
-  // Check for parsing errors
-  const parseError = doc.getElementsByTagName('parsererror')[0];
-  if (parseError) {
+  if (!doc) {
     throw new Error('XML inválido ou malformado');
   }
 
-  // Get the root CT-e element (can be CTe or cteProc)
-  let infCte = doc.getElementsByTagName('infCte')[0];
+  // Navigate to the CT-e data - handle both cteProc and CTe root elements
+  let cte = getNestedValue(doc, 'cteProc', 'CTe') || getNestedValue(doc, 'CTe') || doc['cteProc']?.['CTe'] || doc['CTe'];
+  
+  if (!cte) {
+    // Try alternative structure
+    const root = Object.keys(doc)[0];
+    if (root) {
+      cte = getNestedValue(doc, root, 'CTe') || doc[root];
+    }
+  }
+
+  if (!cte) {
+    throw new Error('Elemento CTe não encontrado no XML');
+  }
+
+  const infCte = getNestedValue(cte, 'infCte') || cte['infCte'];
   if (!infCte) {
     throw new Error('Elemento infCte não encontrado no XML');
   }
 
-  // Get chave de acesso from Id attribute
-  const chaveAcesso = infCte.getAttribute('Id')?.replace('CTe', '') || '';
+  // Get chave de acesso from @Id attribute
+  const chaveAcesso = (infCte['@Id'] || '').replace('CTe', '');
   
   // IDE - Identificação do CT-e
-  const ide = doc.getElementsByTagName('ide')[0];
-  const nCT = getElementText(doc, 'nCT', ide);
-  const serie = getElementText(doc, 'serie', ide);
-  const dhEmi = getElementText(doc, 'dhEmi', ide);
-  const CFOP = getElementText(doc, 'CFOP', ide);
-  const xMunIni = getElementText(doc, 'xMunIni', ide);
-  const UFIni = getElementText(doc, 'UFIni', ide);
-  const xMunFim = getElementText(doc, 'xMunFim', ide);
-  const UFFim = getElementText(doc, 'UFFim', ide);
-  const modal = getElementText(doc, 'modal', ide);
+  const ide = infCte['ide'] || {};
+  const nCT = getText(ide['nCT']);
+  const serie = getText(ide['serie']);
+  const dhEmi = getText(ide['dhEmi']);
+  const CFOP = getText(ide['CFOP']);
+  const xMunIni = getText(ide['xMunIni']);
+  const UFIni = getText(ide['UFIni']);
+  const xMunFim = getText(ide['xMunFim']);
+  const UFFim = getText(ide['UFFim']);
+  const modal = getText(ide['modal']);
 
   // Modal descriptions
   const modalDescriptions: Record<string, string> = {
@@ -66,96 +90,108 @@ function parseCteXml(xmlContent: string): Record<string, any> {
   };
 
   // vPrest - Valores da Prestação
-  const vPrest = doc.getElementsByTagName('vPrest')[0];
-  const vTPrest = parseFloat(getElementText(doc, 'vTPrest', vPrest)) || 0;
-  const vRec = parseFloat(getElementText(doc, 'vRec', vPrest)) || 0;
+  const vPrest = infCte['vPrest'] || {};
+  const vTPrest = parseFloat(getText(vPrest['vTPrest'])) || 0;
+  const vRec = parseFloat(getText(vPrest['vRec'])) || 0;
 
   // infCarga - Informações da Carga
-  const infCarga = doc.getElementsByTagName('infCarga')[0];
-  const vCarga = parseFloat(getElementText(doc, 'vCarga', infCarga)) || 0;
-  const proPred = getElementText(doc, 'proPred', infCarga);
+  const infCarga = infCte['infCarga'] || {};
+  const vCarga = parseFloat(getText(infCarga['vCarga'])) || 0;
+  const proPred = getText(infCarga['proPred']);
   
   // Get weight from infQ
   let peso = 0;
-  const infQs = infCarga?.getElementsByTagName('infQ') || [];
-  for (let i = 0; i < infQs.length; i++) {
-    const cUnid = getElementText(doc, 'cUnid', infQs[i]);
-    const qCarga = parseFloat(getElementText(doc, 'qCarga', infQs[i])) || 0;
-    // cUnid: 00 = M3, 01 = KG, 02 = TON, 03 = UNIDADE, 04 = LITROS, 05 = MMBTU
-    if (cUnid === '01') {
-      peso = qCarga;
-    } else if (cUnid === '02') {
-      peso = qCarga * 1000; // Convert tons to kg
+  const infQs = infCarga['infQ'];
+  if (infQs) {
+    const infQArray = Array.isArray(infQs) ? infQs : [infQs];
+    for (const infQ of infQArray) {
+      const cUnid = getText(infQ['cUnid']);
+      const qCarga = parseFloat(getText(infQ['qCarga'])) || 0;
+      // cUnid: 00 = M3, 01 = KG, 02 = TON, 03 = UNIDADE, 04 = LITROS, 05 = MMBTU
+      if (cUnid === '01') {
+        peso = qCarga;
+      } else if (cUnid === '02') {
+        peso = qCarga * 1000; // Convert tons to kg
+      }
     }
   }
 
   // emit - Emitente (Transportadora)
-  const emit = doc.getElementsByTagName('emit')[0];
-  const emitCNPJ = getElementText(doc, 'CNPJ', emit);
-  const emitxNome = getElementText(doc, 'xNome', emit);
-  const emitIE = getElementText(doc, 'IE', emit);
-  const enderEmit = emit?.getElementsByTagName('enderEmit')[0];
-  const emitxLgr = getElementText(doc, 'xLgr', enderEmit);
-  const emitnro = getElementText(doc, 'nro', enderEmit);
-  const emitxBairro = getElementText(doc, 'xBairro', enderEmit);
-  const emitxMun = getElementText(doc, 'xMun', enderEmit);
-  const emitUF = getElementText(doc, 'UF', enderEmit);
+  const emit = infCte['emit'] || {};
+  const emitCNPJ = getText(emit['CNPJ']);
+  const emitxNome = getText(emit['xNome']);
+  const emitIE = getText(emit['IE']);
+  const enderEmit = emit['enderEmit'] || {};
+  const emitxLgr = getText(enderEmit['xLgr']);
+  const emitnro = getText(enderEmit['nro']);
+  const emitxBairro = getText(enderEmit['xBairro']);
+  const emitxMun = getText(enderEmit['xMun']);
+  const emitUF = getText(enderEmit['UF']);
   const emitEndereco = [emitxLgr, emitnro, emitxBairro, emitxMun, emitUF].filter(Boolean).join(', ');
 
   // rem - Remetente
-  const rem = doc.getElementsByTagName('rem')[0];
-  const remCNPJ = getElementText(doc, 'CNPJ', rem) || getElementText(doc, 'CPF', rem);
-  const remxNome = getElementText(doc, 'xNome', rem);
-  const remIE = getElementText(doc, 'IE', rem);
-  const enderRem = rem?.getElementsByTagName('enderReme')[0];
-  const remxLgr = getElementText(doc, 'xLgr', enderRem);
-  const remnro = getElementText(doc, 'nro', enderRem);
-  const remxBairro = getElementText(doc, 'xBairro', enderRem);
-  const remxMun = getElementText(doc, 'xMun', enderRem);
-  const remUF = getElementText(doc, 'UF', enderRem);
+  const rem = infCte['rem'] || {};
+  const remCNPJ = getText(rem['CNPJ']) || getText(rem['CPF']);
+  const remxNome = getText(rem['xNome']);
+  const remIE = getText(rem['IE']);
+  const enderRem = rem['enderReme'] || {};
+  const remxLgr = getText(enderRem['xLgr']);
+  const remnro = getText(enderRem['nro']);
+  const remxBairro = getText(enderRem['xBairro']);
+  const remxMun = getText(enderRem['xMun']);
+  const remUF = getText(enderRem['UF']);
   const remEndereco = [remxLgr, remnro, remxBairro, remxMun, remUF].filter(Boolean).join(', ');
 
   // dest - Destinatário
-  const dest = doc.getElementsByTagName('dest')[0];
-  const destCNPJ = getElementText(doc, 'CNPJ', dest) || getElementText(doc, 'CPF', dest);
-  const destxNome = getElementText(doc, 'xNome', dest);
-  const destIE = getElementText(doc, 'IE', dest);
-  const enderDest = dest?.getElementsByTagName('enderDest')[0];
-  const destxLgr = getElementText(doc, 'xLgr', enderDest);
-  const destnro = getElementText(doc, 'nro', enderDest);
-  const destxBairro = getElementText(doc, 'xBairro', enderDest);
-  const destxMun = getElementText(doc, 'xMun', enderDest);
-  const destUF = getElementText(doc, 'UF', enderDest);
+  const dest = infCte['dest'] || {};
+  const destCNPJ = getText(dest['CNPJ']) || getText(dest['CPF']);
+  const destxNome = getText(dest['xNome']);
+  const destIE = getText(dest['IE']);
+  const enderDest = dest['enderDest'] || {};
+  const destxLgr = getText(enderDest['xLgr']);
+  const destnro = getText(enderDest['nro']);
+  const destxBairro = getText(enderDest['xBairro']);
+  const destxMun = getText(enderDest['xMun']);
+  const destUF = getText(enderDest['UF']);
   const destEndereco = [destxLgr, destnro, destxBairro, destxMun, destUF].filter(Boolean).join(', ');
 
   // infModal - modal specific info (for rodoviário)
-  const infModal = doc.getElementsByTagName('infModal')[0];
-  const rodo = infModal?.getElementsByTagName('rodo')[0];
+  const infModal = infCte['infModal'] || {};
+  const rodo = infModal['rodo'] || {};
   
   // veic - Veículo
   let veicPlaca = '';
-  const veicProp = rodo?.getElementsByTagName('veic')[0];
-  if (veicProp) {
-    veicPlaca = getElementText(doc, 'placa', veicProp);
+  const veic = rodo['veic'];
+  if (veic) {
+    const veicArray = Array.isArray(veic) ? veic : [veic];
+    if (veicArray.length > 0) {
+      veicPlaca = getText(veicArray[0]['placa']);
+    }
   }
 
   // motorista info
   let motNome = '';
   let motCPF = '';
-  const moto = rodo?.getElementsByTagName('moto')[0];
+  const moto = rodo['moto'];
   if (moto) {
-    motNome = getElementText(doc, 'xNome', moto);
-    motCPF = getElementText(doc, 'CPF', moto);
+    const motoArray = Array.isArray(moto) ? moto : [moto];
+    if (motoArray.length > 0) {
+      motNome = getText(motoArray[0]['xNome']);
+      motCPF = getText(motoArray[0]['CPF']);
+    }
   }
 
   // infDoc - Documentos de carga (Notas Fiscais)
-  const infDoc = doc.getElementsByTagName('infDoc')[0];
-  const infNFes = infDoc?.getElementsByTagName('infNFe') || [];
+  const infDoc = infCte['infDoc'] || {};
+  const infNFes = infDoc['infNFe'];
   const notasFiscais: string[] = [];
-  for (let i = 0; i < infNFes.length; i++) {
-    const chave = getElementText(doc, 'chave', infNFes[i]);
-    if (chave) {
-      notasFiscais.push(chave);
+  if (infNFes) {
+    const nfArray = Array.isArray(infNFes) ? infNFes : [infNFes];
+    for (const nf of nfArray) {
+      const chave = getText(nf['chave']);
+      if (chave) {
+        notasFiscais.push(chave);
+      }
     }
   }
 
