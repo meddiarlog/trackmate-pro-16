@@ -341,6 +341,9 @@ export default function Drivers() {
           <p className="text-muted-foreground mt-1">
             Cadastre e gerencie os motoristas da sua frota
           </p>
+          <Badge variant="secondary" className="mt-2">
+            {drivers.length} motorista(s) cadastrado(s)
+          </Badge>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -476,9 +479,14 @@ export default function Drivers() {
           {filteredDrivers.map((driver) => (
             <Card key={driver.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-semibold">{driver.name}</CardTitle>
-                  {getStatusBadge(driver.status)}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-semibold">{driver.name}</CardTitle>
+                    {getStatusBadge(driver.status)}
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono w-fit">
+                    ID: {driver.id.substring(0, 8).toUpperCase()}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">

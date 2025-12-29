@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Users, Plus, Search, Edit, Trash2, MapPin, Copy, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CustomerContactList, Contact } from "@/components/CustomerContactList";
 
@@ -345,6 +346,9 @@ export default function Customers() {
             Gestão de Clientes
           </h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">Cadastre embarcadores e consignatários</p>
+          <Badge variant="secondary" className="mt-2">
+            {customers.length} cliente(s) cadastrado(s)
+          </Badge>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -526,8 +530,13 @@ export default function Customers() {
         {filteredCustomers.map((customer) => (
           <Card key={customer.id} className="border-0 shadow-md hover:shadow-lg transition-shadow">
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-semibold">{customer.name}</CardTitle>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold">{customer.name}</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono w-fit">
+                  ID: {customer.id.substring(0, 8).toUpperCase()}
+                </Badge>
               </div>
               {customer.cpf_cnpj && (
                 <p className="text-sm text-muted-foreground">{customer.cpf_cnpj}</p>
