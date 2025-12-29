@@ -98,25 +98,39 @@ function CTEFilterableTable({
   onEndDateChange,
 }: CTEFilterableTableProps) {
   const transformedData: CTETableData[] = useMemo(() => {
-    return ctes.map((cte) => ({
-      ...cte,
-      formattedDate: format(new Date(cte.issue_date), "dd/MM/yyyy", { locale: ptBR }),
-      formattedValue: `R$ ${cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-      tomadorName: (cte as any).tomador?.name || "-",
-      docNumberDisplay: (cte as any).doc_number || "-",
-      issueDateObj: new Date(cte.issue_date),
-    }));
+    return ctes.map((cte) => {
+      // Append T00:00:00 to force local timezone interpretation
+      const issueDateStr = cte.issue_date.includes('T') ? cte.issue_date : `${cte.issue_date}T00:00:00`;
+      const issueDateObj = new Date(issueDateStr);
+      
+      return {
+        ...cte,
+        formattedDate: format(issueDateObj, "dd/MM/yyyy", { locale: ptBR }),
+        formattedValue: `R$ ${cte.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        tomadorName: (cte as any).tomador?.name || "-",
+        docNumberDisplay: (cte as any).doc_number || "-",
+        issueDateObj,
+      };
+    });
   }, [ctes]);
 
-  // Apply date filter
+  // Apply date filter based on issue_date (Data de Emissão)
   const dateFilteredData = useMemo(() => {
     return transformedData.filter((cte) => {
-      if (startDate && cte.issueDateObj < startDate) return false;
+      const issueDate = cte.issueDateObj;
+      
+      if (startDate) {
+        const startOfDay = new Date(startDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        if (issueDate < startOfDay) return false;
+      }
+      
       if (endDate) {
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
-        if (cte.issueDateObj > endOfDay) return false;
+        if (issueDate > endOfDay) return false;
       }
+      
       return true;
     });
   }, [transformedData, startDate, endDate]);
