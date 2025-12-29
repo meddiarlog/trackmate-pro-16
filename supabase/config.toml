@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.extract-cte-pdf]
 verify_jwt = false
+
+[functions.parse-cte-xml]
+verify_jwt = false
