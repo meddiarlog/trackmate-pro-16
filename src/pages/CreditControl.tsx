@@ -24,11 +24,12 @@ import {
 } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Download, Copy, Check, Calculator, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Download, Copy, Check, Calculator, X, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { UtilizarCreditoDialog } from "@/components/UtilizarCreditoDialog";
 
 type CreditRecord = {
   id: string;
@@ -218,6 +219,7 @@ const CreditControl = () => {
   const [fetchingNfe, setFetchingNfe] = useState(false);
   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [utilizarDialogOpen, setUtilizarDialogOpen] = useState(false);
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -514,6 +516,7 @@ const CreditControl = () => {
     : 0;
 
   const isAllSelected = filteredData.length > 0 && filteredData.every(r => selectedIds.has(r.id));
+  const isIndeterminate = selectedIds.size > 0 && !isAllSelected;
 
   const columns: FilterableColumn<CreditRecord>[] = [
     {
@@ -522,6 +525,18 @@ const CreditControl = () => {
       filterable: false,
       className: "w-[40px]",
       headerClassName: "w-[40px]",
+      renderHeader: () => (
+        <Checkbox
+          checked={isAllSelected}
+          ref={(el) => {
+            if (el) {
+              (el as HTMLButtonElement & { indeterminate: boolean }).indeterminate = isIndeterminate;
+            }
+          }}
+          onCheckedChange={(checked) => handleSelectAll(!!checked)}
+          aria-label="Selecionar todos"
+        />
+      ),
       render: (item) => (
         <Checkbox
           checked={selectedIds.has(item.id)}
@@ -844,15 +859,26 @@ const CreditControl = () => {
             <CardTitle className="text-sm font-medium flex items-center justify-between">
               <span>Selecionados</span>
               {selectedIds.size > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs"
-                  onClick={() => setSelectedIds(new Set())}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Limpar
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setUtilizarDialogOpen(true)}
+                  >
+                    <CreditCard className="h-3 w-3 mr-1" />
+                    Utilizar Crédito
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    <X className="h-3 w-3 mr-1" />
+                    Limpar
+                  </Button>
+                </div>
               )}
             </CardTitle>
           </CardHeader>
@@ -896,6 +922,13 @@ const CreditControl = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Utilizar Crédito Dialog */}
+      <UtilizarCreditoDialog
+        open={utilizarDialogOpen}
+        onOpenChange={setUtilizarDialogOpen}
+        selectedRecords={selectedRecords}
+      />
 
       <Card>
         <CardHeader>
