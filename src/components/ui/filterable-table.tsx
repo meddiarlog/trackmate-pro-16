@@ -17,6 +17,7 @@ export interface FilterableColumn<T> {
   key: keyof T | string;
   header: string;
   render?: (item: T, index: number) => React.ReactNode;
+  renderHeader?: () => React.ReactNode;
   sortable?: boolean;
   filterable?: boolean;
   className?: string;
@@ -158,14 +159,18 @@ export function FilterableTable<T extends Record<string, any>>({
                       )}
                       onClick={column.sortable ? () => onSort(String(column.key)) : undefined}
                     >
-                      <div className="flex items-center gap-1">
-                        <span>{column.header}</span>
-                        {column.sortable && (
-                          <SortIcon 
-                            direction={sortConfig.key === String(column.key) ? sortConfig.direction : null} 
-                          />
-                        )}
-                      </div>
+                      {column.renderHeader ? (
+                        column.renderHeader()
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span>{column.header}</span>
+                          {column.sortable && (
+                            <SortIcon 
+                              direction={sortConfig.key === String(column.key) ? sortConfig.direction : null} 
+                            />
+                          )}
+                        </div>
+                      )}
                     </TableHead>
                   ))}
                 </TableRow>
