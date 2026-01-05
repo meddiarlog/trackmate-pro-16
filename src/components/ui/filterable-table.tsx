@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, List, LayoutGrid } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, X, List, LayoutGrid, CalendarIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,8 +10,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { SortConfig, SortDirection } from "@/hooks/useTableFilters";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export interface FilterableColumn<T> {
   key: keyof T | string;
@@ -45,6 +53,12 @@ interface FilterableTableProps<T> {
   keyExtractor: (item: T) => string;
   onRowClick?: (item: T) => void;
   isLoading?: boolean;
+  // Date filter props
+  dateFrom?: Date;
+  dateTo?: Date;
+  onDateFromChange?: (date: Date | undefined) => void;
+  onDateToChange?: (date: Date | undefined) => void;
+  showDateFilters?: boolean;
 }
 
 function SortIcon({ direction }: { direction: SortDirection }) {
@@ -78,26 +92,104 @@ export function FilterableTable<T extends Record<string, any>>({
   keyExtractor,
   onRowClick,
   isLoading = false,
+  dateFrom,
+  dateTo,
+  onDateFromChange,
+  onDateToChange,
+  showDateFilters = false,
 }: FilterableTableProps<T>) {
+  const hasDateFilters = dateFrom || dateTo;
   return (
     <div className="space-y-4">
-      {/* Header with global search and view toggle */}
+      {/* Header with global search, date filters, and view toggle */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="relative flex-1 w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="FILTRAR"
-            value={globalSearch}
-            onChange={(e) => onGlobalSearchChange(e.target.value)}
-            className="pl-10 pr-10 bg-background"
-          />
-          {globalSearch && (
-            <button
-              onClick={() => onGlobalSearchChange('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="flex flex-wrap gap-2 items-center flex-1">
+          {/* Global search */}
+          <div className="relative w-full sm:w-auto sm:min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="FILTRAR"
+              value={globalSearch}
+              onChange={(e) => onGlobalSearchChange(e.target.value)}
+              className="pl-10 pr-10 bg-background"
+            />
+            {globalSearch && (
+              <button
+                onClick={() => onGlobalSearchChange('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Date filters */}
+          {showDateFilters && onDateFromChange && onDateToChange && (
+            <>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-10 justify-start text-left font-normal",
+                      !dateFrom && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateFrom ? format(dateFrom, "dd/MM/yyyy", { locale: ptBR }) : "De"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateFrom}
+                    onSelect={onDateFromChange}
+                    initialFocus
+                    className="pointer-events-auto"
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-10 justify-start text-left font-normal",
+                      !dateTo && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateTo ? format(dateTo, "dd/MM/yyyy", { locale: ptBR }) : "Até"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dateTo}
+                    onSelect={onDateToChange}
+                    initialFocus
+                    className="pointer-events-auto"
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {hasDateFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    onDateFromChange(undefined);
+                    onDateToChange(undefined);
+                  }}
+                  className="h-10 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </>
           )}
         </div>
 

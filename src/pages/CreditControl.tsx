@@ -220,6 +220,8 @@ const CreditControl = () => {
   const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [utilizarDialogOpen, setUtilizarDialogOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -277,6 +279,32 @@ const CreditControl = () => {
     }));
   }, [records]);
 
+  // Apply date filters before useTableFilters
+  const dateFilteredRecords = useMemo(() => {
+    let result = transformedRecords;
+
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      result = result.filter(record => {
+        const recordDate = new Date(record.data_emissao + "T12:00:00");
+        recordDate.setHours(0, 0, 0, 0);
+        return recordDate >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      result = result.filter(record => {
+        const recordDate = new Date(record.data_emissao + "T12:00:00");
+        return recordDate <= toDate;
+      });
+    }
+
+    return result;
+  }, [transformedRecords, dateFrom, dateTo]);
+
   const {
     globalSearch,
     setGlobalSearch,
@@ -289,7 +317,7 @@ const CreditControl = () => {
     hasActiveFilters,
     totalCount,
     filteredCount,
-  } = useTableFilters(transformedRecords, [
+  } = useTableFilters(dateFilteredRecords, [
     'numero_nfe', 'cnpj_emitente', 'razao_social', 'chave_acesso', 'uf', 'tipo_combustivel'
   ]);
 
@@ -951,6 +979,11 @@ const CreditControl = () => {
             keyExtractor={(item) => item.id}
             isLoading={loading}
             emptyMessage="Nenhum registro encontrado"
+            showDateFilters={true}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
           />
         </CardContent>
       </Card>
