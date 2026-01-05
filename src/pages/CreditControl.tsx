@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,21 +18,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Search, Download, Copy, Check, Calculator } from "lucide-react";
+import { Pencil, Trash2, Plus, Download, Copy, Check, Calculator, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { useTableFilters } from "@/hooks/useTableFilters";
 
 type CreditRecord = {
   id: string;
@@ -46,6 +42,10 @@ type CreditRecord = {
   credito: number;
   chave_acesso: string;
   uf: string;
+  // Computed fields for filtering
+  formattedDataEmissao?: string;
+  formattedValorNfe?: string;
+  formattedCredito?: string;
 };
 
 // Calculator component for quantity field
@@ -215,19 +215,15 @@ const CreditControl = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CreditRecord | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [fetchingNfe, setFetchingNfe] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [copiedIds, setCopiedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
       await navigator.clipboard.writeText(chave);
-      setCopiedId(id);
+      setCopiedIds(prev => new Set(prev).add(id));
       toast({ title: "Copiado!", description: "Chave de acesso copiada para a área de transferência" });
-      setTimeout(() => setCopiedId(null), 2000);
     } catch (error) {
       toast({ title: "Erro", description: "Erro ao copiar chave", variant: "destructive" });
     }
@@ -268,6 +264,32 @@ const CreditControl = () => {
       setLoading(false);
     }
   };
+
+  // Transform records with computed fields for filtering
+  const transformedRecords = useMemo(() => {
+    return records.map(record => ({
+      ...record,
+      formattedDataEmissao: new Date(record.data_emissao + "T12:00:00").toLocaleDateString("pt-BR"),
+      formattedValorNfe: `R$ ${record.valor_nfe.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      formattedCredito: record.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    }));
+  }, [records]);
+
+  const {
+    globalSearch,
+    setGlobalSearch,
+    columnFilters,
+    updateColumnFilter,
+    sortConfig,
+    toggleSort,
+    clearAllFilters,
+    filteredData,
+    hasActiveFilters,
+    totalCount,
+    filteredCount,
+  } = useTableFilters(transformedRecords, [
+    'numero_nfe', 'cnpj_emitente', 'razao_social', 'chave_acesso', 'uf', 'tipo_combustivel'
+  ]);
 
   const calculateCredito = (quantidade: number) => {
     return (quantidade * 112) / 100;
@@ -350,6 +372,11 @@ const CreditControl = () => {
 
       if (error) throw error;
       toast({ title: "Sucesso", description: "Registro excluído com sucesso" });
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
       fetchRecords();
     } catch (error) {
       toast({
@@ -456,34 +483,170 @@ const CreditControl = () => {
     setEditingRecord(null);
   };
 
-  const filteredRecords = records.filter((record) => {
-    const matchesSearch =
-      record.numero_nfe.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.razao_social.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.cnpj_emitente.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const recordDate = record.data_emissao;
-    const matchesStartDate = !startDate || recordDate >= startDate;
-    const matchesEndDate = !endDate || recordDate <= endDate;
-    
-    // Month filter
-    let matchesMonth = true;
-    if (selectedMonth) {
-      const recordMonth = recordDate.substring(0, 7); // YYYY-MM
-      matchesMonth = recordMonth === selectedMonth;
+  // Selection handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredData.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
     }
-    
-    return matchesSearch && matchesStartDate && matchesEndDate && matchesMonth;
-  });
+  };
 
-  const totalCredito = filteredRecords.reduce(
-    (sum, record) => sum + record.credito,
-    0
-  );
+  const handleSelectRecord = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
+      }
+      return newSet;
+    });
+  };
+
+  // Calculate totals
+  const totalCredito = filteredData.reduce((sum, record) => sum + record.credito, 0);
+  const selectedRecords = filteredData.filter(r => selectedIds.has(r.id));
+  const selectedCredito = selectedRecords.reduce((sum, record) => sum + record.credito, 0);
 
   const calculatedCredito = formData.quantidade
     ? calculateCredito(parseFloat(formData.quantidade))
     : 0;
+
+  const isAllSelected = filteredData.length > 0 && filteredData.every(r => selectedIds.has(r.id));
+
+  const columns: FilterableColumn<CreditRecord>[] = [
+    {
+      key: "select",
+      header: "",
+      filterable: false,
+      className: "w-[40px]",
+      headerClassName: "w-[40px]",
+      render: (item) => (
+        <Checkbox
+          checked={selectedIds.has(item.id)}
+          onCheckedChange={(checked) => handleSelectRecord(item.id, !!checked)}
+          aria-label={`Selecionar ${item.numero_nfe}`}
+        />
+      ),
+    },
+    {
+      key: "numero_nfe",
+      header: "NF-e",
+      sortable: true,
+      render: (item) => item.numero_nfe,
+    },
+    {
+      key: "chave_acesso",
+      header: "Chave de Acesso",
+      sortable: true,
+      render: (item) => {
+        const isCopied = copiedIds.has(item.id);
+        return (
+          <div className="flex items-center gap-2">
+            <span 
+              className={`font-mono text-xs max-w-[180px] truncate transition-colors ${
+                isCopied ? 'text-green-600' : ''
+              }`} 
+              title={item.chave_acesso}
+            >
+              {item.chave_acesso}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`h-7 w-7 p-0 shrink-0 transition-colors ${
+                isCopied ? 'bg-green-50 hover:bg-green-100' : ''
+              }`}
+              onClick={() => handleCopyChave(item.chave_acesso, item.id)}
+              title="Copiar chave de acesso"
+            >
+              {isCopied ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        );
+      },
+    },
+    {
+      key: "cnpj_emitente",
+      header: "CNPJ",
+      sortable: true,
+      render: (item) => item.cnpj_emitente,
+    },
+    {
+      key: "razao_social",
+      header: "Razão Social",
+      sortable: true,
+      render: (item) => item.razao_social,
+    },
+    {
+      key: "formattedDataEmissao",
+      header: "Data Emissão",
+      sortable: true,
+      render: (item) => item.formattedDataEmissao,
+    },
+    {
+      key: "formattedValorNfe",
+      header: "Valor NF-e",
+      sortable: true,
+      render: (item) => item.formattedValorNfe,
+    },
+    {
+      key: "tipo_combustivel",
+      header: "Combustível",
+      sortable: true,
+      render: (item) => item.tipo_combustivel,
+    },
+    {
+      key: "quantidade",
+      header: "Quantidade",
+      sortable: true,
+      render: (item) => item.quantidade.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
+    },
+    {
+      key: "formattedCredito",
+      header: "Crédito",
+      sortable: true,
+      render: (item) => (
+        <span className="font-semibold">{item.formattedCredito}</span>
+      ),
+    },
+    {
+      key: "uf",
+      header: "UF",
+      sortable: true,
+      render: (item) => item.uf,
+    },
+    {
+      key: "actions",
+      header: "Ações",
+      filterable: false,
+      className: "text-right",
+      headerClassName: "text-right",
+      render: (item) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleEdit(item)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDelete(item.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -638,7 +801,7 @@ const CreditControl = () => {
                 <div className="p-3 bg-muted rounded-md">
                   <Label>Crédito Calculado</Label>
                   <p className="text-lg font-semibold">
-                    {calculatedCredito.toFixed(2)}
+                    {calculatedCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               )}
@@ -674,148 +837,88 @@ const CreditControl = () => {
         </Dialog>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input
-            placeholder="Buscar por NF-e, Razão Social ou CNPJ..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Mês:</Label>
-          <Input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="w-40"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">De:</Label>
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="w-40"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground">Até:</Label>
-          <Input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="w-40"
-          />
-        </div>
-        {(startDate || endDate || selectedMonth) && (
-          <Button variant="ghost" size="sm" onClick={() => { setStartDate(""); setEndDate(""); setSelectedMonth(""); }}>
-            Limpar
-          </Button>
-        )}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className={selectedIds.size > 0 ? "border-primary" : ""}>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span>Selecionados</span>
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpar
+                </Button>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-2xl font-bold text-primary">
+                  {selectedIds.size}
+                </p>
+                <p className="text-xs text-muted-foreground">registros</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-primary">
+                  {selectedCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-muted-foreground">crédito total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-medium">Total Geral (filtrado)</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-2xl font-bold">
+                  {filteredCount}
+                </p>
+                <p className="text-xs text-muted-foreground">registros</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold">
+                  {totalCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-muted-foreground">crédito total</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            <span>Registros</span>
-            <span className="text-primary">
-              Total de Crédito: {totalCredito.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </CardTitle>
+          <CardTitle>Registros</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <p>Carregando...</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>NF-e</TableHead>
-                  <TableHead>Chave de Acesso</TableHead>
-                  <TableHead>CNPJ</TableHead>
-                  <TableHead>Razão Social</TableHead>
-                  <TableHead>Data Emissão</TableHead>
-                  <TableHead>Valor NF-e</TableHead>
-                  <TableHead>Combustível</TableHead>
-                  <TableHead>Quantidade</TableHead>
-                  <TableHead>Crédito</TableHead>
-                  <TableHead>UF</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredRecords.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={11} className="text-center">
-                      Nenhum registro encontrado
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>{record.numero_nfe}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs max-w-[180px] truncate" title={record.chave_acesso}>
-                            {record.chave_acesso}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 shrink-0"
-                            onClick={() => handleCopyChave(record.chave_acesso, record.id)}
-                            title="Copiar chave de acesso"
-                          >
-                            {copiedId === record.id ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                      <TableCell>{record.cnpj_emitente}</TableCell>
-                      <TableCell>{record.razao_social}</TableCell>
-                      <TableCell>
-                        {new Date(record.data_emissao + "T12:00:00").toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell>
-                        R$ {record.valor_nfe.toFixed(2)}
-                      </TableCell>
-                      <TableCell>{record.tipo_combustivel}</TableCell>
-                      <TableCell>{record.quantidade.toFixed(2)}</TableCell>
-                      <TableCell className="font-semibold">
-                        {record.credito.toFixed(2)}
-                      </TableCell>
-                      <TableCell>{record.uf}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(record)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(record.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
+          <FilterableTable
+            data={filteredData}
+            columns={columns}
+            globalSearch={globalSearch}
+            onGlobalSearchChange={setGlobalSearch}
+            columnFilters={columnFilters}
+            onColumnFilterChange={updateColumnFilter}
+            sortConfig={sortConfig}
+            onSort={toggleSort}
+            onClearFilters={clearAllFilters}
+            hasActiveFilters={hasActiveFilters}
+            totalCount={totalCount}
+            filteredCount={filteredCount}
+            keyExtractor={(item) => item.id}
+            isLoading={loading}
+            emptyMessage="Nenhum registro encontrado"
+          />
         </CardContent>
       </Card>
     </div>
