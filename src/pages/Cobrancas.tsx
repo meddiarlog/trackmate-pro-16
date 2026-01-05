@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare, Search } from "lucide-react";
+import { Plus, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare, Search, FileCheck } from "lucide-react";
 import { format, addDays, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +61,8 @@ type Cobranca = {
   doc_number: string | null;
   tratativa_status: string | null;
   data_acerto: string | null;
+  comprovante_url: string | null;
+  comprovante_name: string | null;
   created_at: string;
   customer?: {
     name: string;
@@ -106,15 +108,19 @@ const Cobrancas = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [comprovanteDialogOpen, setComprovanteDialogOpen] = useState(false);
   const [editingCobranca, setEditingCobranca] = useState<Cobranca | null>(null);
   const [reschedulingCobranca, setReschedulingCobranca] = useState<Cobranca | null>(null);
+  const [comprovanteCobranca, setComprovanteCobranca] = useState<Cobranca | null>(null);
   const [viewingCobranca, setViewingCobranca] = useState<Cobranca | null>(null);
   const [viewBlobUrl, setViewBlobUrl] = useState<string | null>(null);
   const [loadingView, setLoadingView] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingComprovante, setUploadingComprovante] = useState(false);
   const [extractingValue, setExtractingValue] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rescheduleFileInputRef = useRef<HTMLInputElement>(null);
+  const comprovanteFileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     customer_id: "",
@@ -142,6 +148,8 @@ const Cobrancas = () => {
     new_due_date: "",
     file: null as File | null,
   });
+
+  const [comprovanteFile, setComprovanteFile] = useState<File | null>(null);
 
   // Transform cobrancas with computed fields for filtering
   const transformedCobrancas = cobrancas.map(cobranca => {
@@ -329,9 +337,9 @@ const Cobrancas = () => {
     }
   };
 
-  const uploadFile = async (file: File): Promise<{ url: string; name: string } | null> => {
+  const uploadFile = async (file: File, prefix: string = ""): Promise<{ url: string; name: string } | null> => {
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = `${prefix}${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from("boletos")
@@ -453,6 +461,9 @@ const Cobrancas = () => {
       if (cobranca.file_url) {
         await deleteFile(cobranca.file_url);
       }
+      if (cobranca.comprovante_url) {
+        await deleteFile(cobranca.comprovante_url);
+      }
 
       const { error } = await supabase
         .from("boletos")
@@ -566,6 +577,60 @@ const Cobrancas = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  // Comprovante handlers
+  const handleOpenComprovante = (cobranca: Cobranca) => {
+    setComprovanteCobranca(cobranca);
+    setComprovanteFile(null);
+    setComprovanteDialogOpen(true);
+  };
+
+  const handleComprovanteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comprovanteCobranca || !comprovanteFile) return;
+
+    setUploadingComprovante(true);
+
+    try {
+      // Delete old comprovante if exists
+      if (comprovanteCobranca.comprovante_url) {
+        await deleteFile(comprovanteCobranca.comprovante_url);
+      }
+
+      const uploadedFile = await uploadFile(comprovanteFile, "comprovante_");
+      if (!uploadedFile) throw new Error("Erro ao fazer upload");
+
+      const { error } = await supabase
+        .from("boletos")
+        .update({
+          comprovante_url: uploadedFile.url,
+          comprovante_name: uploadedFile.name,
+        })
+        .eq("id", comprovanteCobranca.id);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Comprovante anexado com sucesso" });
+      fetchCobrancas();
+      setComprovanteDialogOpen(false);
+      setComprovanteCobranca(null);
+      setComprovanteFile(null);
+    } catch (error) {
+      console.error("Erro:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao anexar comprovante",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingComprovante(false);
+    }
+  };
+
+  const handleViewComprovante = async (cobranca: Cobranca) => {
+    if (!cobranca.comprovante_url) return;
+    window.open(cobranca.comprovante_url, "_blank");
   };
 
   const handleView = async (cobranca: Cobranca) => {
@@ -854,7 +919,15 @@ Equipe de Cobrança`;
       header: "Cliente",
       sortable: true,
       render: (item) => (
-        <span className="font-medium">{item.customer?.name || "—"}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{item.customer?.name || "—"}</span>
+          {item.comprovante_url && (
+            <Badge variant="outline" className="border-green-500 text-green-600 text-xs gap-1">
+              <FileCheck className="h-3 w-3" />
+              Comprov.
+            </Badge>
+          )}
+        </div>
       ),
     },
     {
@@ -929,6 +1002,17 @@ Equipe de Cobrança`;
               <MessageSquare className="mr-2 h-4 w-4" />
               Cobrar (WhatsApp)
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => handleOpenComprovante(item)}>
+              <Upload className="mr-2 h-4 w-4 text-purple-500" />
+              {item.comprovante_url ? "Substituir Comprovante" : "Anexar Comprovante"}
+            </DropdownMenuItem>
+            {item.comprovante_url && (
+              <DropdownMenuItem onClick={() => handleViewComprovante(item)}>
+                <FileCheck className="mr-2 h-4 w-4 text-green-500" />
+                Ver Comprovante
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             {item.file_url && (
               <>
@@ -1348,6 +1432,82 @@ Equipe de Cobrança`;
                     </>
                   ) : (
                     "Reagendar"
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Comprovante Dialog */}
+      <Dialog open={comprovanteDialogOpen} onOpenChange={setComprovanteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Anexar Comprovante de Pagamento</DialogTitle>
+          </DialogHeader>
+          {comprovanteCobranca && (
+            <form onSubmit={handleComprovanteSubmit} className="space-y-4">
+              <div className="p-3 bg-muted rounded-lg text-sm">
+                <p><strong>Cliente:</strong> {comprovanteCobranca.customer?.name}</p>
+                <p><strong>Vencimento:</strong> {format(new Date(comprovanteCobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}</p>
+                {comprovanteCobranca.amount && (
+                  <p><strong>Valor:</strong> R$ {comprovanteCobranca.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                )}
+              </div>
+
+              {comprovanteCobranca.comprovante_name && (
+                <div className="p-2 bg-green-50 border border-green-200 rounded flex items-center gap-2">
+                  <FileCheck className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700 truncate">
+                    Comprovante atual: {comprovanteCobranca.comprovante_name}
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="comprovante_file">
+                  {comprovanteCobranca.comprovante_url ? "Substituir Comprovante *" : "Comprovante *"}
+                </Label>
+                <div className="mt-2">
+                  <Input
+                    ref={comprovanteFileInputRef}
+                    id="comprovante_file"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => setComprovanteFile(e.target.files?.[0] || null)}
+                    className="cursor-pointer"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Formatos aceitos: PDF, JPG, PNG (máx 5MB)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setComprovanteDialogOpen(false);
+                    setComprovanteCobranca(null);
+                    setComprovanteFile(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={uploadingComprovante || !comprovanteFile}>
+                  {uploadingComprovante ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Anexar
+                    </>
                   )}
                 </Button>
               </div>

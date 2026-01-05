@@ -211,6 +211,8 @@ export type Database = {
       boletos: {
         Row: {
           amount: number | null
+          comprovante_name: string | null
+          comprovante_url: string | null
           created_at: string
           cte_reference: string | null
           customer_id: string
@@ -229,6 +231,8 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          comprovante_name?: string | null
+          comprovante_url?: string | null
           created_at?: string
           cte_reference?: string | null
           customer_id: string
@@ -247,6 +251,8 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          comprovante_name?: string | null
+          comprovante_url?: string | null
           created_at?: string
           cte_reference?: string | null
           customer_id?: string
