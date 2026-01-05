@@ -118,11 +118,22 @@ function CollectionOrdersFilterableTable({
   setPrintOrder,
   deleteOrderMutation,
 }: CollectionOrdersFilterableTableProps) {
+  const formatSafeDate = (dateStr: string | null | undefined, formatStr: string = "dd/MM/yyyy"): string => {
+    if (!dateStr) return "-";
+    try {
+      const date = new Date(dateStr + 'T00:00:00');
+      if (isNaN(date.getTime())) return "-";
+      return format(date, formatStr, { locale: ptBR });
+    } catch {
+      return "-";
+    }
+  };
+
   const transformedData: OrderTableData[] = useMemo(() => {
     return orders.map((order: any) => ({
       id: order.id,
       order_number: order.order_number,
-      formattedDate: format(new Date(order.order_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR }),
+      formattedDate: formatSafeDate(order.order_date),
       recipient_name: order.recipient_name || "-",
       unloadingLocation: order.unloading_city ? `${order.unloading_city} - ${order.unloading_state}` : "-",
       driver_name: order.driver_name || "-",

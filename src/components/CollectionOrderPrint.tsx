@@ -28,6 +28,17 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
     window.print();
   };
 
+  const formatSafeDate = (dateStr: string | null | undefined, formatStr: string = "dd/MM/yyyy"): string => {
+    if (!dateStr) return "-";
+    try {
+      const date = new Date(dateStr + 'T00:00:00');
+      if (isNaN(date.getTime())) return "-";
+      return format(date, formatStr, { locale: ptBR });
+    } catch {
+      return "-";
+    }
+  };
+
   const standardText = `"Fica estabelecido entre as partes que o prazo para carga é de até 48 horas úteis e para descarga é de até 24 horas úteis. Considerando que o horário para carga e descarga é das 08:00 às 18:00 horas, de segunda a sexta-feira, exceto feriados. Com base nos termos do §6º, artigo 11 da Lei nº 11.442/2007. Será pago o valor de até R$ 0,35 / t / h para carga a partir da 49ª hora e descarga a partir da 25ª hora."`;
 
   return (
@@ -84,10 +95,10 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
               </div>
               <div className="grid grid-cols-2 text-sm">
                 <div className="p-2 border-r border-foreground border-b">
-                  <span className="font-semibold">EMISSÃO:</span> {order.issue_date ? format(new Date(order.issue_date + 'T00:00:00'), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : "-"}
+                  <span className="font-semibold">EMISSÃO:</span> {formatSafeDate(order.issue_date, "dd-MMM-yy").toUpperCase()}
                 </div>
                 <div className="p-2 border-b">
-                  <span className="font-semibold">COLETA:</span> {order.collection_date ? format(new Date(order.collection_date + 'T00:00:00'), "dd-MMM-yy", { locale: ptBR }).toUpperCase() : format(new Date(order.order_date + 'T00:00:00'), "dd-MMM-yy", { locale: ptBR }).toUpperCase()}
+                  <span className="font-semibold">COLETA:</span> {formatSafeDate(order.collection_date || order.order_date, "dd-MMM-yy").toUpperCase()}
                 </div>
               </div>
               <div className="grid grid-cols-2 text-sm">
@@ -183,7 +194,7 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                     <span className="font-semibold">CELULAR:</span> {order.driver_phone || "-"}
                   </div>
                   <div className="p-2">
-                    <span className="font-semibold">VAL.:</span> {order.driver_cnh_expiry ? format(new Date(order.driver_cnh_expiry + 'T00:00:00'), "dd/MM/yy") : "-"}
+                    <span className="font-semibold">VAL.:</span> {formatSafeDate(order.driver_cnh_expiry, "dd/MM/yy")}
                   </div>
                 </div>
               </div>
