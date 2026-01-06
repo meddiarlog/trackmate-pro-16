@@ -25,7 +25,6 @@ import AccountsReceivable from "./pages/AccountsReceivable";
 import CashBoxes from "./pages/CashBoxes";
 import Reports from "./pages/Reports";
 import RepositoryFixed from "./pages/RepositoryFixed";
-import DuotekNotes from "./pages/DuotekNotes";
 import SettingsUnits from "./pages/SettingsUnits";
 import CompanySettings from "./pages/CompanySettings";
 import Account from "./pages/Account";
@@ -65,8 +64,7 @@ const App = () => (
             <Route path="accounts-receivable" element={<AccountsReceivable />} />
             <Route path="cash-boxes" element={<CashBoxes />} />
             <Route path="reports" element={<Reports />} />
-            <Route path="repository/fixed" element={<RepositoryFixed />} />
-            <Route path="repository/created/duotek-notes" element={<DuotekNotes />} />
+            <Route path="repository" element={<RepositoryFixed />} />
             <Route path="settings/units" element={<SettingsUnits />} />
             <Route path="settings/company" element={<CompanySettings />} />
             <Route path="account" element={<Account />} />

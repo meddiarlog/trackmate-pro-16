@@ -82,17 +82,8 @@ const menuItems = [
   },
   {
     title: "Repositório",
+    url: "/repository",
     icon: Folder,
-    items: [
-      { title: "Fixas", url: "/repository/fixed", icon: Archive },
-      {
-        title: "Criadas",
-        icon: Folder,
-        items: [
-          { title: "Notas Duotek", url: "/repository/created/duotek-notes", icon: FileText },
-        ],
-      },
-    ],
   },
   {
     title: "Configurações",
