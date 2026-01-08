@@ -244,7 +244,24 @@ export default function AccountsPayable() {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
-    saveAccountMutation.mutate({});
+    
+    const amount = Math.round((parseFloat(form.amount) || 0) * 100) / 100;
+    const discount = Math.round((parseFloat(form.discount) || 0) * 100) / 100;
+    const penaltyInterest = Math.round((parseFloat(form.penalty_interest) || 0) * 100) / 100;
+    const total = Math.round((amount - discount + penaltyInterest) * 100) / 100;
+
+    saveAccountMutation.mutate({
+      supplier_id: form.supplier_id,
+      document_number: form.document_number || null,
+      due_date: form.due_date,
+      amount,
+      discount,
+      penalty_interest: penaltyInterest,
+      total,
+      payment_method: form.payment_method,
+      is_fixed_expense: form.is_fixed_expense,
+      observations: form.observations || null,
+    });
   };
 
   const handleEdit = (account: AccountPayable) => {
