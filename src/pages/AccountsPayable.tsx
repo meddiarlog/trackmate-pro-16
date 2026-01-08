@@ -12,8 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, Check, Pencil, Trash2, UserPlus } from "lucide-react";
-import { format, addMonths } from "date-fns";
+import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { format, addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface AccountPayable {
   id: string;
@@ -45,6 +46,7 @@ export default function AccountsPayable() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountPayable | null>(null);
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -104,8 +106,8 @@ export default function AccountsPayable() {
         const baseAmount = parseFloat(form.amount);
         const discount = parseFloat(form.discount) || 0;
         const penaltyInterest = parseFloat(form.penalty_interest) || 0;
-        const installmentAmount = baseAmount / installments;
-        const total = installmentAmount - discount + penaltyInterest;
+        const installmentAmount = Math.round((baseAmount / installments) * 100) / 100;
+        const total = Math.round((installmentAmount - discount + penaltyInterest) * 100) / 100;
 
         const accountsToInsert = [];
         const baseDate = new Date(form.due_date);
@@ -137,6 +139,7 @@ export default function AccountsPayable() {
           for (let i = installments; i <= remainingMonths + installments; i++) {
             const dueDate = addMonths(baseDate, i);
             if (dueDate.getFullYear() === baseDate.getFullYear()) {
+              const fixedTotal = Math.round((baseAmount - discount + penaltyInterest) * 100) / 100;
               accountsToInsert.push({
                 supplier_id: form.supplier_id,
                 document_number: form.document_number || null,
@@ -146,7 +149,7 @@ export default function AccountsPayable() {
                 amount: baseAmount,
                 discount: discount,
                 penalty_interest: penaltyInterest,
-                total: baseAmount - discount + penaltyInterest,
+                total: fixedTotal,
                 payment_method: form.payment_method,
                 is_fixed_expense: true,
                 observations: form.observations || null,
@@ -261,12 +264,12 @@ export default function AccountsPayable() {
     setDialogOpen(true);
   };
 
-  // Calculate total
+  // Calculate total with rounding fix
   const calculateTotal = () => {
     const amount = parseFloat(form.amount) || 0;
     const discount = parseFloat(form.discount) || 0;
     const penaltyInterest = parseFloat(form.penalty_interest) || 0;
-    return amount - discount + penaltyInterest;
+    return Math.round((amount - discount + penaltyInterest) * 100) / 100;
   };
 
   const getSupplierName = (supplierId: string) => {
@@ -283,20 +286,43 @@ export default function AccountsPayable() {
     return <Badge variant={variants[status] || "secondary"}>{status.toUpperCase()}</Badge>;
   };
 
+  // Month navigation
+  const goToPreviousMonth = () => {
+    setSelectedMonth(prev => addMonths(prev, -1));
+  };
+
+  const goToNextMonth = () => {
+    setSelectedMonth(prev => addMonths(prev, 1));
+  };
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setFilterStatus("all");
+    setSelectedMonth(new Date());
+  };
+
+  const hasActiveFilters = searchTerm || filterStatus !== "all" || 
+    (selectedMonth.getMonth() !== new Date().getMonth() || selectedMonth.getFullYear() !== new Date().getFullYear());
+
+  // Filter accounts by month
   const filteredAccounts = accounts.filter((account) => {
+    const accountDate = new Date(account.due_date + 'T12:00:00');
+    const matchesMonth = 
+      accountDate.getMonth() === selectedMonth.getMonth() &&
+      accountDate.getFullYear() === selectedMonth.getFullYear();
     const matchesSearch = getSupplierName(account.supplier_id)
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || account.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    return matchesMonth && matchesSearch && matchesStatus;
   });
 
-  // Calculate totals
-  const totalPending = accounts
+  // Calculate totals (only for filtered accounts)
+  const totalPending = filteredAccounts
     .filter((a) => a.status === "pendente")
     .reduce((sum, a) => sum + Number(a.total), 0);
 
-  const totalPaid = accounts
+  const totalPaid = filteredAccounts
     .filter((a) => a.status === "pago")
     .reduce((sum, a) => sum + Number(a.total), 0);
 
@@ -537,8 +563,8 @@ export default function AccountsPayable() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="flex-1">
+          <div className="flex flex-wrap gap-4 mb-4 items-center">
+            <div className="flex-1 min-w-[200px]">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -550,7 +576,7 @@ export default function AccountsPayable() {
               </div>
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Filtrar por status" />
               </SelectTrigger>
               <SelectContent>
@@ -560,6 +586,26 @@ export default function AccountsPayable() {
                 <SelectItem value="vencido">Vencido</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* Month Filter */}
+            <div className="flex items-center gap-2 border rounded-md px-2 py-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousMonth}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-[140px] text-center font-medium capitalize">
+                {format(selectedMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+              </span>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextMonth}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {hasActiveFilters && (
+              <Button variant="outline" size="sm" onClick={clearFilters} className="gap-1">
+                <X className="h-4 w-4" />
+                Limpar Filtros
+              </Button>
+            )}
           </div>
 
           {/* Table */}

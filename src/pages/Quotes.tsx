@@ -112,6 +112,9 @@ export default function Quotes() {
   const [viewingQuote, setViewingQuote] = useState<Quote | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
+  const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerEmail, setNewCustomerEmail] = useState("");
 
   const [formData, setFormData] = useState({
     customer_id: "",
@@ -259,6 +262,27 @@ export default function Quotes() {
     onError: () => {
       toast.error("Erro ao remover proposta");
     },
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .insert([{ name: newCustomerName, email: newCustomerEmail }])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      setFormData({ ...formData, customer_id: data.id });
+      setCustomerDialogOpen(false);
+      setNewCustomerName("");
+      setNewCustomerEmail("");
+      toast.success("Cliente cadastrado!");
+    },
+    onError: () => toast.error("Erro ao cadastrar cliente"),
   });
 
   const resetForm = () => {
@@ -421,24 +445,66 @@ export default function Quotes() {
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Cliente */}
               <div className="space-y-2">
-                <Label>Cliente</Label>
-                <Select
-                  value={formData.customer_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, customer_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label>Cliente</Label>
+                    <Select
+                      value={formData.customer_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, customer_id: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cliente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon" className="mt-6">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Cadastrar Cliente</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Nome *</Label>
+                          <Input
+                            value={newCustomerName}
+                            onChange={(e) => setNewCustomerName(e.target.value)}
+                            placeholder="Nome do cliente"
+                          />
+                        </div>
+                        <div>
+                          <Label>E-mail *</Label>
+                          <Input
+                            type="email"
+                            value={newCustomerEmail}
+                            onChange={(e) => setNewCustomerEmail(e.target.value)}
+                            placeholder="email@exemplo.com"
+                          />
+                        </div>
+                        <Button
+                          onClick={() => createCustomerMutation.mutate()}
+                          className="w-full"
+                          disabled={!newCustomerName || !newCustomerEmail}
+                        >
+                          Cadastrar
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 {formData.customer_id && (
                   <p className="text-sm text-muted-foreground">
                     CNPJ:{" "}
@@ -584,36 +650,40 @@ export default function Quotes() {
                 </Select>
               </div>
 
-              {/* Valores */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="freight_value">Valor de Frete Carreta (R$)</Label>
-                  <Input
-                    id="freight_value"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.freight_value}
-                    onChange={(e) =>
-                      setFormData({ ...formData, freight_value: e.target.value })
-                    }
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
-                  <Input
-                    id="munck_value"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.munck_value}
-                    onChange={(e) =>
-                      setFormData({ ...formData, munck_value: e.target.value })
-                    }
-                    placeholder="0,00"
-                  />
-                </div>
+              {/* Valores - Condicional baseado no tipo de serviço */}
+              <div className="grid grid-cols-1 gap-4">
+                {formData.service_type === "transporte" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="freight_value">Valor de Frete (R$)</Label>
+                    <Input
+                      id="freight_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.freight_value}
+                      onChange={(e) =>
+                        setFormData({ ...formData, freight_value: e.target.value })
+                      }
+                      placeholder="0,00"
+                    />
+                  </div>
+                )}
+                {formData.service_type === "munck" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
+                    <Input
+                      id="munck_value"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.munck_value}
+                      onChange={(e) =>
+                        setFormData({ ...formData, munck_value: e.target.value })
+                      }
+                      placeholder="0,00"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Tipo de Veículo */}

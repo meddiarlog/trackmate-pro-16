@@ -499,6 +499,21 @@ export default function CollectionOrders() {
     onError: () => toast.error("Erro ao cadastrar produto"),
   });
 
+  // Add freight type mutation
+  const addFreightTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase.from("freight_types").insert({ name }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["freight-types"] });
+      setFormData(prev => ({ ...prev, freight_type_id: data.id }));
+      toast.success("Tipo de frete cadastrado!");
+    },
+    onError: () => toast.error("Erro ao cadastrar tipo de frete"),
+  });
+
   // Add vehicle type mutation
   const addVehicleTypeMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -896,18 +911,37 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Freight Type */}
+                  {/* Freight Type with add option */}
                   <div>
                     <Label>Tipo</Label>
-                    <Select value={formData.freight_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_type_id: v === "__none__" ? "" : v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Nenhum</SelectItem>
-                        {freightTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select value={formData.freight_type_id} onValueChange={(v) => setFormData(prev => ({ ...prev, freight_type_id: v === "__none__" ? "" : v }))}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum</SelectItem>
+                          {freightTypes.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="icon"><Plus className="h-4 w-4" /></Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>Novo Tipo de Frete</DialogTitle></DialogHeader>
+                          <div className="space-y-4">
+                            <Input id="new-freight-type" placeholder="Nome do tipo" />
+                            <Button onClick={() => {
+                              const input = document.getElementById('new-freight-type') as HTMLInputElement;
+                              if (input?.value) {
+                                addFreightTypeMutation.mutate(input.value);
+                              }
+                            }}>Cadastrar</Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </div>
 
                   {/* Order Request Number */}
