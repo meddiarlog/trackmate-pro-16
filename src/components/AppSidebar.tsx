@@ -86,15 +86,9 @@ const menuItems = [
       { title: "Cobranças", url: "/reports/cobrancas", icon: FileText },
       { title: "Cotação", url: "/reports/quotes", icon: Calculator },
       { title: "Fornecedores", url: "/reports/suppliers", icon: Briefcase },
-      {
-        title: "Financeiro",
-        icon: DollarSign,
-        items: [
-          { title: "Contas a Pagar", url: "/reports/accounts-payable", icon: Receipt },
-          { title: "Contas a Receber", url: "/reports/accounts-receivable", icon: DollarSign },
-          { title: "Despesa x Receita", url: "/reports/profit-loss", icon: BarChart3 },
-        ],
-      },
+      { title: "Contas a Pagar", url: "/reports/accounts-payable", icon: Receipt },
+      { title: "Contas a Receber", url: "/reports/accounts-receivable", icon: DollarSign },
+      { title: "Despesa x Receita", url: "/reports/profit-loss", icon: BarChart3 },
       { title: "Ordens de Coleta", url: "/reports/collection-orders", icon: ClipboardList },
       { title: "Produtos", url: "/reports/products", icon: Package },
     ],
