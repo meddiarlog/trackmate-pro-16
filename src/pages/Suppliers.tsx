@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Search, MoreVertical, Pencil, Trash2, Building2, MapPin, User, Clock, FileText, Loader2 } from "lucide-react";
 import { SupplierContactList } from "@/components/SupplierContactList";
 
-interface SupplierContact { id: string; tipo: string; telefone: string; email: string; }
+interface SupplierContact { id: string; tipo: "comercial" | "financeiro"; telefone: string; email: string; }
 interface Supplier { id: string; name: string; cnpj: string | null; address: string | null; city: string | null; state: string | null; neighborhood: string | null; cep: string | null; responsavel: string | null; prazo_dias: number | null; observacoes: string | null; }
 
 const formatCnpj = (v: string) => { const d = v.replace(/\D/g, ""); return d.length <= 14 ? d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d)/, "$1-$2") : v; };
@@ -77,7 +77,7 @@ export default function Suppliers() {
     setEditingId(s.id);
     setFormData({ name: s.name || "", cnpj: s.cnpj ? formatCnpj(s.cnpj) : "", address: s.address || "", city: s.city || "", state: s.state || "", neighborhood: s.neighborhood || "", cep: s.cep ? formatCep(s.cep) : "", responsavel: s.responsavel || "", prazo_dias: s.prazo_dias || 30, observacoes: s.observacoes || "" });
     const { data: c } = await supabase.from("supplier_contacts").select("*").eq("supplier_id", s.id);
-    if (c) setContacts(c.map(x => ({ id: x.id, tipo: x.tipo, telefone: x.telefone ? formatPhone(x.telefone) : "", email: x.email || "" })));
+    if (c) setContacts(c.map(x => ({ id: x.id, tipo: x.tipo as "comercial" | "financeiro", telefone: x.telefone ? formatPhone(x.telefone) : "", email: x.email || "" })));
     setIsDialogOpen(true);
   };
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); if (!formData.name.trim()) { toast({ title: "Erro", description: "Nome é obrigatório", variant: "destructive" }); return; } saveMutation.mutate(formData); };
