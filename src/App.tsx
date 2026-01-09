@@ -68,6 +68,16 @@ const App = () => (
             <Route path="accounts-receivable" element={<AccountsReceivable />} />
             <Route path="cash-boxes" element={<CashBoxes />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="reports/customers" element={<Reports />} />
+            <Route path="reports/credit-control" element={<Reports />} />
+            <Route path="reports/cobrancas" element={<Reports />} />
+            <Route path="reports/quotes" element={<Reports />} />
+            <Route path="reports/suppliers" element={<Reports />} />
+            <Route path="reports/accounts-payable" element={<Reports />} />
+            <Route path="reports/accounts-receivable" element={<Reports />} />
+            <Route path="reports/profit-loss" element={<Reports />} />
+            <Route path="reports/collection-orders" element={<Reports />} />
+            <Route path="reports/products" element={<Reports />} />
             <Route path="repository" element={<RepositoryFixed />} />
             <Route path="settings/units" element={<SettingsUnits />} />
             <Route path="settings/company" element={<CompanySettings />} />
