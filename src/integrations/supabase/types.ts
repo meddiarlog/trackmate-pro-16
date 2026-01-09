@@ -400,6 +400,7 @@ export type Database = {
           observations: string | null
           order_date: string
           order_number: number
+          order_number_type: string | null
           order_request_number: string | null
           owner_name: string | null
           owner_phone: string | null
@@ -436,6 +437,7 @@ export type Database = {
           observations?: string | null
           order_date?: string
           order_number?: number
+          order_number_type?: string | null
           order_request_number?: string | null
           owner_name?: string | null
           owner_phone?: string | null
@@ -472,6 +474,7 @@ export type Database = {
           observations?: string | null
           order_date?: string
           order_number?: number
+          order_number_type?: string | null
           order_request_number?: string | null
           owner_name?: string | null
           owner_phone?: string | null
@@ -1319,35 +1322,91 @@ export type Database = {
           },
         ]
       }
+      supplier_contacts: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          supplier_id: string
+          telefone: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          supplier_id: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          supplier_id?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_contacts_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
+          cep: string | null
+          city: string | null
           cnpj: string | null
           created_at: string
           email: string | null
           id: string
           name: string
+          neighborhood: string | null
+          observacoes: string | null
           phone: string | null
+          prazo_dias: number | null
+          responsavel: string | null
+          state: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          cep?: string | null
+          city?: string | null
           cnpj?: string | null
           created_at?: string
           email?: string | null
           id?: string
           name: string
+          neighborhood?: string | null
+          observacoes?: string | null
           phone?: string | null
+          prazo_dias?: number | null
+          responsavel?: string | null
+          state?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          cep?: string | null
+          city?: string | null
           cnpj?: string | null
           created_at?: string
           email?: string | null
           id?: string
           name?: string
+          neighborhood?: string | null
+          observacoes?: string | null
           phone?: string | null
+          prazo_dias?: number | null
+          responsavel?: string | null
+          state?: string | null
           updated_at?: string
         }
         Relationships: []

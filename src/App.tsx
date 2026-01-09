@@ -7,6 +7,8 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
 import Drivers from "./pages/Drivers";
+import VehicleTypes from "./pages/VehicleTypes";
+import BodyTypes from "./pages/BodyTypes";
 import Customers from "./pages/Customers";
 import Products from "./pages/Products";
 import Freights from "./pages/Freights";
@@ -47,6 +49,8 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="vehicles" element={<Vehicles />} />
             <Route path="drivers" element={<Drivers />} />
+            <Route path="vehicle-types" element={<VehicleTypes />} />
+            <Route path="body-types" element={<BodyTypes />} />
             <Route path="customers" element={<Customers />} />
             <Route path="products" element={<Products />} />
             <Route path="freights" element={<Freights />} />
