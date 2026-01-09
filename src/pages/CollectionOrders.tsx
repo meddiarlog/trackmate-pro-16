@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { Plus, Printer, Pencil, Trash2, X, Share2, MoreVertical, Eye } from "lucide-react";
+import { Plus, Printer, Pencil, Trash2, X, Share2, MoreVertical, Eye, Search } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
@@ -35,6 +37,7 @@ interface FormData {
   unloading_state: string;
   product_id: string;
   freight_type_id: string;
+  order_number_type: string;
   order_request_number: string;
   observations: string;
   employee_name: string;
@@ -67,6 +70,7 @@ const initialFormData: FormData = {
   unloading_state: "",
   product_id: "",
   freight_type_id: "",
+  order_number_type: "pedido",
   order_request_number: "",
   observations: "",
   employee_name: "",
@@ -243,6 +247,8 @@ export default function CollectionOrders() {
   const [newVehicleType, setNewVehicleType] = useState("");
   const [newBodyType, setNewBodyType] = useState("");
   const [printOrder, setPrintOrder] = useState<any>(null);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
   
   // Quick add dialogs
   const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
@@ -397,6 +403,7 @@ export default function CollectionOrders() {
         unloading_state: data.unloading_state || "",
         product_id: data.product_id || null,
         freight_type_id: data.freight_type_id || null,
+        order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
         observations: data.observations || null,
         employee_name: data.employee_name || null,
@@ -446,6 +453,7 @@ export default function CollectionOrders() {
         unloading_state: data.unloading_state || "",
         product_id: data.product_id || null,
         freight_type_id: data.freight_type_id || null,
+        order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
         observations: data.observations || null,
         employee_name: data.employee_name || null,
@@ -686,6 +694,7 @@ export default function CollectionOrders() {
       unloading_state: order.unloading_state || "",
       product_id: order.product_id || "",
       freight_type_id: order.freight_type_id || "",
+      order_number_type: order.order_number_type || "pedido",
       order_request_number: order.order_request_number || "",
       observations: order.observations || "",
       employee_name: order.employee_name || "",
@@ -944,13 +953,30 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Order Request Number */}
+                  {/* Order Request Number with Type Selector */}
                   <div>
-                    <Label>Nº Pedido</Label>
-                    <Input
-                      value={formData.order_request_number}
-                      onChange={(e) => setFormData(prev => ({ ...prev, order_request_number: e.target.value }))}
-                    />
+                    <Label>Identificação do Pedido</Label>
+                    <div className="flex gap-2">
+                      <Select 
+                        value={formData.order_number_type} 
+                        onValueChange={(v) => setFormData(prev => ({ ...prev, order_number_type: v }))}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pedido">Nº Pedido</SelectItem>
+                          <SelectItem value="dt">Nº DT</SelectItem>
+                          <SelectItem value="remessa">Nº Remessa</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        className="flex-1"
+                        value={formData.order_request_number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, order_request_number: e.target.value }))}
+                        placeholder="Digite o número"
+                      />
+                    </div>
                   </div>
 
                   {/* Freight Mode */}
@@ -1012,15 +1038,62 @@ export default function CollectionOrders() {
                     <div>
                       <Label>Motorista</Label>
                       <div className="flex gap-2">
-                        <Select value={formData.driver_id} onValueChange={handleDriverSelect}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Selecione o motorista" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Nenhum</SelectItem>
-                            {drivers.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={driverPopoverOpen} onOpenChange={setDriverPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="flex-1 justify-between">
+                              {formData.driver_name || "Buscar motorista..."}
+                              <Search className="h-4 w-4 ml-2 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[350px] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput 
+                                placeholder="Buscar por nome, CPF ou CNH..."
+                                value={driverSearch}
+                                onValueChange={setDriverSearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>Nenhum motorista encontrado</CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem onSelect={() => {
+                                    handleDriverSelect("__none__");
+                                    setDriverPopoverOpen(false);
+                                    setDriverSearch("");
+                                  }}>
+                                    <span className="text-muted-foreground">Nenhum</span>
+                                  </CommandItem>
+                                  {drivers
+                                    .filter((d: any) => {
+                                      if (!driverSearch) return true;
+                                      const search = driverSearch.toLowerCase();
+                                      const normalizedSearch = driverSearch.replace(/\D/g, "");
+                                      const normalizedCpf = d.cpf?.replace(/\D/g, "") || "";
+                                      const normalizedCnh = d.cnh?.replace(/\D/g, "") || "";
+                                      return (
+                                        d.name?.toLowerCase().includes(search) ||
+                                        normalizedCpf.includes(normalizedSearch) ||
+                                        normalizedCnh.includes(normalizedSearch)
+                                      );
+                                    })
+                                    .map((d: any) => (
+                                      <CommandItem key={d.id} onSelect={() => {
+                                        handleDriverSelect(d.id);
+                                        setDriverPopoverOpen(false);
+                                        setDriverSearch("");
+                                      }}>
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{d.name}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            CPF: {d.cpf || "-"} | CNH: {d.cnh || "-"}
+                                          </span>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <Button variant="outline" size="icon" onClick={openQuickDriverDialog}>
                           <Plus className="h-4 w-4" />
                         </Button>

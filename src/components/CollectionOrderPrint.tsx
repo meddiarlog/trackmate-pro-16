@@ -151,7 +151,10 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                 </div>
                 
                 <div className="p-2 border-b border-foreground">
-                  <span className="font-semibold">Nº PEDIDO:</span> {order.order_request_number || "-"}
+                  <span className="font-semibold">
+                    {order.order_number_type === "dt" ? "Nº DT" : 
+                     order.order_number_type === "remessa" ? "Nº REMESSA" : "Nº PEDIDO"}:
+                  </span> {order.order_request_number || "-"}
                 </div>
                 
                 <div className="p-2 border-b border-foreground min-h-[60px]">

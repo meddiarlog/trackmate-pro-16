@@ -33,15 +33,17 @@ const menuItems = [
     icon: Users,
     items: [
       { title: "Clientes", url: "/customers", icon: Users },
-      { title: "Motoristas", url: "/drivers", icon: UserCircle },
       {
-        title: "Veículo",
+        title: "Mot. / Veículo",
         icon: Truck,
         items: [
+          { title: "Motoristas", url: "/drivers", icon: UserCircle },
           { title: "Veículos", url: "/vehicles", icon: Truck },
-          { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
+          { title: "Tipo de Veículo", url: "/vehicle-types", icon: Truck },
+          { title: "Carroceria", url: "/body-types", icon: Package },
         ],
       },
+      { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
       { title: "Fornecedores", url: "/suppliers", icon: Briefcase },
       { title: "Produtos", url: "/products", icon: Package },
     ],
