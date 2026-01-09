@@ -43,7 +43,7 @@ const menuItems = [
           { title: "Carroceria", url: "/body-types", icon: Package },
         ],
       },
-      { title: "Proprietários de Veículos", url: "/vehicle-owners", icon: Building2 },
+      { title: "Proprietário de Veículos", url: "/vehicle-owners", icon: Building2 },
       { title: "Fornecedores", url: "/suppliers", icon: Briefcase },
       { title: "Produtos", url: "/products", icon: Package },
     ],
@@ -79,8 +79,25 @@ const menuItems = [
   },
   {
     title: "Relatórios",
-    url: "/reports",
     icon: BarChart3,
+    items: [
+      { title: "Clientes", url: "/reports/customers", icon: Users },
+      { title: "Controle de Crédito", url: "/reports/credit-control", icon: CreditCard },
+      { title: "Cobranças", url: "/reports/cobrancas", icon: FileText },
+      { title: "Cotação", url: "/reports/quotes", icon: Calculator },
+      { title: "Fornecedores", url: "/reports/suppliers", icon: Briefcase },
+      {
+        title: "Financeiro",
+        icon: DollarSign,
+        items: [
+          { title: "Contas a Pagar", url: "/reports/accounts-payable", icon: Receipt },
+          { title: "Contas a Receber", url: "/reports/accounts-receivable", icon: DollarSign },
+          { title: "Despesa x Receita", url: "/reports/profit-loss", icon: BarChart3 },
+        ],
+      },
+      { title: "Ordens de Coleta", url: "/reports/collection-orders", icon: ClipboardList },
+      { title: "Produtos", url: "/reports/products", icon: Package },
+    ],
   },
   {
     title: "Repositório",
