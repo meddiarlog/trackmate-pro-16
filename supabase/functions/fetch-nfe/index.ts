@@ -63,18 +63,87 @@ serve(async (req) => {
     const mes = aamm.substring(2, 4);
     const dataEmissao = `${ano}-${mes}-01`;
 
-    // Tentar buscar dados do CNPJ usando a BrasilAPI
+    // Tentar buscar dados do CNPJ usando múltiplas APIs com fallback
     let razaoSocial = '';
+    let cnpjEncontrado = false;
+
+    // 1. Tentar BrasilAPI primeiro
     try {
-      const cnpjResponse = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+      console.log('Tentando BrasilAPI para CNPJ:', cnpj);
+      const cnpjResponse = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      
       if (cnpjResponse.ok) {
         const cnpjData = await cnpjResponse.json();
         razaoSocial = cnpjData.razao_social || cnpjData.nome_fantasia || '';
-        console.log('Dados do CNPJ encontrados:', razaoSocial);
+        if (razaoSocial) {
+          cnpjEncontrado = true;
+          console.log('BrasilAPI - Razão Social encontrada:', razaoSocial);
+        }
+      } else {
+        const errorText = await cnpjResponse.text();
+        console.log('BrasilAPI - Erro na resposta:', cnpjResponse.status, errorText);
       }
     } catch (error) {
-      console.log('Erro ao buscar CNPJ:', error);
+      console.log('BrasilAPI - Erro na requisição:', error);
     }
+
+    // 2. Se BrasilAPI falhou, tentar ReceitaWS
+    if (!cnpjEncontrado) {
+      try {
+        console.log('Tentando ReceitaWS para CNPJ:', cnpj);
+        const receitaResponse = await fetch(`https://receitaws.com.br/v1/cnpj/${cnpj}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (receitaResponse.ok) {
+          const receitaData = await receitaResponse.json();
+          console.log('ReceitaWS - Resposta:', JSON.stringify(receitaData));
+          
+          if (receitaData.status !== 'ERROR') {
+            razaoSocial = receitaData.nome || receitaData.fantasia || '';
+            if (razaoSocial) {
+              cnpjEncontrado = true;
+              console.log('ReceitaWS - Razão Social encontrada:', razaoSocial);
+            }
+          } else {
+            console.log('ReceitaWS - CNPJ não encontrado:', receitaData.message);
+          }
+        } else {
+          console.log('ReceitaWS - Erro na resposta:', receitaResponse.status);
+        }
+      } catch (error) {
+        console.log('ReceitaWS - Erro na requisição:', error);
+      }
+    }
+
+    // 3. Se ainda não encontrou, tentar CNPJ.ws
+    if (!cnpjEncontrado) {
+      try {
+        console.log('Tentando CNPJ.ws para CNPJ:', cnpj);
+        const cnpjWsResponse = await fetch(`https://publica.cnpj.ws/cnpj/${cnpj}`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        if (cnpjWsResponse.ok) {
+          const cnpjWsData = await cnpjWsResponse.json();
+          console.log('CNPJ.ws - Resposta:', JSON.stringify(cnpjWsData));
+          
+          razaoSocial = cnpjWsData.razao_social || cnpjWsData.estabelecimento?.nome_fantasia || '';
+          if (razaoSocial) {
+            cnpjEncontrado = true;
+            console.log('CNPJ.ws - Razão Social encontrada:', razaoSocial);
+          }
+        } else {
+          console.log('CNPJ.ws - Erro na resposta:', cnpjWsResponse.status);
+        }
+      } catch (error) {
+        console.log('CNPJ.ws - Erro na requisição:', error);
+      }
+    }
+
+    console.log('Resultado final - CNPJ encontrado:', cnpjEncontrado, '- Razão Social:', razaoSocial);
 
     // Mapear código UF para sigla
     const ufMap: { [key: string]: string } = {
@@ -93,6 +162,7 @@ serve(async (req) => {
         chave_acesso: chaveClean,
         cnpj_emitente: cnpj,
         razao_social: razaoSocial,
+        cnpj_encontrado: cnpjEncontrado,
         data_emissao: dataEmissao,
         numero_nfe: numero,
         uf: ufSigla,
