@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Download } from "lucide-react";
 import { format, addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -34,6 +34,8 @@ interface AccountPayable {
   observations: string | null;
   status: string;
   created_at: string;
+  boleto_file_name: string | null;
+  boleto_file_url: string | null;
 }
 
 interface Supplier {
@@ -65,6 +67,10 @@ export default function AccountsPayable() {
     is_fixed_expense: false,
     observations: "",
   });
+  const [boletoFile, setBoletoFile] = useState<File | null>(null);
+  const [existingBoletoUrl, setExistingBoletoUrl] = useState<string | null>(null);
+  const [existingBoletoName, setExistingBoletoName] = useState<string | null>(null);
+  const [uploadingBoleto, setUploadingBoleto] = useState(false);
 
   // Fetch data
   const { data: accounts = [] } = useQuery({
@@ -237,9 +243,47 @@ export default function AccountsPayable() {
       observations: "",
     });
     setEditingAccount(null);
+    setBoletoFile(null);
+    setExistingBoletoUrl(null);
+    setExistingBoletoName(null);
   };
 
-  const handleSave = () => {
+  const handleBoletoUpload = async (file: File): Promise<{ url: string; name: string } | null> => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("Tipo de arquivo não permitido. Use PDF, JPG ou PNG.");
+      return null;
+    }
+
+    if (file.size > maxSize) {
+      toast.error("Arquivo muito grande. Tamanho máximo: 5MB");
+      return null;
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const filePath = `boletos/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('boletos')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      toast.error("Erro ao fazer upload do boleto");
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('boletos')
+      .getPublicUrl(filePath);
+
+    return { url: urlData.publicUrl, name: file.name };
+  };
+
+  const handleSave = async () => {
     if (!form.supplier_id || !form.due_date || !form.amount) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
@@ -249,6 +293,20 @@ export default function AccountsPayable() {
     const discount = Math.round((parseFloat(form.discount) || 0) * 100) / 100;
     const penaltyInterest = Math.round((parseFloat(form.penalty_interest) || 0) * 100) / 100;
     const total = Math.round((amount - discount + penaltyInterest) * 100) / 100;
+
+    let boletoUrl = existingBoletoUrl;
+    let boletoName = existingBoletoName;
+
+    // Upload new boleto if selected
+    if (boletoFile) {
+      setUploadingBoleto(true);
+      const uploadResult = await handleBoletoUpload(boletoFile);
+      setUploadingBoleto(false);
+      if (uploadResult) {
+        boletoUrl = uploadResult.url;
+        boletoName = uploadResult.name;
+      }
+    }
 
     saveAccountMutation.mutate({
       supplier_id: form.supplier_id,
@@ -261,6 +319,8 @@ export default function AccountsPayable() {
       payment_method: form.payment_method,
       is_fixed_expense: form.is_fixed_expense,
       observations: form.observations || null,
+      boleto_file_url: boletoUrl,
+      boleto_file_name: boletoName,
     });
   };
 
@@ -278,6 +338,9 @@ export default function AccountsPayable() {
       is_fixed_expense: account.is_fixed_expense,
       observations: account.observations || "",
     });
+    setExistingBoletoUrl(account.boleto_file_url);
+    setExistingBoletoName(account.boleto_file_name);
+    setBoletoFile(null);
     setDialogOpen(true);
   };
 
@@ -568,9 +631,55 @@ export default function AccountsPayable() {
                     />
                   </div>
 
+                  {/* Boleto Upload */}
                   <div className="col-span-2">
-                    <Button onClick={handleSave} className="w-full">
-                      {editingAccount ? "Atualizar" : "Salvar"}
+                    <Label>Anexar Boleto (PDF, JPG, PNG - máx 5MB)</Label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setBoletoFile(file);
+                          }
+                        }}
+                        className="flex-1"
+                      />
+                      {(existingBoletoUrl || boletoFile) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            if (boletoFile) {
+                              const url = URL.createObjectURL(boletoFile);
+                              window.open(url, '_blank');
+                            } else if (existingBoletoUrl) {
+                              window.open(existingBoletoUrl, '_blank');
+                            }
+                          }}
+                          title="Visualizar boleto"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {boletoFile && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Novo arquivo: {boletoFile.name}
+                      </p>
+                    )}
+                    {!boletoFile && existingBoletoName && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Arquivo atual: {existingBoletoName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="col-span-2">
+                    <Button onClick={handleSave} className="w-full" disabled={uploadingBoleto}>
+                      {uploadingBoleto ? "Enviando boleto..." : editingAccount ? "Atualizar" : "Salvar"}
                     </Button>
                   </div>
                 </div>
@@ -640,6 +749,7 @@ export default function AccountsPayable() {
                   <TableHead>Valor</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Boleto</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -660,6 +770,35 @@ export default function AccountsPayable() {
                       {Number(account.total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </TableCell>
                     <TableCell>{getStatusBadge(account.status)}</TableCell>
+                    <TableCell>
+                      {account.boleto_file_url ? (
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.open(account.boleto_file_url!, '_blank')}
+                            title="Visualizar boleto"
+                          >
+                            <Eye className="h-4 w-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = account.boleto_file_url!;
+                              link.download = account.boleto_file_name || 'boleto';
+                              link.click();
+                            }}
+                            title="Download boleto"
+                          >
+                            <Download className="h-4 w-4 text-green-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         {account.status === "pendente" && (
