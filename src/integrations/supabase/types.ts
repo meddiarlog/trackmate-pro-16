@@ -14,9 +14,46 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_receivable_attachments: {
+        Row: {
+          account_receivable_id: string
+          created_at: string | null
+          file_name: string
+          file_type: string | null
+          file_url: string
+          id: string
+        }
+        Insert: {
+          account_receivable_id: string
+          created_at?: string | null
+          file_name: string
+          file_type?: string | null
+          file_url: string
+          id?: string
+        }
+        Update: {
+          account_receivable_id?: string
+          created_at?: string | null
+          file_name?: string
+          file_type?: string | null
+          file_url?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_receivable_attachments_account_receivable_id_fkey"
+            columns: ["account_receivable_id"]
+            isOneToOne: false
+            referencedRelation: "accounts_receivable"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts_payable: {
         Row: {
           amount: number
+          boleto_file_name: string | null
+          boleto_file_url: string | null
           cash_box_id: string | null
           created_at: string
           discount: number | null
@@ -38,6 +75,8 @@ export type Database = {
         }
         Insert: {
           amount: number
+          boleto_file_name?: string | null
+          boleto_file_url?: string | null
           cash_box_id?: string | null
           created_at?: string
           discount?: number | null
@@ -59,6 +98,8 @@ export type Database = {
         }
         Update: {
           amount?: number
+          boleto_file_name?: string | null
+          boleto_file_url?: string | null
           cash_box_id?: string | null
           created_at?: string
           discount?: number | null

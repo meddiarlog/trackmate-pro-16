@@ -49,6 +49,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { QuotePrintView } from "@/components/QuotePrintView";
+import { CustomerFormDialog } from "@/components/CustomerFormDialog";
 
 interface Quote {
   id: string;
@@ -113,8 +114,6 @@ export default function Quotes() {
   const [searchTerm, setSearchTerm] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
-  const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerEmail, setNewCustomerEmail] = useState("");
 
   const [formData, setFormData] = useState({
     customer_id: "",
@@ -264,26 +263,9 @@ export default function Quotes() {
     },
   });
 
-  const createCustomerMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .insert([{ name: newCustomerName, email: newCustomerEmail }])
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["customers"] });
-      setFormData({ ...formData, customer_id: data.id });
-      setCustomerDialogOpen(false);
-      setNewCustomerName("");
-      setNewCustomerEmail("");
-      toast.success("Cliente cadastrado!");
-    },
-    onError: () => toast.error("Erro ao cadastrar cliente"),
-  });
+  const handleCustomerCreated = (customerId: string) => {
+    setFormData({ ...formData, customer_id: customerId });
+  };
 
   const resetForm = () => {
     setFormData({
@@ -466,45 +448,20 @@ export default function Quotes() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="icon" className="mt-6">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Cadastrar Cliente</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label>Nome *</Label>
-                          <Input
-                            value={newCustomerName}
-                            onChange={(e) => setNewCustomerName(e.target.value)}
-                            placeholder="Nome do cliente"
-                          />
-                        </div>
-                        <div>
-                          <Label>E-mail *</Label>
-                          <Input
-                            type="email"
-                            value={newCustomerEmail}
-                            onChange={(e) => setNewCustomerEmail(e.target.value)}
-                            placeholder="email@exemplo.com"
-                          />
-                        </div>
-                        <Button
-                          onClick={() => createCustomerMutation.mutate()}
-                          className="w-full"
-                          disabled={!newCustomerName || !newCustomerEmail}
-                        >
-                          Cadastrar
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="mt-6"
+                    onClick={() => setCustomerDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
                 </div>
+                <CustomerFormDialog
+                  open={customerDialogOpen}
+                  onOpenChange={setCustomerDialogOpen}
+                  onSuccess={handleCustomerCreated}
+                />
                 {formData.customer_id && (
                   <p className="text-sm text-muted-foreground">
                     CNPJ:{" "}

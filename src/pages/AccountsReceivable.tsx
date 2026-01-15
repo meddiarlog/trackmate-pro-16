@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Paperclip } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -34,6 +34,13 @@ interface AccountReceivable {
   observations: string | null;
   status: string;
   created_at: string;
+}
+
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
 }
 
 interface Customer {
@@ -65,6 +72,13 @@ export default function AccountsReceivable() {
     is_fixed_income: false,
     observations: "",
   });
+  
+  // Comprovantes state
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [attachmentsDialogOpen, setAttachmentsDialogOpen] = useState(false);
+  const [viewingAccountId, setViewingAccountId] = useState<string | null>(null);
+  const [viewingAttachments, setViewingAttachments] = useState<Attachment[]>([]);
 
   // Fetch data
   const { data: accounts = [] } = useQuery({
@@ -237,6 +251,7 @@ export default function AccountsReceivable() {
       observations: "",
     });
     setEditingAccount(null);
+    setAttachments([]);
   };
 
   const handleSave = () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,7 @@ const QuantityCalculator = ({ onResult }: { onResult: (result: number) => void }
   const [operation, setOperation] = useState<string | null>(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const popoverRef = React.useRef<HTMLDivElement>(null);
 
   const inputDigit = (digit: string) => {
     if (waitingForOperand) {
@@ -82,6 +83,14 @@ const QuantityCalculator = ({ onResult }: { onResult: (result: number) => void }
     setPreviousValue(null);
     setOperation(null);
     setWaitingForOperand(false);
+  };
+
+  const backspace = () => {
+    if (display.length > 1) {
+      setDisplay(display.slice(0, -1));
+    } else {
+      setDisplay("0");
+    }
   };
 
   const performOperation = (nextOperation: string) => {
@@ -156,6 +165,50 @@ const QuantityCalculator = ({ onResult }: { onResult: (result: number) => void }
     }
   };
 
+  // Keyboard event handler
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
+    
+    if (e.key >= '0' && e.key <= '9') {
+      e.preventDefault();
+      inputDigit(e.key);
+    } else if (e.key === '.' || e.key === ',') {
+      e.preventDefault();
+      inputDecimal();
+    } else if (e.key === '+') {
+      e.preventDefault();
+      performOperation('+');
+    } else if (e.key === '-') {
+      e.preventDefault();
+      performOperation('-');
+    } else if (e.key === '*') {
+      e.preventDefault();
+      performOperation('×');
+    } else if (e.key === '/') {
+      e.preventDefault();
+      performOperation('÷');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      calculate();
+    } else if (e.key === 'Backspace') {
+      e.preventDefault();
+      backspace();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    } else if (e.key === 'c' || e.key === 'C') {
+      e.preventDefault();
+      clear();
+    }
+  };
+
+  // Auto-focus when opening
+  React.useEffect(() => {
+    if (isOpen && popoverRef.current) {
+      popoverRef.current.focus();
+    }
+  }, [isOpen]);
+
   const CalcButton = ({ onClick, children, className = "" }: { onClick: () => void; children: React.ReactNode; className?: string }) => (
     <Button
       type="button"
@@ -174,11 +227,20 @@ const QuantityCalculator = ({ onResult }: { onResult: (result: number) => void }
           <Calculator className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-3" align="end">
+      <PopoverContent 
+        ref={popoverRef}
+        className="w-64 p-3" 
+        align="end"
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+      >
         <div className="space-y-2">
           <div className="bg-muted p-2 rounded text-right text-xl font-mono min-h-[40px]">
             {display}
           </div>
+          <p className="text-xs text-muted-foreground text-center">
+            Use o teclado: números, +, -, *, /, Enter, Backspace, C
+          </p>
           <div className="grid grid-cols-4 gap-1">
             <CalcButton onClick={clear} className="col-span-2 w-full bg-destructive/10 hover:bg-destructive/20">C</CalcButton>
             <CalcButton onClick={() => performOperation("÷")}>÷</CalcButton>
