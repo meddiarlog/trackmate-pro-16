@@ -16,7 +16,10 @@ interface Quote {
   freight_value: number;
   munck_value: number;
   vehicle_type_id: string | null;
+  body_type_id?: string | null;
   delivery_days: number;
+  quote_validity_days?: number;
+  payment_term_days?: number;
   observations: string | null;
   payment_method: string | null;
   status: string;
@@ -24,6 +27,7 @@ interface Quote {
   customer?: { name: string; cpf_cnpj: string | null } | null;
   product?: { name: string } | null;
   vehicle_type?: { name: string } | null;
+  body_type?: { name: string } | null;
 }
 
 interface CompanySettings {
@@ -196,12 +200,14 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
             {quote.vehicle_type?.name || "-"}
           </span>
         </div>
-        <div className="field flex mb-2">
-          <span className="field-label font-bold w-48 text-sm">Prazo de Entrega:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.delivery_days} {quote.delivery_days === 1 ? "dia" : "dias"}
-          </span>
-        </div>
+        {quote.body_type?.name && (
+          <div className="field flex mb-2">
+            <span className="field-label font-bold w-48 text-sm">Tipo de Carroceria:</span>
+            <span className="field-value flex-1 text-sm">
+              {quote.body_type.name}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Valores Section */}
@@ -239,10 +245,22 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         </div>
       </div>
 
-      {/* Pagamento Section */}
+      {/* Condições da Proposta Section */}
       <div className="section mb-6">
         <div className="section-title font-bold text-sm mb-3 border-b pb-2">
-          CONDIÇÕES DE PAGAMENTO
+          CONDIÇÕES DA PROPOSTA
+        </div>
+        <div className="field flex mb-2">
+          <span className="field-label font-bold w-48 text-sm">Validade da Proposta:</span>
+          <span className="field-value flex-1 text-sm">
+            {quote.quote_validity_days || 15} dias
+          </span>
+        </div>
+        <div className="field flex mb-2">
+          <span className="field-label font-bold w-48 text-sm">Prazo de Pagamento:</span>
+          <span className="field-value flex-1 text-sm">
+            {quote.payment_term_days || 30} dias
+          </span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">

@@ -63,7 +63,7 @@ const menuItems = [
           { title: "MDF-e", url: "/mdfe", icon: FileCheck },
         ],
       },
-      { title: "Cotação", url: "/quotes", icon: Calculator, badge: "Novo" },
+      { title: "Cotação", url: "/quotes", icon: Calculator },
     ],
   },
   {

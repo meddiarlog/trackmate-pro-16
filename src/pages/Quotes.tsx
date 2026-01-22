@@ -66,7 +66,10 @@ interface Quote {
   freight_value: number;
   munck_value: number;
   vehicle_type_id: string | null;
+  body_type_id?: string | null;
   delivery_days: number;
+  quote_validity_days?: number;
+  payment_term_days?: number;
   observations: string | null;
   payment_method: string | null;
   status: string;
@@ -74,6 +77,12 @@ interface Quote {
   customer?: { name: string; cpf_cnpj: string | null } | null;
   product?: { name: string } | null;
   vehicle_type?: { name: string } | null;
+  body_type?: { name: string } | null;
+}
+
+interface BodyType {
+  id: string;
+  name: string;
 }
 
 interface Customer {
@@ -128,7 +137,10 @@ export default function Quotes() {
     freight_value: "",
     munck_value: "",
     vehicle_type_id: "",
+    body_type_id: "",
     delivery_days: "0",
+    quote_validity_days: "15",
+    payment_term_days: "30",
     observations: "",
     payment_method: "",
   });
@@ -146,7 +158,30 @@ export default function Quotes() {
         `)
         .order("quote_number", { ascending: false });
       if (error) throw error;
-      return data as Quote[];
+      
+      // Fetch body types separately to join manually
+      const bodyTypeIds = data
+        .map((q: any) => q.body_type_id)
+        .filter((id: string | null) => id !== null);
+      
+      let bodyTypeMap: Record<string, string> = {};
+      if (bodyTypeIds.length > 0) {
+        const { data: bodyTypesData } = await supabase
+          .from("body_types")
+          .select("id, name")
+          .in("id", bodyTypeIds);
+        if (bodyTypesData) {
+          bodyTypeMap = bodyTypesData.reduce((acc: Record<string, string>, bt) => {
+            acc[bt.id] = bt.name;
+            return acc;
+          }, {});
+        }
+      }
+      
+      return data.map((q: any) => ({
+        ...q,
+        body_type: q.body_type_id ? { name: bodyTypeMap[q.body_type_id] || null } : null,
+      })) as Quote[];
     },
   });
 
@@ -186,6 +221,18 @@ export default function Quotes() {
     },
   });
 
+  const { data: bodyTypes = [] } = useQuery({
+    queryKey: ["body_types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("body_types")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data as BodyType[];
+    },
+  });
+
   const { data: companySettings } = useQuery({
     queryKey: ["company_settings"],
     queryFn: async () => {
@@ -220,7 +267,10 @@ export default function Quotes() {
         freight_value: parseFloat(data.freight_value) || 0,
         munck_value: parseFloat(data.munck_value) || 0,
         vehicle_type_id: data.vehicle_type_id || null,
+        body_type_id: data.body_type_id || null,
         delivery_days: parseInt(data.delivery_days) || 0,
+        quote_validity_days: parseInt(data.quote_validity_days) || 15,
+        payment_term_days: parseInt(data.payment_term_days) || 30,
         observations: data.observations || null,
         payment_method: data.payment_method || null,
         status: "active",
@@ -281,7 +331,10 @@ export default function Quotes() {
       freight_value: "",
       munck_value: "",
       vehicle_type_id: "",
+      body_type_id: "",
       delivery_days: "0",
+      quote_validity_days: "15",
+      payment_term_days: "30",
       observations: "",
       payment_method: "",
     });
@@ -316,7 +369,10 @@ export default function Quotes() {
       freight_value: quote.freight_value?.toString() || "",
       munck_value: quote.munck_value?.toString() || "",
       vehicle_type_id: quote.vehicle_type_id || "",
+      body_type_id: quote.body_type_id || "",
       delivery_days: quote.delivery_days?.toString() || "0",
+      quote_validity_days: quote.quote_validity_days?.toString() || "15",
+      payment_term_days: quote.payment_term_days?.toString() || "30",
       observations: quote.observations || "",
       payment_method: quote.payment_method || "",
     });
@@ -643,48 +699,98 @@ export default function Quotes() {
                 )}
               </div>
 
-              {/* Tipo de Veículo */}
-              <div className="space-y-2">
-                <Label>Tipo de Veículo</Label>
-                <Select
-                  value={formData.vehicle_type_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, vehicle_type_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um tipo de veículo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Tipo de Veículo e Carroceria */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo de Veículo</Label>
+                  <Select
+                    value={formData.vehicle_type_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, vehicle_type_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um tipo de veículo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicleTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Carroceria</Label>
+                  <Select
+                    value={formData.body_type_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, body_type_id: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma carroceria" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bodyTypes.map((type) => (
+                        <SelectItem key={type.id} value={type.id}>
+                          {type.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              {/* Prazo de Entrega */}
-              <div className="space-y-2">
-                <Label>Prazo de Entrega (dias)</Label>
-                <Select
-                  value={formData.delivery_days}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, delivery_days: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {deliveryDaysOptions.map((day) => (
-                      <SelectItem key={day} value={day.toString()}>
-                        {day} {day === 1 ? "dia" : "dias"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Prazos e Validade */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Prazo de Entrega (dias)</Label>
+                  <Select
+                    value={formData.delivery_days}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, delivery_days: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deliveryDaysOptions.map((day) => (
+                        <SelectItem key={day} value={day.toString()}>
+                          {day} {day === 1 ? "dia" : "dias"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Validade da Proposta (dias)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={formData.quote_validity_days}
+                    onChange={(e) =>
+                      setFormData({ ...formData, quote_validity_days: e.target.value })
+                    }
+                    placeholder="15"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Prazo de Pagamento (dias)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={formData.payment_term_days}
+                    onChange={(e) =>
+                      setFormData({ ...formData, payment_term_days: e.target.value })
+                    }
+                    placeholder="30"
+                  />
+                </div>
               </div>
 
               {/* Observações */}
