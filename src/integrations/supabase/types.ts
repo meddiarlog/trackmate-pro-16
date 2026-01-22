@@ -1207,6 +1207,7 @@ export type Database = {
       }
       quotes: {
         Row: {
+          body_type_id: string | null
           contato: string | null
           created_at: string
           customer_id: string | null
@@ -1220,8 +1221,10 @@ export type Database = {
           origin_city: string | null
           origin_state: string | null
           payment_method: string | null
+          payment_term_days: number | null
           product_id: string | null
           quote_number: number
+          quote_validity_days: number | null
           responsavel: string | null
           service_type: string
           status: string | null
@@ -1229,6 +1232,7 @@ export type Database = {
           vehicle_type_id: string | null
         }
         Insert: {
+          body_type_id?: string | null
           contato?: string | null
           created_at?: string
           customer_id?: string | null
@@ -1242,8 +1246,10 @@ export type Database = {
           origin_city?: string | null
           origin_state?: string | null
           payment_method?: string | null
+          payment_term_days?: number | null
           product_id?: string | null
           quote_number?: number
+          quote_validity_days?: number | null
           responsavel?: string | null
           service_type?: string
           status?: string | null
@@ -1251,6 +1257,7 @@ export type Database = {
           vehicle_type_id?: string | null
         }
         Update: {
+          body_type_id?: string | null
           contato?: string | null
           created_at?: string
           customer_id?: string | null
@@ -1264,8 +1271,10 @@ export type Database = {
           origin_city?: string | null
           origin_state?: string | null
           payment_method?: string | null
+          payment_term_days?: number | null
           product_id?: string | null
           quote_number?: number
+          quote_validity_days?: number | null
           responsavel?: string | null
           service_type?: string
           status?: string | null
@@ -1273,6 +1282,13 @@ export type Database = {
           vehicle_type_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "quotes_body_type_id_fkey"
+            columns: ["body_type_id"]
+            isOneToOne: false
+            referencedRelation: "body_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotes_customer_id_fkey"
             columns: ["customer_id"]
