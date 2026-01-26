@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-/*import { BrowserRouter, Routes, Route } from "react-router-dom";*/
 import { HashRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
@@ -36,124 +37,78 @@ import AccessUserGroups from "./pages/AccessUserGroups";
 import AccessPermissions from "./pages/AccessPermissions";
 import Help from "./pages/Help";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="vehicles" element={<Vehicles />} />
-            <Route path="drivers" element={<Drivers />} />
-            <Route path="vehicle-types" element={<VehicleTypes />} />
-            <Route path="body-types" element={<BodyTypes />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="products" element={<Products />} />
-            <Route path="freights" element={<Freights />} />
-            <Route path="contracts" element={<Contracts />} />
-            <Route path="financial" element={<Financial />} />
-            <Route path="credit-control" element={<CreditControl />} />
-            <Route path="cobrancas" element={<Cobrancas />} />
-            <Route path="vehicle-owners" element={<VehicleOwners />} />
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="collection-orders" element={<CollectionOrders />} />
-            <Route path="cte" element={<CTE />} />
-            <Route path="mdfe" element={<MDFe />} />
-            <Route path="quotes" element={<Quotes />} />
-            <Route path="accounts-payable" element={<AccountsPayable />} />
-            <Route
-              path="accounts-receivable"
-              element={<AccountsReceivable />}
-            />
-            <Route path="cash-boxes" element={<CashBoxes />} />
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Dashboard />} />
+              <Route path="vehicles" element={<Vehicles />} />
+              <Route path="drivers" element={<Drivers />} />
+              <Route path="vehicle-types" element={<VehicleTypes />} />
+              <Route path="body-types" element={<BodyTypes />} />
+              <Route path="customers" element={<Customers />} />
+              <Route path="products" element={<Products />} />
+              <Route path="freights" element={<Freights />} />
+              <Route path="contracts" element={<Contracts />} />
+              <Route path="financial" element={<Financial />} />
+              <Route path="credit-control" element={<CreditControl />} />
+              <Route path="cobrancas" element={<Cobrancas />} />
+              <Route path="vehicle-owners" element={<VehicleOwners />} />
+              <Route path="suppliers" element={<Suppliers />} />
+              <Route path="collection-orders" element={<CollectionOrders />} />
+              <Route path="cte" element={<CTE />} />
+              <Route path="mdfe" element={<MDFe />} />
+              <Route path="quotes" element={<Quotes />} />
+              <Route path="accounts-payable" element={<AccountsPayable />} />
+              <Route path="accounts-receivable" element={<AccountsReceivable />} />
+              <Route path="cash-boxes" element={<CashBoxes />} />
 
-            {/* Reports */}
-            <Route path="reports" element={<Reports />} />
-            <Route path="reports/customers" element={<Reports />} />
-            <Route path="reports/credit-control" element={<Reports />} />
-            <Route path="reports/cobrancas" element={<Reports />} />
-            <Route path="reports/quotes" element={<Reports />} />
-            <Route path="reports/suppliers" element={<Reports />} />
-            <Route path="reports/accounts-payable" element={<Reports />} />
-            <Route path="reports/accounts-receivable" element={<Reports />} />
-            <Route path="reports/profit-loss" element={<Reports />} />
-            <Route path="reports/collection-orders" element={<Reports />} />
-            <Route path="reports/products" element={<Reports />} />
-            <Route path="repository" element={<RepositoryFixed />} />
-            {/* Settings */}
-            <Route path="settings/units" element={<SettingsUnits />} />
-            <Route path="settings/company" element={<CompanySettings />} />
-            {/* Account */}
-            <Route path="account" element={<Account />} />
-            <Route path="access/users" element={<AccessUsers />} />
-            <Route path="access/user-groups" element={<AccessUserGroups />} />
-            <Route path="access/permissions" element={<AccessPermissions />} />
-            <Route path="help" element={<Help />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </HashRouter>
-      {/* <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="vehicles" element={<Vehicles />} />
-            <Route path="drivers" element={<Drivers />} />
-            <Route path="vehicle-types" element={<VehicleTypes />} />
-            <Route path="body-types" element={<BodyTypes />} />
-            <Route path="customers" element={<Customers />} />
-            <Route path="products" element={<Products />} />
-            <Route path="freights" element={<Freights />} />
-            <Route path="contracts" element={<Contracts />} />
-            <Route path="financial" element={<Financial />} />
-            <Route path="credit-control" element={<CreditControl />} />
-            <Route path="cobrancas" element={<Cobrancas />} />
-            <Route path="vehicle-owners" element={<VehicleOwners />} />
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="collection-orders" element={<CollectionOrders />} />
-            <Route path="cte" element={<CTE />} />
-            <Route path="mdfe" element={<MDFe />} />
-            <Route path="quotes" element={<Quotes />} />
-            <Route path="accounts-payable" element={<AccountsPayable />} />
-            <Route
-              path="accounts-receivable"
-              element={<AccountsReceivable />}
-            />
-            <Route path="cash-boxes" element={<CashBoxes />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="reports/customers" element={<Reports />} />
-            <Route path="reports/credit-control" element={<Reports />} />
-            <Route path="reports/cobrancas" element={<Reports />} />
-            <Route path="reports/quotes" element={<Reports />} />
-            <Route path="reports/suppliers" element={<Reports />} />
-            <Route path="reports/accounts-payable" element={<Reports />} />
-            <Route path="reports/accounts-receivable" element={<Reports />} />
-            <Route path="reports/profit-loss" element={<Reports />} />
-            <Route path="reports/collection-orders" element={<Reports />} />
-            <Route path="reports/products" element={<Reports />} />
-            <Route path="repository" element={<RepositoryFixed />} />
-            <Route path="settings/units" element={<SettingsUnits />} />
-            <Route path="settings/company" element={<CompanySettings />} />
-            <Route path="account" element={<Account />} />
-            <Route path="account/access/users" element={<AccessUsers />} />
-            <Route
-              path="account/access/user-groups"
-              element={<AccessUserGroups />}
-            />
-            <Route
-              path="account/access/permissions"
-              element={<AccessPermissions />}
-            />
-            <Route path="help" element={<Help />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter> */}
+              {/* Reports */}
+              <Route path="reports" element={<Reports />} />
+              <Route path="reports/customers" element={<Reports />} />
+              <Route path="reports/credit-control" element={<Reports />} />
+              <Route path="reports/cobrancas" element={<Reports />} />
+              <Route path="reports/quotes" element={<Reports />} />
+              <Route path="reports/suppliers" element={<Reports />} />
+              <Route path="reports/accounts-payable" element={<Reports />} />
+              <Route path="reports/accounts-receivable" element={<Reports />} />
+              <Route path="reports/profit-loss" element={<Reports />} />
+              <Route path="reports/collection-orders" element={<Reports />} />
+              <Route path="reports/products" element={<Reports />} />
+              <Route path="repository" element={<RepositoryFixed />} />
+              
+              {/* Settings */}
+              <Route path="settings/units" element={<SettingsUnits />} />
+              <Route path="settings/company" element={<CompanySettings />} />
+              
+              {/* Account */}
+              <Route path="account" element={<Account />} />
+              <Route path="access/users" element={<AccessUsers />} />
+              <Route path="access/user-groups" element={<AccessUserGroups />} />
+              <Route path="access/permissions" element={<AccessPermissions />} />
+              <Route path="help" element={<Help />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </HashRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

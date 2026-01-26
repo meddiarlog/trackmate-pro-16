@@ -1,6 +1,7 @@
 import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield, Wallet } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -125,11 +126,6 @@ const menuItems = [
     url: "/help",
     icon: HelpCircle,
   },
-  {
-    title: "Sair",
-    url: "/logout",
-    icon: LogOut,
-  },
 ];
 
 const MenuItem = ({ item, level = 0 }: { item: any; level?: number }) => {
@@ -223,6 +219,30 @@ const MenuItem = ({ item, level = 0 }: { item: any; level?: number }) => {
   );
 };
 
+const LogoutMenuItem = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+  const { open: sidebarOpen } = useSidebar();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton 
+        tooltip="Sair" 
+        onClick={handleLogout}
+        className="flex items-center gap-3 w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+      >
+        <LogOut className="h-4 w-4" />
+        {sidebarOpen && <span>Sair</span>}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+};
+
 export function AppSidebar() {
   const { open } = useSidebar();
 
@@ -239,6 +259,7 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <MenuItem key={item.title} item={item} />
               ))}
+              <LogoutMenuItem />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
