@@ -90,15 +90,9 @@ const App = () => (
             <Route path="settings/company" element={<CompanySettings />} />
             {/* Account */}
             <Route path="account" element={<Account />} />
-            <Route path="account/access/users" element={<AccessUsers />} />
-            <Route
-              path="account/access/user-groups"
-              element={<AccessUserGroups />}
-            />
-            <Route
-              path="account/access/permissions"
-              element={<AccessPermissions />}
-            />
+            <Route path="access/users" element={<AccessUsers />} />
+            <Route path="access/user-groups" element={<AccessUserGroups />} />
+            <Route path="access/permissions" element={<AccessPermissions />} />
             <Route path="help" element={<Help />} />
           </Route>
           <Route path="*" element={<NotFound />} />
