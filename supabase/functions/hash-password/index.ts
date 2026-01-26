@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { hash, compare } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import { hashSync, compareSync } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +26,7 @@ serve(async (req) => {
 
     // Compare password with hash
     if (action === 'compare' && hashToCompare) {
-      const isMatch = await compare(password, hashToCompare);
+      const isMatch = compareSync(password, hashToCompare);
       console.log('Password comparison completed');
       return new Response(
         JSON.stringify({ isMatch }),
@@ -34,8 +34,8 @@ serve(async (req) => {
       );
     }
 
-    // Hash password
-    const hashedPassword = await hash(password);
+    // Hash password (using sync version - no Workers needed)
+    const hashedPassword = hashSync(password);
     console.log('Password hashed successfully');
     
     return new Response(
