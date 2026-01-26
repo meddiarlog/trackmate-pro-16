@@ -784,11 +784,23 @@ export default function AccountsPayable() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = account.boleto_file_url!;
-                              link.download = account.boleto_file_name || 'boleto';
-                              link.click();
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(account.boleto_file_url!);
+                                const blob = await response.blob();
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.href = blobUrl;
+                                link.download = account.boleto_file_name || 'boleto';
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(blobUrl);
+                                toast.success("Download iniciado!");
+                              } catch (error) {
+                                console.error('Download error:', error);
+                                toast.error("Erro ao baixar boleto");
+                              }
                             }}
                             title="Download boleto"
                           >
