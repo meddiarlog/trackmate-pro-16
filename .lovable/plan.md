@@ -1,449 +1,407 @@
 
 
-## Plano de Implementacao - Sistema Mutlog
+## Plano de Implementacao - Modulo Minha Conta e Autenticacao Mutlog
 
 ---
 
 ## Resumo Executivo
 
-Este plano abrange a implementacao de tres modulos principais e a correcao de um bug critico no sistema financeiro:
+Este plano implementa o sistema completo de autenticacao e gerenciamento de conta do usuario:
 
-| Item | Tipo | Complexidade | Prioridade |
-|------|------|--------------|------------|
-| Correcao Bug Boleto (Contas a Pagar) | Bug Fix | Baixa | Alta |
-| Modulo de Usuarios | Novo Modulo | Media | Alta |
-| Modulo de Grupos de Usuarios | Novo Modulo | Baixa | Media |
-| Modulo de Permissoes | Novo Modulo | Alta | Alta |
+| Componente | Tipo | Prioridade | Complexidade |
+|------------|------|------------|--------------|
+| Tela de Login | Nova Pagina | Alta | Media |
+| Hook de Autenticacao | Novo Hook | Alta | Media |
+| Contexto de Autenticacao | Novo Contexto | Alta | Media |
+| Modulo Minha Conta | Nova Pagina | Alta | Media |
+| Recuperacao de Senha | Nova Pagina + Edge Function | Media | Alta |
+| Protecao de Rotas | Modificacao | Alta | Baixa |
 
 ---
 
-## 1. Correcao de Bug - Download/Visualizacao de Boleto
+## Arquitetura de Autenticacao
 
-### 1.1 Problema Identificado
-
-**Diagnostico:**
-- O arquivo PDF existe e esta acessivel no Supabase Storage (verificado com sucesso)
-- URL do boleto: `https://yojzaghwrznytnkksujw.supabase.co/storage/v1/object/public/boletos/boletos/1768825410730-f2ulix.pdf`
-- O problema esta no codigo de download que usa `document.createElement('a')` - essa abordagem nao funciona corretamente com URLs externas devido a restricoes de CORS
-
-**Codigo atual com problema (linhas 787-791):**
-```typescript
-onClick={() => {
-  const link = document.createElement('a');
-  link.href = account.boleto_file_url!;
-  link.download = account.boleto_file_name || 'boleto';
-  link.click();
-}}
+```text
++-------------------+     +------------------+     +------------------+
+|   Login Page      | --> |  Auth Context    | --> |  Protected       |
+|   /login          |     |  useAuth hook    |     |  Layout          |
++-------------------+     +------------------+     +------------------+
+        |                         |                        |
+        v                         v                        v
++-------------------+     +------------------+     +------------------+
+|  hash-password    |     |  localStorage    |     |  Dashboard +     |
+|  Edge Function    |     |  (session only)  |     |  All Modules     |
++-------------------+     +------------------+     +------------------+
 ```
 
-### 1.2 Solucao
+**Fluxo de Autenticacao:**
+1. Usuario acessa mutlog.com.br
+2. Sistema verifica se existe sessao ativa (via AuthContext)
+3. Se NAO autenticado -> redireciona para /login
+4. Se autenticado -> exibe Dashboard e modulos
 
-Criar uma funcao `handleDownloadBoleto` que usa `fetch` com `blob` para fazer download:
+---
+
+## 1. Criacao do Contexto de Autenticacao
+
+### Arquivo: `src/contexts/AuthContext.tsx`
+
+**Responsabilidades:**
+- Gerenciar estado de autenticacao (usuario logado/nao logado)
+- Armazenar dados do usuario autenticado
+- Prover funcoes de login, logout e verificacao de sessao
+- Persistir sessao de forma segura (sessionStorage, nao localStorage)
+
+**Estado gerenciado:**
+```typescript
+interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  group_id: string | null;
+  is_active: boolean;
+}
+
+interface AuthContextType {
+  user: AuthUser | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  updateUser: (data: Partial<AuthUser>) => void;
+}
+```
+
+**Seguranca:**
+- Sessao armazenada em sessionStorage (expira ao fechar navegador)
+- Token de sessao com expiracao configuravel
+- Nunca armazenar senha em memoria ou storage
+- Verificacao de senha via Edge Function (bcrypt compare)
+
+---
+
+## 2. Hook de Autenticacao
+
+### Arquivo: `src/hooks/useAuth.ts`
+
+Hook customizado para facilitar acesso ao contexto:
 
 ```typescript
-const handleDownloadBoleto = async (url: string, fileName: string) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(blobUrl);
-    toast.success("Download iniciado!");
-  } catch (error) {
-    console.error('Download error:', error);
-    toast.error("Erro ao baixar boleto");
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
+  return context;
 };
 ```
 
-**Arquivo a modificar:** `src/pages/AccountsPayable.tsx`
+---
+
+## 3. Tela de Login
+
+### Arquivo: `src/pages/Login.tsx`
+
+**Interface:**
+```text
++------------------------------------------+
+|              MUTLOG                       |
+|        Sistema de Gestao de Fretes        |
++------------------------------------------+
+|                                          |
+|     +------------------------------+     |
+|     |  Email                       |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     +------------------------------+     |
+|     |  Senha                       |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     [        ENTRAR        ]             |
+|                                          |
+|     Esqueceu a senha?                    |
+|                                          |
++------------------------------------------+
+```
+
+**Campos:**
+| Campo | Tipo | Validacao |
+|-------|------|-----------|
+| Email | email | Obrigatorio, formato valido |
+| Senha | password | Obrigatorio, min 6 caracteres |
+
+**Comportamento:**
+- Validar campos antes de enviar
+- Mostrar loading durante autenticacao
+- Exibir mensagens de erro claras (credenciais invalidas, usuario inativo)
+- Redirecionar para Dashboard apos login bem-sucedido
+- Link para recuperacao de senha
 
 ---
 
-## 2. Migracao de Banco de Dados
+## 4. Pagina de Recuperacao de Senha
 
-### 2.1 Novas Tabelas Necessarias
+### Arquivo: `src/pages/ForgotPassword.tsx`
 
-Seguindo as instrucoes de seguranca fornecidas (roles em tabela separada):
+**Fluxo em 2 etapas:**
+
+**Etapa 1 - Solicitar Recuperacao:**
+```text
++------------------------------------------+
+|        Recuperar Senha                    |
++------------------------------------------+
+|                                          |
+|  Digite seu e-mail cadastrado para       |
+|  receber o link de recuperacao.          |
+|                                          |
+|     +------------------------------+     |
+|     |  Email                       |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     [    ENVIAR LINK    ]                |
+|                                          |
+|     Voltar para login                    |
+|                                          |
++------------------------------------------+
+```
+
+**Etapa 2 - Redefinir Senha:**
+```text
++------------------------------------------+
+|        Nova Senha                         |
++------------------------------------------+
+|                                          |
+|     +------------------------------+     |
+|     |  Codigo de Recuperacao       |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     +------------------------------+     |
+|     |  Nova Senha                  |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     +------------------------------+     |
+|     |  Confirmar Nova Senha        |     |
+|     |  [________________________]  |     |
+|     +------------------------------+     |
+|                                          |
+|     [    REDEFINIR SENHA    ]            |
+|                                          |
++------------------------------------------+
+```
+
+---
+
+## 5. Modulo Minha Conta
+
+### Arquivo: `src/pages/Account.tsx` (atualizar)
+
+**Interface:**
+```text
++------------------------------------------+
+|        Minha Conta                        |
++------------------------------------------+
+|                                          |
+|  +------------------------------------+  |
+|  | Informacoes do Usuario             |  |
+|  +------------------------------------+  |
+|  | Nome: Bruno                        |  |
+|  | Email: bs.suporte.tec@gmail.com    |  |
+|  | Grupo: Administrador               |  |
+|  +------------------------------------+  |
+|                                          |
+|  +------------------------------------+  |
+|  | Alterar E-mail                     |  |
+|  +------------------------------------+  |
+|  | Novo E-mail: [___________________] |  |
+|  | Senha Atual: [___________________] |  |
+|  | [  ALTERAR E-MAIL  ]               |  |
+|  +------------------------------------+  |
+|                                          |
+|  +------------------------------------+  |
+|  | Alterar Senha                      |  |
+|  +------------------------------------+  |
+|  | Senha Atual: [___________________] |  |
+|  | Nova Senha: [____________________] |  |
+|  | Confirmar:  [____________________] |  |
+|  | [  ALTERAR SENHA  ]                |  |
+|  +------------------------------------+  |
+|                                          |
++------------------------------------------+
+```
+
+**Funcionalidades:**
+- Exibir dados do usuario logado
+- Alterar e-mail (requer senha atual)
+- Alterar senha (requer senha atual)
+
+**Validacoes:**
+| Campo | Regra |
+|-------|-------|
+| Senha atual | Obrigatoria para qualquer alteracao |
+| Novo e-mail | Formato valido, nao duplicado |
+| Nova senha | Min 6 caracteres, letras e numeros |
+| Confirmar senha | Igual a nova senha |
+
+---
+
+## 6. Edge Function - Envio de E-mail de Recuperacao
+
+### Arquivo: `supabase/functions/send-password-reset/index.ts`
+
+**Nota:** Para envio de e-mails de recuperacao, sera necessario configurar um servico de e-mail (Resend). O usuario precisara fornecer a chave de API do Resend.
+
+**Alternativa sem e-mail (implementacao inicial):**
+- Gerar codigo de recuperacao de 6 digitos
+- Armazenar codigo com expiracao na tabela `password_reset_tokens`
+- Exibir codigo na tela (para ambiente de desenvolvimento)
+- Em producao, enviar via e-mail
+
+### Migracao SQL necessaria:
 
 ```sql
--- Enum para roles do sistema
-CREATE TYPE public.app_role AS ENUM ('admin', 'user', 'viewer');
-
--- Tabela de grupos de usuarios
-CREATE TABLE public.user_groups (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL UNIQUE,
-  description text,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
--- Tabela de usuarios do sistema
-CREATE TABLE public.system_users (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text NOT NULL UNIQUE,
-  password_hash text NOT NULL,
-  group_id uuid REFERENCES public.user_groups(id) ON DELETE SET NULL,
-  is_active boolean DEFAULT true NOT NULL,
-  last_login timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
--- Tabela de roles (separada por seguranca)
-CREATE TABLE public.user_roles (
+-- Tabela para tokens de recuperacao de senha
+CREATE TABLE public.password_reset_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES public.system_users(id) ON DELETE CASCADE NOT NULL,
-  role app_role NOT NULL,
-  UNIQUE (user_id, role)
-);
-
--- Tabela de modulos do sistema
-CREATE TABLE public.system_modules (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL UNIQUE,
-  code text NOT NULL UNIQUE,
-  description text,
-  parent_id uuid REFERENCES public.system_modules(id) ON DELETE CASCADE,
-  display_order integer DEFAULT 0,
+  token text NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  used boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
--- Tabela de permissoes por usuario e modulo
-CREATE TABLE public.user_permissions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES public.system_users(id) ON DELETE CASCADE NOT NULL,
-  module_id uuid REFERENCES public.system_modules(id) ON DELETE CASCADE NOT NULL,
-  can_view boolean DEFAULT false NOT NULL,
-  can_create boolean DEFAULT false NOT NULL,
-  can_edit boolean DEFAULT false NOT NULL,
-  can_delete boolean DEFAULT false NOT NULL,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  UNIQUE (user_id, module_id)
-);
-
 -- Habilitar RLS
-ALTER TABLE public.user_groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_modules ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
 
--- Policies para acesso publico (temporario, ate implementar auth)
-CREATE POLICY "Allow all access to user_groups" ON public.user_groups FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to system_users" ON public.system_users FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to user_roles" ON public.user_roles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to system_modules" ON public.system_modules FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all access to user_permissions" ON public.user_permissions FOR ALL USING (true) WITH CHECK (true);
+-- Policy temporaria
+CREATE POLICY "Allow all access to password_reset_tokens" 
+ON public.password_reset_tokens FOR ALL USING (true) WITH CHECK (true);
 
--- Funcao para verificar role (security definer)
-CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role app_role)
-RETURNS boolean
+-- Funcao para limpar tokens expirados
+CREATE OR REPLACE FUNCTION public.cleanup_expired_tokens()
+RETURNS void
 LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
 AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.user_roles
-    WHERE user_id = _user_id
-      AND role = _role
-  )
+  DELETE FROM public.password_reset_tokens 
+  WHERE expires_at < now() OR used = true;
 $$;
-
--- Inserir modulos do sistema
-INSERT INTO public.system_modules (name, code, description, display_order) VALUES
-  ('Dashboard', 'dashboard', 'Painel principal', 1),
-  ('Cadastro', 'cadastro', 'Modulo de cadastros', 2),
-  ('Clientes', 'customers', 'Cadastro de clientes', 3),
-  ('Motoristas', 'drivers', 'Cadastro de motoristas', 4),
-  ('Veiculos', 'vehicles', 'Cadastro de veiculos', 5),
-  ('Fornecedores', 'suppliers', 'Cadastro de fornecedores', 6),
-  ('Produtos', 'products', 'Cadastro de produtos', 7),
-  ('Servicos', 'servicos', 'Modulo de servicos', 8),
-  ('Fretes', 'freights', 'Gestao de fretes', 9),
-  ('Ordens de Coleta', 'collection-orders', 'Ordens de coleta', 10),
-  ('CTE', 'cte', 'Conhecimentos de transporte', 11),
-  ('Contratos', 'contracts', 'Gestao de contratos', 12),
-  ('MDF-e', 'mdfe', 'Manifestos de carga', 13),
-  ('Cotacoes', 'quotes', 'Gestao de cotacoes', 14),
-  ('Financeiro', 'financeiro', 'Modulo financeiro', 15),
-  ('Controle de Caixa', 'cash-boxes', 'Controle de caixa', 16),
-  ('Contas a Pagar', 'accounts-payable', 'Contas a pagar', 17),
-  ('Contas a Receber', 'accounts-receivable', 'Contas a receber', 18),
-  ('Cobrancas', 'cobrancas', 'Gestao de cobrancas', 19),
-  ('Controle de Credito', 'credit-control', 'Controle de credito', 20),
-  ('Relatorios', 'reports', 'Modulo de relatorios', 21),
-  ('Repositorio', 'repository', 'Repositorio de arquivos', 22),
-  ('Configuracoes', 'settings', 'Configuracoes do sistema', 23),
-  ('Gestao de Acessos', 'access', 'Gestao de usuarios e permissoes', 24);
-
--- Trigger para updated_at
-CREATE TRIGGER update_user_groups_updated_at
-  BEFORE UPDATE ON public.user_groups
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_system_users_updated_at
-  BEFORE UPDATE ON public.system_users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_user_permissions_updated_at
-  BEFORE UPDATE ON public.user_permissions
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
 ---
 
-## 3. Modulo de Usuarios (`src/pages/AccessUsers.tsx`)
+## 7. Protecao de Rotas
 
-### 3.1 Interface e Funcionalidades
+### Modificacao: `src/App.tsx`
 
-```
-+--------------------------------------------------+
-| Usuarios                                          |
-+--------------------------------------------------+
-| [+ Novo Usuario]    [Buscar: ____________]       |
-+--------------------------------------------------+
-| Nome      | Email           | Grupo    | Acoes   |
-|-----------|-----------------|----------|---------|
-| Joao      | joao@email.com  | Admin    | E | X   |
-| Maria     | maria@email.com | Operador | E | X   |
-+--------------------------------------------------+
-```
-
-### 3.2 Campos do Formulario
-
-| Campo | Tipo | Obrigatorio | Validacao |
-|-------|------|-------------|-----------|
-| Nome | text | Sim | Min 3 caracteres |
-| Email | email | Sim | Formato valido, unico |
-| Senha | password | Sim (novo) | Min 6 caracteres |
-| Confirmar Senha | password | Sim (novo) | Igual a senha |
-| Grupo | select | Nao | Referencia user_groups |
-| Status | switch | Nao | Ativo/Inativo |
-
-### 3.3 Funcoes Principais
-
-- `fetchUsers()` - Listar usuarios com join em grupos
-- `createUser()` - Criar usuario com hash de senha
-- `updateUser()` - Atualizar dados (senha opcional)
-- `deleteUser()` - Excluir usuario
-- `validateEmail()` - Verificar duplicidade
-
-### 3.4 Seguranca de Senhas
+**Estrutura atualizada:**
 
 ```typescript
-// Usar hash no frontend antes de enviar (bcrypt via edge function)
-const hashPassword = async (password: string): Promise<string> => {
-  const response = await supabase.functions.invoke('hash-password', {
-    body: { password }
-  });
-  return response.data.hash;
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <Routes>
+            {/* Rotas publicas */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            
+            {/* Rotas protegidas */}
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+              <Route index element={<Dashboard />} />
+              {/* ... demais rotas ... */}
+            </Route>
+          </Routes>
+        </HashRouter>
+      </AuthProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 ```
 
----
-
-## 4. Modulo de Grupos de Usuarios (`src/pages/AccessUserGroups.tsx`)
-
-### 4.1 Interface
-
-```
-+--------------------------------------------------+
-| Grupos de Usuarios                                |
-+--------------------------------------------------+
-| [+ Novo Grupo]    [Buscar: ____________]         |
-+--------------------------------------------------+
-| Nome          | Descricao              | Acoes   |
-|---------------|------------------------|---------|
-| Administrador | Acesso total           | E | X   |
-| Operador      | Acesso operacional     | E | X   |
-+--------------------------------------------------+
-```
-
-### 4.2 Campos
-
-| Campo | Tipo | Obrigatorio |
-|-------|------|-------------|
-| Nome | text | Sim |
-| Descricao | textarea | Nao |
-
-### 4.3 Validacoes
-
-- Nome unico
-- Nao excluir grupo com usuarios vinculados (mostrar alerta)
-
----
-
-## 5. Modulo de Permissoes (`src/pages/AccessPermissions.tsx`)
-
-### 5.1 Interface
-
-```
-+--------------------------------------------------+
-| Permissoes                                        |
-+--------------------------------------------------+
-| Usuario: [Select Usuario v]                       |
-+--------------------------------------------------+
-| Modulo           | Ver | Criar | Editar | Excluir|
-|------------------|-----|-------|--------|--------|
-| Dashboard        | [x] | [ ]   | [ ]    | [ ]    |
-| Clientes         | [x] | [x]   | [x]    | [ ]    |
-| Motoristas       | [x] | [x]   | [ ]    | [ ]    |
-| Financeiro       | [x] | [x]   | [x]    | [x]    |
-+--------------------------------------------------+
-| [Salvar Permissoes]                              |
-+--------------------------------------------------+
-```
-
-### 5.2 Funcionalidades
-
-1. **Selecao de Usuario**: Dropdown com todos os usuarios
-2. **Listagem de Modulos**: Exibir todos os modulos do sistema
-3. **Checkboxes de Permissao**: can_view, can_create, can_edit, can_delete
-4. **Salvar em lote**: Atualizar todas as permissoes de uma vez
-
-### 5.3 Logica de Salvamento
+### Componente: `src/components/ProtectedRoute.tsx`
 
 ```typescript
-const savePermissions = async () => {
-  // Deletar permissoes existentes do usuario
-  await supabase.from('user_permissions')
-    .delete()
-    .eq('user_id', selectedUserId);
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, isLoading } = useAuth();
   
-  // Inserir novas permissoes
-  const permissionsToInsert = modules
-    .filter(m => m.can_view || m.can_create || m.can_edit || m.can_delete)
-    .map(m => ({
-      user_id: selectedUserId,
-      module_id: m.id,
-      can_view: m.can_view,
-      can_create: m.can_create,
-      can_edit: m.can_edit,
-      can_delete: m.can_delete
-    }));
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
   
-  await supabase.from('user_permissions').insert(permissionsToInsert);
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return children;
 };
 ```
 
 ---
 
-## 6. Correcao de Rotas
+## 8. Atualizacao do Sidebar - Logout
 
-### 6.1 Inconsistencia Identificada
+### Modificacao: `src/components/AppSidebar.tsx`
 
-**AppSidebar.tsx (linha 117-121):**
-```typescript
-{ title: "Usuarios", url: "/access/users", icon: Users },
-{ title: "Grupo de Usuarios", url: "/access/user-groups", icon: Users },
-{ title: "Permissoes", url: "/access/permissions", icon: Shield },
-```
-
-**App.tsx (linha 93-100):**
-```typescript
-<Route path="account/access/users" element={<AccessUsers />} />
-<Route path="account/access/user-groups" element={<AccessUserGroups />} />
-<Route path="account/access/permissions" element={<AccessPermissions />} />
-```
-
-### 6.2 Solucao
-
-Atualizar as rotas no `App.tsx` para corresponder ao sidebar:
-
-```typescript
-<Route path="access/users" element={<AccessUsers />} />
-<Route path="access/user-groups" element={<AccessUserGroups />} />
-<Route path="access/permissions" element={<AccessPermissions />} />
-```
+O item "Sair" no menu deve chamar a funcao `logout()` do AuthContext e redirecionar para /login.
 
 ---
 
-## 7. Edge Function para Hash de Senha
-
-### 7.1 Criar `supabase/functions/hash-password/index.ts`
-
-```typescript
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { hash, compare } from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { password, hashToCompare, action } = await req.json();
-
-    if (action === 'compare' && hashToCompare) {
-      const isMatch = await compare(password, hashToCompare);
-      return new Response(JSON.stringify({ isMatch }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const hashedPassword = await hash(password);
-    return new Response(JSON.stringify({ hash: hashedPassword }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
-```
-
----
-
-## 8. Arquivos a Modificar/Criar
+## 9. Arquivos a Criar/Modificar
 
 | Arquivo | Acao | Descricao |
 |---------|------|-----------|
-| `src/pages/AccountsPayable.tsx` | Modificar | Corrigir download de boleto |
-| `src/pages/AccessUsers.tsx` | Reescrever | Modulo completo de usuarios |
-| `src/pages/AccessUserGroups.tsx` | Reescrever | Modulo de grupos |
-| `src/pages/AccessPermissions.tsx` | Reescrever | Modulo de permissoes |
-| `src/App.tsx` | Modificar | Corrigir rotas |
-| `supabase/functions/hash-password/index.ts` | Criar | Edge function para hash |
-| `supabase/config.toml` | Modificar | Registrar nova edge function |
-| Migracao SQL | Criar | Novas tabelas e dados |
+| `src/contexts/AuthContext.tsx` | Criar | Contexto de autenticacao |
+| `src/hooks/useAuth.ts` | Criar | Hook de autenticacao |
+| `src/pages/Login.tsx` | Criar | Tela de login |
+| `src/pages/ForgotPassword.tsx` | Criar | Solicitar recuperacao de senha |
+| `src/pages/ResetPassword.tsx` | Criar | Redefinir senha |
+| `src/pages/Account.tsx` | Modificar | Modulo Minha Conta completo |
+| `src/components/ProtectedRoute.tsx` | Criar | Componente de protecao de rotas |
+| `src/App.tsx` | Modificar | Adicionar AuthProvider e rotas publicas |
+| `src/components/AppSidebar.tsx` | Modificar | Implementar logout funcional |
+| Migracao SQL | Criar | Tabela password_reset_tokens |
 
 ---
 
-## 9. Ordem de Implementacao
+## 10. Ordem de Implementacao
 
-1. **Migracao de Banco de Dados** - Criar tabelas e inserir modulos
-2. **Edge Function hash-password** - Implementar hash de senhas
-3. **Corrigir Bug Boleto** - Atualizar AccountsPayable.tsx
-4. **Corrigir Rotas** - Atualizar App.tsx
-5. **Modulo Grupos de Usuarios** - Implementar CRUD simples
-6. **Modulo Usuarios** - Implementar CRUD com validacoes
-7. **Modulo Permissoes** - Implementar matriz de permissoes
+1. **Migracao SQL** - Criar tabela password_reset_tokens
+2. **AuthContext e useAuth** - Base do sistema de autenticacao
+3. **ProtectedRoute** - Componente de protecao
+4. **Login.tsx** - Tela de login funcional
+5. **App.tsx** - Integrar AuthProvider e rotas
+6. **AppSidebar.tsx** - Implementar logout
+7. **Account.tsx** - Modulo Minha Conta
+8. **ForgotPassword.tsx e ResetPassword.tsx** - Recuperacao de senha
 
 ---
 
-## 10. Consideracoes de Seguranca
+## 11. Consideracoes de Seguranca
 
-- Senhas armazenadas com hash bcrypt (nunca em texto plano)
-- Roles em tabela separada (conforme instrucoes de seguranca)
-- Funcao `has_role` com SECURITY DEFINER para evitar recursao RLS
-- Validacao de email unico
-- Estrutura preparada para autenticacao futura
+| Item | Implementacao |
+|------|---------------|
+| Armazenamento de sessao | sessionStorage (expira ao fechar navegador) |
+| Senhas | Nunca armazenadas em texto, sempre hash bcrypt |
+| Comparacao de senha | Via Edge Function (servidor) |
+| Tokens de recuperacao | Expiracao de 1 hora, uso unico |
+| Validacao de e-mail | Verificar duplicidade antes de alterar |
+| Tentativas de login | Estrutura preparada para rate limiting futuro |
+
+---
+
+## 12. Proximos Passos Apos Implementacao
+
+1. Configurar Resend para envio de e-mails em producao
+2. Implementar rate limiting para prevenir brute force
+3. Adicionar verificacao de permissoes em cada modulo
+4. Implementar 2FA (autenticacao de dois fatores)
+5. Adicionar captcha na tela de login
 
