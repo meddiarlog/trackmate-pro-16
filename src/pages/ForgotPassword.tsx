@@ -4,9 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Truck, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Truck, Loader2, ArrowLeft, CheckCircle2, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+
+// Mask email for display (e.g., "bs.***@gmail.com")
+const maskEmail = (email: string): string => {
+  const [localPart, domain] = email.split('@');
+  if (localPart.length <= 3) {
+    return `${localPart[0]}***@${domain}`;
+  }
+  return `${localPart.substring(0, 3)}***@${domain}`;
+};
 
 export default function ForgotPassword() {
   const { toast } = useToast();
@@ -14,7 +23,7 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [resetCode, setResetCode] = useState<string | null>(null);
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [error, setError] = useState('');
 
   const validateEmail = () => {
@@ -80,13 +89,28 @@ export default function ForgotPassword() {
         throw tokenError;
       }
 
-      // In development, show the code; in production, this would be sent via email
-      setResetCode(code);
+      // Send email with recovery code via Edge Function
+      const { data: emailData, error: emailError } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: email.toLowerCase().trim(), code }
+      });
+
+      if (emailError || !emailData?.success) {
+        console.error('Error sending email:', emailError || emailData?.error);
+        toast({
+          title: 'Erro ao enviar e-mail',
+          description: 'Não foi possível enviar o código de recuperação. Tente novamente.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      setMaskedEmail(maskEmail(email.toLowerCase().trim()));
       setIsSubmitted(true);
       
       toast({
-        title: 'Código gerado com sucesso!',
-        description: 'Use o código para redefinir sua senha.',
+        title: 'E-mail enviado!',
+        description: 'Verifique sua caixa de entrada.',
       });
     } catch (error) {
       console.error('Error generating reset code:', error);
@@ -107,30 +131,30 @@ export default function ForgotPassword() {
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
               <div className="bg-green-500 rounded-full p-3">
-                <CheckCircle2 className="h-8 w-8 text-white" />
+                <Mail className="h-8 w-8 text-white" />
               </div>
             </div>
             <div>
-              <CardTitle className="text-xl">Código Gerado!</CardTitle>
+              <CardTitle className="text-xl">E-mail Enviado!</CardTitle>
               <CardDescription className="text-base">
-                Use o código abaixo para redefinir sua senha.
+                Enviamos um código de recuperação para o e-mail:
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {resetCode && (
-              <div className="bg-muted p-4 rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-2">Seu código de recuperação:</p>
-                <p className="text-3xl font-mono font-bold tracking-widest">{resetCode}</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Este código expira em 1 hora.
-                </p>
-              </div>
-            )}
+            <div className="bg-muted p-4 rounded-lg text-center">
+              <p className="text-lg font-medium">{maskedEmail}</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Verifique sua caixa de entrada (e também a pasta de spam).
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                O código expira em 1 hora.
+              </p>
+            </div>
             
             <Button asChild className="w-full">
               <Link to="/reset-password">
-                Redefinir Senha
+                Inserir Código
               </Link>
             </Button>
             
