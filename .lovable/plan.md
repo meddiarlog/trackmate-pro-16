@@ -1,159 +1,281 @@
 
-
-## Plano de Implementação - Envio de Código de Recuperação por E-mail
-
----
-
-## Resumo
-
-Atualmente, o código de recuperação de senha está sendo exibido diretamente na tela após a geração. Conforme solicitado, o código deve ser enviado para o e-mail do usuário e **nunca** exibido na interface.
-
-| Item | Tipo | Complexidade |
-|------|------|--------------|
-| Configurar chave API do Resend | Configuração | Baixa |
-| Criar Edge Function para envio de e-mail | Nova Função | Média |
-| Atualizar página ForgotPassword | Modificação | Baixa |
+## Plano de Implementacao - Melhorias Mutlog
 
 ---
 
-## Fluxo Atualizado
+## Resumo das Alteracoes
 
-```text
-+-------------------+     +--------------------+     +------------------+
-|   ForgotPassword  | --> | send-password-     | --> |     Resend       |
-|   (Frontend)      |     | reset Edge Func    |     |   (E-mail API)   |
-+-------------------+     +--------------------+     +------------------+
-        |                         |                        |
-        v                         v                        v
-+-------------------+     +--------------------+     +------------------+
-| Gera código       |     | Salva token no DB  |     | Usuário recebe   |
-| Chama Edge Func   |     | Envia e-mail       |     | código no e-mail |
-+-------------------+     +--------------------+     +------------------+
+Este plano abrange melhorias nos modulos **Clientes** e **Cotacao** para otimizar a experiencia do usuario e adicionar funcionalidades de cadastro rapido.
+
+| Modulo | Alteracao | Complexidade |
+|--------|-----------|--------------|
+| Clientes | Mover "Responsavel" para bloco de Contato | Baixa |
+| Clientes | Adicionar campo "Nome Fantasia" | Media |
+| Clientes | Exibir contatos nos cards de clientes | Media |
+| Cotacao | Botao "+" para cadastro rapido de Produto | Media |
+| Cotacao | Botao "+" para cadastro rapido de Tipo de Veiculo | Media |
+| Cotacao | Botao "+" para cadastro rapido de Tipo de Carroceria | Media |
+
+---
+
+## Detalhamento Tecnico
+
+### 1. Banco de Dados
+
+**Adicionar coluna `nome_fantasia` na tabela `customers`:**
+
+```sql
+ALTER TABLE customers 
+ADD COLUMN nome_fantasia TEXT;
 ```
 
 ---
 
-## 1. Pré-requisito: Configurar Resend
+### 2. Modulo Clientes - Alteracoes no Formulario
 
-Antes de implementar, você precisará:
+**Arquivo:** `src/pages/Customers.tsx` e `src/components/CustomerFormDialog.tsx`
 
-1. Criar conta em **resend.com**
-2. Validar seu domínio de e-mail em https://resend.com/domains
-3. Criar uma API Key em https://resend.com/api-keys
-4. Fornecer a API Key quando solicitado
+**2.1 Campo Nome Fantasia (novo campo obrigatorio)**
+
+Adicionar abaixo do campo "Razao Social":
+
+```text
++----------------------------------+
+| Razao Social *                   |
+|  [____________________________] |
++----------------------------------+
+| Nome Fantasia *                  |
+|  [____________________________] |
++----------------------------------+
+```
+
+**2.2 Mover Responsavel para dentro do bloco de Contatos**
+
+Estrutura atual do contato:
+- Tipo de Contato
+- Telefone
+- E-mail
+
+Nova estrutura (Responsavel dentro de cada contato):
+```text
++----------------------------------------+
+| Contato 1                    [Lixeira] |
++----------------------------------------+
+| Responsavel                            |
+|  [______________________________]      |
++----------------------------------------+
+| Tipo de Contato | Telefone | E-mail    |
+| [Comercial  v]  | [______] | [______]  |
++----------------------------------------+
+```
+
+**Modificacoes necessarias:**
+
+1. Atualizar interface `Contact` em `CustomerContactList.tsx`:
+```typescript
+interface Contact {
+  id?: string;
+  tipo: "financeiro" | "comercial";
+  telefone: string;
+  email: string;
+  responsavel: string;  // NOVO CAMPO
+}
+```
+
+2. Atualizar tabela `customer_contacts` (migracao SQL):
+```sql
+ALTER TABLE customer_contacts 
+ADD COLUMN responsavel TEXT;
+```
+
+3. Remover campo "Responsavel" de fora do bloco de contatos
 
 ---
 
-## 2. Criar Edge Function: `send-password-reset`
+### 3. Modulo Clientes - Cards de Exibicao
 
-### Arquivo: `supabase/functions/send-password-reset/index.ts`
+**Arquivo:** `src/pages/Customers.tsx`
 
-**Funcionalidades:**
-- Receber e-mail do destinatário e código de recuperação
-- Enviar e-mail formatado usando Resend
-- Retornar status de sucesso/erro
+**Dados a exibir nos cards:**
 
-**Template do e-mail:**
 ```text
-Assunto: Código de Recuperação - Mutlog
++----------------------------------------+
+| Razao Social                           |
+| Nome Fantasia                          |
+| CNPJ: XX.XXX.XXX/XXXX-XX               |
++----------------------------------------+
+| Contatos:                              |
+|  - Joao (Comercial): (11) 99999-9999   |
+|  - Maria (Financeiro): (11) 88888-8888 |
++----------------------------------------+
+| Prazo: 30 dias                         |
++----------------------------------------+
+| [Editar]              [Remover]        |
++----------------------------------------+
+```
 
-Olá,
+**Implementacao:**
+- Criar query para buscar `customer_contacts` junto com cada cliente
+- Exibir lista de contatos no card com responsavel, tipo e telefone
 
-Você solicitou a recuperação de senha da sua conta Mutlog.
+---
 
-Seu código de recuperação é: XXXXXX
+### 4. Modulo Cotacao - Cadastro Rapido de Produto
 
-Este código expira em 1 hora.
+**Arquivo:** `src/pages/Quotes.tsx`
 
-Se você não solicitou esta recuperação, ignore este e-mail.
+**Padrao a seguir:** Mesmo padrao usado para Customer (CustomerFormDialog)
 
-Atenciosamente,
-Equipe Mutlog
+**Implementacao:**
+
+1. Adicionar estado para controle do dialog:
+```typescript
+const [productDialogOpen, setProductDialogOpen] = useState(false);
+const [newProductName, setNewProductName] = useState("");
+```
+
+2. Adicionar mutation para criar produto:
+```typescript
+const addProductMutation = useMutation({
+  mutationFn: async (name: string) => {
+    const { data, error } = await supabase
+      .from("products")
+      .insert({ name })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    setFormData(prev => ({ ...prev, product_id: data.id }));
+    setNewProductName("");
+    setProductDialogOpen(false);
+    toast.success("Produto cadastrado!");
+  },
+});
+```
+
+3. Adicionar botao "+" ao lado do Select de Produto:
+```jsx
+<div className="flex items-center gap-2">
+  <div className="flex-1">
+    <Select ...>
+      ...
+    </Select>
+  </div>
+  <Button 
+    variant="outline" 
+    size="icon" 
+    className="mt-6"
+    onClick={() => setProductDialogOpen(true)}
+  >
+    <Plus className="h-4 w-4" />
+  </Button>
+</div>
+```
+
+4. Adicionar Dialog para novo produto:
+```jsx
+<Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Cadastrar Novo Produto</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <Input 
+        value={newProductName}
+        onChange={(e) => setNewProductName(e.target.value)}
+        placeholder="Nome do produto"
+      />
+      <Button onClick={() => addProductMutation.mutate(newProductName)}>
+        Cadastrar
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
 ```
 
 ---
 
-## 3. Atualizar ForgotPassword.tsx
+### 5. Modulo Cotacao - Cadastro Rapido de Tipo de Veiculo
 
-### Mudanças:
+**Arquivo:** `src/pages/Quotes.tsx`
 
-**Antes:**
-- Gerar código no frontend
-- Salvar token no banco
-- Exibir código na tela
+**Implementacao identica ao padrao de Produto:**
 
-**Depois:**
-- Verificar se usuário existe
-- Gerar código no frontend
-- Salvar token no banco
-- Chamar Edge Function para enviar e-mail
-- Exibir mensagem de sucesso (sem mostrar o código)
-
-### Nova tela após envio:
-
-```text
-+------------------------------------------+
-|              ✅                          |
-|        E-mail Enviado!                   |
-+------------------------------------------+
-|                                          |
-|  Enviamos um código de recuperação       |
-|  para o e-mail:                          |
-|                                          |
-|  bs.suporte.tec@gmail.com                |
-|                                          |
-|  Verifique sua caixa de entrada          |
-|  (e também a pasta de spam).             |
-|                                          |
-|  O código expira em 1 hora.              |
-|                                          |
-|     [ Inserir Código ]                   |
-|                                          |
-|     Voltar para login                    |
-|                                          |
-+------------------------------------------+
-```
+1. Estado: `vehicleTypeDialogOpen`, `newVehicleTypeName`
+2. Mutation: insercao em `vehicle_types`
+3. Botao "+" ao lado do Select
+4. Dialog simples com input de nome
 
 ---
 
-## 4. Arquivos a Criar/Modificar
+### 6. Modulo Cotacao - Cadastro Rapido de Tipo de Carroceria
 
-| Arquivo | Ação | Descrição |
+**Arquivo:** `src/pages/Quotes.tsx`
+
+**Implementacao identica ao padrao de Produto:**
+
+1. Estado: `bodyTypeDialogOpen`, `newBodyTypeName`
+2. Mutation: insercao em `body_types`
+3. Botao "+" ao lado do Select
+4. Dialog simples com input de nome
+
+---
+
+## Arquivos a Modificar
+
+| Arquivo | Tipo | Descricao |
 |---------|------|-----------|
-| `supabase/functions/send-password-reset/index.ts` | Criar | Edge Function para envio de e-mail |
-| `supabase/config.toml` | Modificar | Registrar nova Edge Function |
-| `src/pages/ForgotPassword.tsx` | Modificar | Remover exibição do código, chamar Edge Function |
+| `customer_contacts` (tabela) | Migracao | Adicionar coluna `responsavel` |
+| `customers` (tabela) | Migracao | Adicionar coluna `nome_fantasia` |
+| `src/components/CustomerContactList.tsx` | Modificar | Adicionar campo Responsavel no bloco |
+| `src/components/CustomerFormDialog.tsx` | Modificar | Adicionar Nome Fantasia, remover Responsavel externo |
+| `src/pages/Customers.tsx` | Modificar | Atualizar form, cards com contatos e nome fantasia |
+| `src/pages/Quotes.tsx` | Modificar | Adicionar quick-add para Produto, Tipo Veiculo, Carroceria |
 
 ---
 
-## 5. Ordem de Implementação
+## Ordem de Implementacao
 
-1. Solicitar chave API do Resend ao usuário
-2. Criar Edge Function `send-password-reset`
-3. Atualizar `supabase/config.toml`
-4. Modificar `ForgotPassword.tsx` para:
-   - Chamar Edge Function em vez de exibir código
-   - Mostrar mensagem de "e-mail enviado"
-   - Redirecionar para página de redefinição
+1. **Migracoes de banco de dados**
+   - Adicionar `nome_fantasia` em `customers`
+   - Adicionar `responsavel` em `customer_contacts`
+
+2. **CustomerContactList.tsx**
+   - Atualizar interface Contact
+   - Adicionar campo Responsavel no formulario de contato
+
+3. **CustomerFormDialog.tsx e Customers.tsx**
+   - Adicionar campo Nome Fantasia
+   - Remover campo Responsavel externo
+   - Atualizar logica de salvamento
+
+4. **Customers.tsx - Cards**
+   - Buscar contatos junto com clientes
+   - Exibir Nome Fantasia e Contatos nos cards
+
+5. **Quotes.tsx**
+   - Adicionar quick-add para Produto
+   - Adicionar quick-add para Tipo de Veiculo
+   - Adicionar quick-add para Tipo de Carroceria
 
 ---
 
-## 6. Considerações de Segurança
+## Validacoes
 
-| Item | Implementação |
-|------|---------------|
-| Código nunca exibido | Removido completamente da interface |
-| E-mail mascarado | Mostrar parcialmente (ex: bs.***@gmail.com) |
-| Token único | Código de 6 dígitos com expiração |
-| Proteção contra spam | Rate limiting pode ser adicionado futuramente |
+| Campo | Validacao |
+|-------|-----------|
+| Razao Social | Obrigatorio |
+| Nome Fantasia | Obrigatorio |
+| CNPJ/CPF | Anti-duplicidade (ja existe) |
 
 ---
 
-## Próximo Passo
+## Experiencia do Usuario
 
-Para prosseguir, preciso que você forneça a **chave de API do Resend**. Após criar sua conta em resend.com:
-
-1. Valide seu domínio em https://resend.com/domains
-2. Crie uma API Key em https://resend.com/api-keys
-3. Me informe que está pronto para inserir a chave
-
+- Todos os cadastros rapidos selecionam automaticamente o item recem-criado
+- Dialogs simples e focados para minimizar friccao
+- Padroes visuais consistentes com o restante do sistema
+- Nenhuma necessidade de navegar para outra pagina para cadastrar itens auxiliares
