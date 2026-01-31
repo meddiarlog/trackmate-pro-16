@@ -123,6 +123,14 @@ export default function Quotes() {
   const [searchTerm, setSearchTerm] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+  
+  // Quick-add dialogs states
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [vehicleTypeDialogOpen, setVehicleTypeDialogOpen] = useState(false);
+  const [newVehicleTypeName, setNewVehicleTypeName] = useState("");
+  const [bodyTypeDialogOpen, setBodyTypeDialogOpen] = useState(false);
+  const [newBodyTypeName, setNewBodyTypeName] = useState("");
 
   const [formData, setFormData] = useState({
     customer_id: "",
@@ -316,6 +324,76 @@ export default function Quotes() {
   const handleCustomerCreated = (customerId: string) => {
     setFormData({ ...formData, customer_id: customerId });
   };
+
+  // Quick-add mutations
+  const addProductMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from("products")
+        .insert({ name })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setFormData(prev => ({ ...prev, product_id: data.id }));
+      setNewProductName("");
+      setProductDialogOpen(false);
+      toast.success("Produto cadastrado!");
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("Erro ao cadastrar produto");
+    },
+  });
+
+  const addVehicleTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from("vehicle_types")
+        .insert({ name })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["vehicle_types"] });
+      setFormData(prev => ({ ...prev, vehicle_type_id: data.id }));
+      setNewVehicleTypeName("");
+      setVehicleTypeDialogOpen(false);
+      toast.success("Tipo de veículo cadastrado!");
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("Erro ao cadastrar tipo de veículo");
+    },
+  });
+
+  const addBodyTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await supabase
+        .from("body_types")
+        .insert({ name })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["body_types"] });
+      setFormData(prev => ({ ...prev, body_type_id: data.id }));
+      setNewBodyTypeName("");
+      setBodyTypeDialogOpen(false);
+      toast.success("Tipo de carroceria cadastrado!");
+    },
+    onError: (error) => {
+      console.error(error);
+      toast.error("Erro ao cadastrar tipo de carroceria");
+    },
+  });
 
   const resetForm = () => {
     setFormData({
@@ -644,23 +722,35 @@ export default function Quotes() {
               {/* Produto */}
               <div className="space-y-2">
                 <Label>Produto</Label>
-                <Select
-                  value={formData.product_id}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, product_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um produto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Select
+                      value={formData.product_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, product_id: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um produto" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setProductDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Valores - Condicional baseado no tipo de serviço */}
@@ -703,43 +793,67 @@ export default function Quotes() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Tipo de Veículo</Label>
-                  <Select
-                    value={formData.vehicle_type_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, vehicle_type_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um tipo de veículo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={formData.vehicle_type_id}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, vehicle_type_id: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um tipo de veículo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vehicleTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setVehicleTypeDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Tipo de Carroceria</Label>
-                  <Select
-                    value={formData.body_type_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, body_type_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma carroceria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bodyTypes.map((type) => (
-                        <SelectItem key={type.id} value={type.id}>
-                          {type.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={formData.body_type_id}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, body_type_id: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma carroceria" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bodyTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id}>
+                              {type.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setBodyTypeDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -973,6 +1087,141 @@ export default function Quotes() {
                 companySettings={companySettings}
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-add Product Dialog */}
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_product_name">Nome do Produto *</Label>
+              <Input
+                id="new_product_name"
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
+                placeholder="Nome do produto"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewProductName("");
+                  setProductDialogOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (newProductName.trim()) {
+                    addProductMutation.mutate(newProductName.trim());
+                  } else {
+                    toast.error("Nome do produto é obrigatório");
+                  }
+                }}
+                disabled={addProductMutation.isPending}
+              >
+                {addProductMutation.isPending ? "Cadastrando..." : "Cadastrar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-add Vehicle Type Dialog */}
+      <Dialog open={vehicleTypeDialogOpen} onOpenChange={setVehicleTypeDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Tipo de Veículo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_vehicle_type_name">Nome do Tipo *</Label>
+              <Input
+                id="new_vehicle_type_name"
+                value={newVehicleTypeName}
+                onChange={(e) => setNewVehicleTypeName(e.target.value)}
+                placeholder="Ex: Carreta, Truck, Toco..."
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewVehicleTypeName("");
+                  setVehicleTypeDialogOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (newVehicleTypeName.trim()) {
+                    addVehicleTypeMutation.mutate(newVehicleTypeName.trim());
+                  } else {
+                    toast.error("Nome do tipo de veículo é obrigatório");
+                  }
+                }}
+                disabled={addVehicleTypeMutation.isPending}
+              >
+                {addVehicleTypeMutation.isPending ? "Cadastrando..." : "Cadastrar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-add Body Type Dialog */}
+      <Dialog open={bodyTypeDialogOpen} onOpenChange={setBodyTypeDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Tipo de Carroceria</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new_body_type_name">Nome do Tipo *</Label>
+              <Input
+                id="new_body_type_name"
+                value={newBodyTypeName}
+                onChange={(e) => setNewBodyTypeName(e.target.value)}
+                placeholder="Ex: Baú, Sider, Graneleira..."
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setNewBodyTypeName("");
+                  setBodyTypeDialogOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (newBodyTypeName.trim()) {
+                    addBodyTypeMutation.mutate(newBodyTypeName.trim());
+                  } else {
+                    toast.error("Nome do tipo de carroceria é obrigatório");
+                  }
+                }}
+                disabled={addBodyTypeMutation.isPending}
+              >
+                {addBodyTypeMutation.isPending ? "Cadastrando..." : "Cadastrar"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
