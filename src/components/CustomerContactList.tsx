@@ -11,6 +11,7 @@ export interface Contact {
   tipo: "financeiro" | "comercial";
   telefone: string;
   email: string;
+  responsavel: string;
 }
 
 interface CustomerContactListProps {
@@ -22,7 +23,7 @@ export function CustomerContactList({ contacts, onChange }: CustomerContactListP
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const addContact = () => {
-    onChange([...contacts, { tipo: "comercial", telefone: "", email: "" }]);
+    onChange([...contacts, { tipo: "comercial", telefone: "", email: "", responsavel: "" }]);
   };
 
   const removeContact = (index: number) => {
@@ -85,6 +86,16 @@ export function CustomerContactList({ contacts, onChange }: CustomerContactListP
             >
               <Trash2 className="h-4 w-4" />
             </Button>
+          </div>
+
+          {/* Responsável */}
+          <div className="space-y-2">
+            <Label>Responsável</Label>
+            <Input
+              value={contact.responsavel || ""}
+              onChange={(e) => updateContact(index, "responsavel", e.target.value)}
+              placeholder="Nome do responsável"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

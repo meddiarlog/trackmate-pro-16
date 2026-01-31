@@ -35,6 +35,7 @@ interface CustomerContact {
   tipo: string;
   telefone: string;
   email: string;
+  responsavel: string | null;
 }
 
 export function CustomerFormDialog({ 
@@ -49,6 +50,7 @@ export function CustomerFormDialog({
   
   const [formData, setFormData] = useState({
     name: "",
+    nome_fantasia: "",
     email: "",
     address: "",
     city: "",
@@ -56,7 +58,6 @@ export function CustomerFormDialog({
     neighborhood: "",
     cep: "",
     cpf_cnpj: "",
-    responsavel: "",
     prazo_dias: 30,
     observacoes: "",
   });
@@ -66,6 +67,7 @@ export function CustomerFormDialog({
     if (editingCustomer && open) {
       setFormData({
         name: editingCustomer.name || "",
+        nome_fantasia: (editingCustomer as any).nome_fantasia || "",
         email: "",
         address: editingCustomer.address || "",
         city: editingCustomer.city || "",
@@ -73,7 +75,6 @@ export function CustomerFormDialog({
         neighborhood: editingCustomer.neighborhood || "",
         cep: editingCustomer.cep || "",
         cpf_cnpj: editingCustomer.cpf_cnpj || "",
-        responsavel: editingCustomer.responsavel || "",
         prazo_dias: editingCustomer.prazo_dias || 30,
         observacoes: editingCustomer.observacoes || "",
       });
@@ -98,6 +99,7 @@ export function CustomerFormDialog({
       tipo: c.tipo as "financeiro" | "comercial",
       telefone: c.telefone || "",
       email: c.email || "",
+      responsavel: c.responsavel || "",
     })));
   };
 
@@ -219,6 +221,7 @@ export function CustomerFormDialog({
           tipo: c.tipo,
           telefone: c.telefone,
           email: c.email,
+          responsavel: c.responsavel || null,
         }));
         
         const { error: contactsError } = await supabase
@@ -245,6 +248,7 @@ export function CustomerFormDialog({
   const resetForm = () => {
     setFormData({
       name: "",
+      nome_fantasia: "",
       email: "",
       address: "",
       city: "",
@@ -252,7 +256,6 @@ export function CustomerFormDialog({
       neighborhood: "",
       cep: "",
       cpf_cnpj: "",
-      responsavel: "",
       prazo_dias: 30,
       observacoes: "",
     });
@@ -264,6 +267,11 @@ export function CustomerFormDialog({
 
     if (!formData.name) {
       toast.error("Razão Social é obrigatório");
+      return;
+    }
+
+    if (!formData.nome_fantasia) {
+      toast.error("Nome Fantasia é obrigatório");
       return;
     }
 
@@ -304,6 +312,18 @@ export function CustomerFormDialog({
               placeholder="Empresa ABC Ltda"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+            />
+          </div>
+
+          {/* Nome Fantasia */}
+          <div className="space-y-2">
+            <Label htmlFor="nome_fantasia">Nome Fantasia *</Label>
+            <Input
+              id="nome_fantasia"
+              placeholder="Nome Fantasia"
+              value={formData.nome_fantasia}
+              onChange={(e) => setFormData({ ...formData, nome_fantasia: e.target.value })}
               required
             />
           </div>
@@ -360,17 +380,6 @@ export function CustomerFormDialog({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Responsável */}
-          <div className="space-y-2">
-            <Label htmlFor="responsavel">Responsável</Label>
-            <Input
-              id="responsavel"
-              placeholder="Nome do responsável"
-              value={formData.responsavel}
-              onChange={(e) => setFormData({ ...formData, responsavel: e.target.value })}
-            />
           </div>
 
           {/* Contatos */}

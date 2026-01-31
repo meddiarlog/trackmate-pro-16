@@ -967,6 +967,7 @@ export type Database = {
           customer_id: string
           email: string | null
           id: string
+          responsavel: string | null
           telefone: string | null
           tipo: string
         }
@@ -975,6 +976,7 @@ export type Database = {
           customer_id: string
           email?: string | null
           id?: string
+          responsavel?: string | null
           telefone?: string | null
           tipo?: string
         }
@@ -983,6 +985,7 @@ export type Database = {
           customer_id?: string
           email?: string | null
           id?: string
+          responsavel?: string | null
           telefone?: string | null
           tipo?: string
         }
@@ -1008,6 +1011,7 @@ export type Database = {
           loading_location: string | null
           name: string
           neighborhood: string | null
+          nome_fantasia: string | null
           observacoes: string | null
           phone: string | null
           prazo_dias: number | null
@@ -1028,6 +1032,7 @@ export type Database = {
           loading_location?: string | null
           name: string
           neighborhood?: string | null
+          nome_fantasia?: string | null
           observacoes?: string | null
           phone?: string | null
           prazo_dias?: number | null
@@ -1048,6 +1053,7 @@ export type Database = {
           loading_location?: string | null
           name?: string
           neighborhood?: string | null
+          nome_fantasia?: string | null
           observacoes?: string | null
           phone?: string | null
           prazo_dias?: number | null
