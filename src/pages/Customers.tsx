@@ -301,11 +301,6 @@ export default function Customers() {
       return;
     }
 
-    if (!formData.nome_fantasia) {
-      toast.error("Nome Fantasia é obrigatório");
-      return;
-    }
-
     saveCustomerMutation.mutate(formData);
   };
 
@@ -416,13 +411,12 @@ export default function Customers() {
 
               {/* Nome Fantasia */}
               <div className="space-y-2">
-                <Label htmlFor="nome_fantasia">Nome Fantasia *</Label>
+                <Label htmlFor="nome_fantasia">Nome Fantasia</Label>
                 <Input
                   id="nome_fantasia"
                   placeholder="Nome Fantasia"
                   value={formData.nome_fantasia}
                   onChange={(e) => setFormData({ ...formData, nome_fantasia: e.target.value })}
-                  required
                 />
               </div>
 
