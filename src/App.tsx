@@ -12,6 +12,7 @@ import Drivers from "./pages/Drivers";
 import VehicleTypes from "./pages/VehicleTypes";
 import BodyTypes from "./pages/BodyTypes";
 import Customers from "./pages/Customers";
+import Groups from "./pages/Groups";
 import Products from "./pages/Products";
 import Freights from "./pages/Freights";
 import Contracts from "./pages/Contracts";
@@ -64,6 +65,7 @@ const App = () => (
               <Route path="vehicle-types" element={<VehicleTypes />} />
               <Route path="body-types" element={<BodyTypes />} />
               <Route path="customers" element={<Customers />} />
+              <Route path="groups" element={<Groups />} />
               <Route path="products" element={<Products />} />
               <Route path="freights" element={<Freights />} />
               <Route path="contracts" element={<Contracts />} />

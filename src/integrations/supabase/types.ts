@@ -262,8 +262,10 @@ export type Database = {
           due_date: string
           file_name: string
           file_url: string
+          group_id: string | null
           id: string
           issue_date: string
+          observacoes: string | null
           pagador_id: string | null
           status: string
           tratativa_status: string | null
@@ -282,8 +284,10 @@ export type Database = {
           due_date: string
           file_name: string
           file_url: string
+          group_id?: string | null
           id?: string
           issue_date?: string
+          observacoes?: string | null
           pagador_id?: string | null
           status?: string
           tratativa_status?: string | null
@@ -302,8 +306,10 @@ export type Database = {
           due_date?: string
           file_name?: string
           file_url?: string
+          group_id?: string | null
           id?: string
           issue_date?: string
+          observacoes?: string | null
           pagador_id?: string | null
           status?: string
           tratativa_status?: string | null
@@ -316,6 +322,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boletos_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "customer_groups"
             referencedColumns: ["id"]
           },
           {
@@ -999,6 +1012,24 @@ export type Database = {
           },
         ]
       }
+      customer_groups: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           address: string | null
@@ -1007,6 +1038,7 @@ export type Database = {
           cpf_cnpj: string | null
           created_at: string
           email: string
+          group_id: string | null
           id: string
           loading_location: string | null
           name: string
@@ -1028,6 +1060,7 @@ export type Database = {
           cpf_cnpj?: string | null
           created_at?: string
           email: string
+          group_id?: string | null
           id?: string
           loading_location?: string | null
           name: string
@@ -1049,6 +1082,7 @@ export type Database = {
           cpf_cnpj?: string | null
           created_at?: string
           email?: string
+          group_id?: string | null
           id?: string
           loading_location?: string | null
           name?: string
@@ -1063,7 +1097,15 @@ export type Database = {
           unloading_location?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "customer_groups"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_documents: {
         Row: {

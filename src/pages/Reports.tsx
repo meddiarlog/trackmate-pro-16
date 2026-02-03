@@ -27,6 +27,11 @@ const formatCpfCnpj = (value: string | null) => {
   return value;
 };
 
+type CustomerGroup = {
+  id: string;
+  name: string;
+};
+
 export default function Reports() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -53,10 +58,20 @@ export default function Reports() {
   const [endDate, setEndDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [groupFilter, setGroupFilter] = useState("all");
+  const [groups, setGroups] = useState<CustomerGroup[]>([]);
   const [data, setData] = useState<any[]>([]);
   const [profitLoss, setProfitLoss] = useState<{ totalReceived: number; totalPaid: number; result: number; isProfit: boolean } | null>(null);
 
   useEffect(() => { setActiveTab(getActiveTab()); }, [location.pathname]);
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      const { data } = await supabase.from("customer_groups").select("id, name").order("name");
+      setGroups(data || []);
+    };
+    fetchGroups();
+  }, []);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -79,7 +94,9 @@ export default function Reports() {
       const start = `${startDate}T00:00:00`, end = `${endDate}T23:59:59`;
       
       if (activeTab === "customers") {
-        const { data: d } = await supabase.from("customers").select("id, name, cpf_cnpj, city, state, responsavel, created_at").gte("created_at", start).lte("created_at", end).order("name", { ascending: sortOrder === "asc" });
+        let q = supabase.from("customers").select("id, name, cpf_cnpj, city, state, responsavel, created_at, group_id").gte("created_at", start).lte("created_at", end);
+        if (groupFilter !== "all") q = q.eq("group_id", groupFilter);
+        const { data: d } = await q.order("name", { ascending: sortOrder === "asc" });
         result = d || [];
       } else if (activeTab === "suppliers") {
         const { data: d } = await supabase.from("suppliers").select("id, name, cnpj, city, state, responsavel, created_at").gte("created_at", start).lte("created_at", end).order("name", { ascending: sortOrder === "asc" });
@@ -91,6 +108,7 @@ export default function Reports() {
       } else if (activeTab === "cobrancas") {
         let q = supabase.from("boletos").select("*, customers(name)").gte("due_date", startDate).lte("due_date", endDate);
         if (statusFilter !== "all") q = q.eq("status", statusFilter);
+        if (groupFilter !== "all") q = q.eq("group_id", groupFilter);
         const { data: d } = await q.order("due_date");
         result = (d || []).map((i: any) => ({ ...i, customer_name: i.customers?.name || "-" }));
       } else if (activeTab === "quotes") {
@@ -102,10 +120,14 @@ export default function Reports() {
         const { data: d } = await q.order("due_date");
         result = (d || []).map((i: any) => ({ ...i, supplier_name: i.suppliers?.name || "-" }));
       } else if (activeTab === "accounts-receivable") {
-        let q = supabase.from("accounts_receivable").select("*, customers(name)").gte("due_date", startDate).lte("due_date", endDate);
+        let q = supabase.from("accounts_receivable").select("*, customers(name, group_id)").gte("due_date", startDate).lte("due_date", endDate);
         if (statusFilter !== "all") q = q.eq("status", statusFilter);
         const { data: d } = await q.order("due_date");
-        result = (d || []).map((i: any) => ({ ...i, customer_name: i.customers?.name || "-" }));
+        let filtered = (d || []).map((i: any) => ({ ...i, customer_name: i.customers?.name || "-", customer_group_id: i.customers?.group_id }));
+        if (groupFilter !== "all") {
+          filtered = filtered.filter((i: any) => i.customer_group_id === groupFilter);
+        }
+        result = filtered;
       } else if (activeTab === "profit-loss") {
         const { data: rec } = await supabase.from("accounts_receivable").select("total").gte("payment_date", startDate).lte("payment_date", endDate).eq("status", "pago");
         const { data: pay } = await supabase.from("accounts_payable").select("total").gte("payment_date", startDate).lte("payment_date", endDate).eq("status", "pago");
@@ -143,6 +165,7 @@ export default function Reports() {
 
   const showStatusFilter = ["cobrancas", "accounts-payable", "accounts-receivable"].includes(activeTab);
   const showSortOrder = ["customers", "suppliers"].includes(activeTab);
+  const showGroupFilter = ["customers", "cobrancas", "accounts-receivable"].includes(activeTab);
 
   return (
     <div className="space-y-6">
@@ -167,6 +190,7 @@ export default function Reports() {
               <div className="space-y-2"><Label>Data Inicial</Label><Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" /></div>
               <div className="space-y-2"><Label>Data Final</Label><Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" /></div>
               {showStatusFilter && <div className="space-y-2"><Label>Status</Label><Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="pendente">Pendente</SelectItem><SelectItem value="pago">Pago</SelectItem><SelectItem value="vencido">Vencido</SelectItem></SelectContent></Select></div>}
+              {showGroupFilter && <div className="space-y-2"><Label>Grupo</Label><Select value={groupFilter} onValueChange={setGroupFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem>{groups.map((g) => (<SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>))}</SelectContent></Select></div>}
               {showSortOrder && <div className="space-y-2"><Label>Ordenação</Label><Select value={sortOrder} onValueChange={(v: "asc" | "desc") => setSortOrder(v)}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asc">A - Z</SelectItem><SelectItem value="desc">Z - A</SelectItem></SelectContent></Select></div>}
               <Button onClick={handleGenerateReport} disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Gerar Relatório</Button>
             </div>

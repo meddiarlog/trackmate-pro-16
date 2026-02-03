@@ -25,6 +25,12 @@ interface Customer {
   cpf_cnpj?: string;
   prazo_dias?: number;
   observacoes?: string;
+  group_id?: string;
+}
+
+interface CustomerGroup {
+  id: string;
+  name: string;
 }
 
 interface CustomerContact {
@@ -57,6 +63,20 @@ export default function Customers() {
     cpf_cnpj: "",
     prazo_dias: 30,
     observacoes: "",
+    group_id: "",
+  });
+
+  // Fetch groups for dropdown
+  const { data: groups = [] } = useQuery({
+    queryKey: ["customer_groups"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customer_groups")
+        .select("id, name")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data as CustomerGroup[];
+    },
   });
 
   // Fetch customers with contacts from Supabase
@@ -208,6 +228,7 @@ export default function Customers() {
       const customerData = {
         ...customer,
         cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
+        group_id: customer.group_id || null,
       };
       
       if (editingCustomer) {
@@ -288,6 +309,7 @@ export default function Customers() {
       cpf_cnpj: "",
       prazo_dias: 30,
       observacoes: "",
+      group_id: "",
     });
     setContacts([]);
     setEditingCustomer(null);
@@ -318,6 +340,7 @@ export default function Customers() {
       cpf_cnpj: customer.cpf_cnpj || "",
       prazo_dias: customer.prazo_dias || 30,
       observacoes: customer.observacoes || "",
+      group_id: customer.group_id || "",
     });
     
     // Fetch contacts
@@ -418,6 +441,27 @@ export default function Customers() {
                   value={formData.nome_fantasia}
                   onChange={(e) => setFormData({ ...formData, nome_fantasia: e.target.value })}
                 />
+              </div>
+
+              {/* Grupo */}
+              <div className="space-y-2">
+                <Label htmlFor="group_id">Grupo</Label>
+                <Select
+                  value={formData.group_id}
+                  onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um grupo (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Endereço Completo */}
