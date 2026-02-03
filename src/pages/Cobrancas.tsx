@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,8 @@ type Cobranca = {
   data_acerto: string | null;
   comprovante_url: string | null;
   comprovante_name: string | null;
+  group_id: string | null;
+  observacoes: string | null;
   created_at: string;
   customer?: {
     name: string;
@@ -75,6 +78,9 @@ type Cobranca = {
     cpf_cnpj?: string;
     phone?: string;
   } | null;
+  group?: {
+    name: string;
+  } | null;
   // Computed fields for filtering
   customerName?: string;
   pagadorName?: string;
@@ -83,6 +89,11 @@ type Cobranca = {
   formattedDueDate?: string;
   typeLabel?: string;
   tratativaLabel?: string;
+};
+
+type CustomerGroup = {
+  id: string;
+  name: string;
 };
 
 type Customer = {
@@ -133,8 +144,12 @@ const Cobrancas = () => {
     doc_number: "",
     tratativa_status: "",
     data_acerto: "",
+    group_id: "",
+    observacoes: "",
     file: null as File | null,
   });
+
+  const [customerGroups, setCustomerGroups] = useState<CustomerGroup[]>([]);
 
   const [customerSearch, setCustomerSearch] = useState("");
   const [pagadorSearch, setPagadorSearch] = useState("");
@@ -187,7 +202,22 @@ const Cobrancas = () => {
   useEffect(() => {
     fetchCobrancas();
     fetchCustomers();
+    fetchCustomerGroups();
   }, []);
+
+  const fetchCustomerGroups = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("customer_groups")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setCustomerGroups(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar grupos:", error);
+    }
+  };
 
   const fetchCobrancas = async () => {
     try {
@@ -421,6 +451,8 @@ const Cobrancas = () => {
         doc_number: formData.doc_number || null,
         tratativa_status: formData.tratativa_status || null,
         data_acerto: formData.data_acerto || null,
+        group_id: formData.group_id || null,
+        observacoes: formData.observacoes || null,
         status: editingCobranca?.status || "Em aberto",
       };
 
@@ -517,6 +549,8 @@ const Cobrancas = () => {
       doc_number: cobranca.doc_number || "",
       tratativa_status: cobranca.tratativa_status || "",
       data_acerto: cobranca.data_acerto || "",
+      group_id: cobranca.group_id || "",
+      observacoes: cobranca.observacoes || "",
       file: null,
     });
     setDialogOpen(true);
@@ -711,6 +745,8 @@ const Cobrancas = () => {
       doc_number: "",
       tratativa_status: "",
       data_acerto: "",
+      group_id: "",
+      observacoes: "",
       file: null,
     });
     setEditingCobranca(null);
@@ -1284,6 +1320,39 @@ Equipe de Cobrança`;
                     onChange={(e) => setFormData({ ...formData, data_acerto: e.target.value })}
                   />
                 </div>
+              </div>
+
+              {/* Grupo */}
+              <div>
+                <Label htmlFor="group_id">Grupo</Label>
+                <Select
+                  value={formData.group_id}
+                  onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um grupo (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {customerGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Observações */}
+              <div>
+                <Label htmlFor="observacoes">Observações</Label>
+                <Textarea
+                  id="observacoes"
+                  placeholder="Registre tratativas, negociações, acordos..."
+                  value={formData.observacoes}
+                  onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                  rows={3}
+                />
               </div>
 
               <div>

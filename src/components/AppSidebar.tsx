@@ -1,4 +1,4 @@
-import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield, Wallet } from "lucide-react";
+import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield, Wallet, FolderOpen } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +34,7 @@ const menuItems = [
     icon: Users,
     items: [
       { title: "Clientes", url: "/customers", icon: Users },
+      { title: "Grupos", url: "/groups", icon: FolderOpen },
       {
         title: "Mot. / Veículo",
         icon: Truck,
