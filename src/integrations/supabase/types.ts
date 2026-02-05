@@ -619,7 +619,9 @@ export type Database = {
           city: string | null
           cnpj: string | null
           collection_order_start_number: number | null
+          contato: string | null
           created_at: string
+          email: string | null
           id: string
           inscricao_estadual: string | null
           logo_url: string | null
@@ -628,6 +630,7 @@ export type Database = {
           razao_social: string
           state: string | null
           updated_at: string
+          vendedor: string | null
         }
         Insert: {
           address?: string | null
@@ -635,7 +638,9 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           collection_order_start_number?: number | null
+          contato?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
@@ -644,6 +649,7 @@ export type Database = {
           razao_social: string
           state?: string | null
           updated_at?: string
+          vendedor?: string | null
         }
         Update: {
           address?: string | null
@@ -651,7 +657,9 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           collection_order_start_number?: number | null
+          contato?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           inscricao_estadual?: string | null
           logo_url?: string | null
@@ -660,6 +668,7 @@ export type Database = {
           razao_social?: string
           state?: string | null
           updated_at?: string
+          vendedor?: string | null
         }
         Relationships: []
       }
