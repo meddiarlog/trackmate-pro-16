@@ -1,334 +1,223 @@
 
 
-## Plano de Implementacao - Melhorias Mutlog v2
+## Plano de Implementacao - Melhorias Modulo Controle de Credito
 
 ---
 
 ## Resumo das Alteracoes
 
-Este plano abrange a criacao de um novo modulo **Grupos** e integracao com os modulos **Clientes**, **Cobrancas** e **Relatorios**.
+Este plano implementa melhorias de UX e padronizacao no modulo de Controle de Credito.
 
-| Modulo | Alteracao | Complexidade |
-|--------|-----------|--------------|
-| Grupos | Novo menu e CRUD completo | Media |
-| Clientes | Campo Grupo (dropdown) | Baixa |
-| Cobrancas | Campo Grupo + Observacoes | Baixa |
-| Relatorios | Filtro por Grupo | Media |
+| Melhoria | Descricao | Complexidade |
+|----------|-----------|--------------|
+| Cabecalho fixo | Manter totais e botao visiveis durante rolagem | Baixa |
+| Ordenacao por credito | Filtro de ordenacao crescente/decrescente | Baixa |
+| Formatacao monetaria | Valores com 2 casas decimais no formato brasileiro | Baixa |
 
 ---
 
 ## Detalhamento Tecnico
 
-### 1. Banco de Dados
+### 1. Cabecalho Fixo (Sticky Header)
 
-**Nova tabela `customer_groups`:**
+**Arquivo:** `src/pages/CreditControl.tsx`
 
-```sql
-CREATE TABLE customer_groups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-ALTER TABLE customer_groups ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow all access to customer_groups" 
-  ON customer_groups FOR ALL USING (true) WITH CHECK (true);
-```
-
-**Adicionar coluna `group_id` na tabela `customers`:**
-
-```sql
-ALTER TABLE customers 
-ADD COLUMN group_id UUID REFERENCES customer_groups(id);
-```
-
-**Adicionar colunas na tabela `boletos` (Cobrancas):**
-
-```sql
-ALTER TABLE boletos 
-ADD COLUMN group_id UUID REFERENCES customer_groups(id),
-ADD COLUMN observacoes TEXT;
-```
-
----
-
-### 2. Novo Menu Grupos (Modulo Cadastro)
-
-**Arquivo:** `src/pages/Groups.tsx` (novo)
-
-**Estrutura do CRUD:**
+**Alteracao estrutural no layout principal:**
 
 ```text
-+------------------------------------------+
-| Gestao de Grupos                   [+ Novo] |
-+------------------------------------------+
-| Buscar grupos...                         |
-+------------------------------------------+
-| ID       | Nome do Grupo  | Acoes        |
-| abc123.. | Grupo A        | [Edit] [Del] |
-| def456.. | Grupo B        | [Edit] [Del] |
-+------------------------------------------+
-```
+ANTES:
++--------------------------------------+
+| Controle de Crédito    [Novo Registro]| <- Header
++--------------------------------------+
+| [Card Selecionados] [Card Total Geral]| <- Summary Cards
++--------------------------------------+
+| Filtros e Tabela de Registros        | <- Conteudo (tudo rola junto)
++--------------------------------------+
 
-**Regras de negocio:**
-- Nome do grupo deve ser unico
-- Excluir apenas se nao houver clientes ou cobrancas vinculadas
-- Exibir ID parcial (8 caracteres) no card/tabela
-
-**Componentes utilizados:**
-- Dialog para cadastro/edicao
-- Table para listagem
-- Input para busca
-- Toast para feedback
-
----
-
-### 3. Menu Sidebar - Adicionar Grupos
-
-**Arquivo:** `src/components/AppSidebar.tsx`
-
-**Adicionar ao menu Cadastro (linha 35-50):**
-
-```typescript
-{
-  title: "Cadastro",
-  icon: Users,
-  items: [
-    { title: "Clientes", url: "/customers", icon: Users },
-    { title: "Grupos", url: "/groups", icon: FolderOpen }, // NOVO
-    {
-      title: "Mot. / Veiculo",
-      // ... restante
-    },
-    // ...
-  ],
-},
-```
-
----
-
-### 4. Rota para Grupos
-
-**Arquivo:** `src/App.tsx`
-
-**Adicionar rota protegida:**
-
-```typescript
-import Groups from "./pages/Groups";
-
-// Dentro das rotas protegidas:
-<Route path="groups" element={<Groups />} />
-```
-
----
-
-### 5. Campo Grupo no Modulo Clientes
-
-**Arquivo:** `src/pages/Customers.tsx`
-
-**Adicionar no formulario (apos Nome Fantasia):**
-
-```text
-+----------------------------------+
-| Grupo                            |
-|  [Selecione um grupo...     v]  |
-+----------------------------------+
+DEPOIS:
++--------------------------------------+ \
+| Controle de Crédito    [Novo Registro]|  |
++--------------------------------------+  | STICKY (fixo no topo)
+| [Card Selecionados] [Card Total Geral]|  |
++--------------------------------------+ /
+| Filtros e Tabela de Registros        | <- Conteudo (apenas isso rola)
++--------------------------------------+
 ```
 
 **Implementacao:**
-1. Buscar grupos via useQuery
-2. Adicionar Select com grupos
-3. Salvar `group_id` junto com cliente
-4. Exibir grupo no card do cliente
+- Dividir o conteudo em duas secoes: cabecalho fixo e conteudo rolavel
+- Utilizar CSS `sticky` com `top-0` e `z-index` adequado
+- Adicionar `bg-background` para evitar sobreposicao visual
+- Garantir responsividade mobile
 
-**Adicionar no formData:**
+**Codigo principal (linha 756-1014):**
+
 ```typescript
-const [formData, setFormData] = useState({
-  // ... campos existentes
-  group_id: "",  // NOVO
-});
+<div className="p-6 flex flex-col h-[calc(100vh-4rem)]">
+  {/* STICKY HEADER - Titulo + Cards */}
+  <div className="sticky top-0 z-10 bg-background pb-4 space-y-4">
+    <div className="flex justify-between items-center">
+      <h1>Controle de Crédito</h1>
+      <Button>Novo Registro</Button>
+    </div>
+    
+    {/* Summary Cards */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Card Selecionados + Card Total Geral */}
+    </div>
+  </div>
+
+  {/* SCROLLABLE CONTENT - Tabela */}
+  <div className="flex-1 overflow-y-auto">
+    <Card>
+      <CardContent>
+        <FilterableTable ... />
+      </CardContent>
+    </Card>
+  </div>
+</div>
 ```
 
 ---
 
-### 6. Campo Grupo e Observacoes no Modulo Cobrancas
+### 2. Ordenacao por Valor de Credito
 
-**Arquivo:** `src/pages/Cobrancas.tsx`
+**Arquivo:** `src/pages/CreditControl.tsx`
 
-**6.1 Adicionar no formulario (apos Pagador):**
+**Adicionar filtro de ordenacao dedicado para credito:**
 
-```text
-+----------------------------------+
-| Grupo                            |
-|  [Selecione um grupo...     v]  |
-+----------------------------------+
-```
+A coluna "Crédito" ja possui `sortable: true` (linha 716-722), porem vamos adicionar um dropdown explicito para ordenacao rapida.
 
-**6.2 Adicionar campo Observacoes (antes do arquivo):**
+**Adicionar Select de ordenacao no cabecalho fixo:**
 
 ```text
-+----------------------------------+
-| Observacoes                      |
-|  +------------------------------+|
-|  |                              ||
-|  | Textarea para tratativas... ||
-|  |                              ||
-|  +------------------------------+|
-+----------------------------------+
++------------------------------------------+
+| Controle de Crédito                      |
+|                                          |
+| Ordenar Crédito: [Crescente v] [+ Novo]  |
++------------------------------------------+
 ```
 
-**Adicionar no formData:**
+**Codigo:**
+
 ```typescript
-const [formData, setFormData] = useState({
-  // ... campos existentes
-  group_id: "",      // NOVO
-  observacoes: "",   // NOVO
-});
+// Novo estado para ordenacao rapida de credito
+const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
+
+// Aplicar ordenacao apos filtros
+const sortedFilteredData = useMemo(() => {
+  if (creditoSort === 'none') return filteredData;
+  return [...filteredData].sort((a, b) => {
+    return creditoSort === 'asc' 
+      ? a.credito - b.credito 
+      : b.credito - a.credito;
+  });
+}, [filteredData, creditoSort]);
+
+// Componente Select
+<Select value={creditoSort} onValueChange={setCreditoSort}>
+  <SelectTrigger className="w-[180px]">
+    <SelectValue placeholder="Ordenar Crédito" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="none">Sem ordenação</SelectItem>
+    <SelectItem value="asc">Crédito: Crescente</SelectItem>
+    <SelectItem value="desc">Crédito: Decrescente</SelectItem>
+  </SelectContent>
+</Select>
 ```
 
-**Adicionar no Type Cobranca:**
+---
+
+### 3. Padronizacao de Valores Monetarios (2 Casas Decimais)
+
+**Arquivo:** `src/pages/CreditControl.tsx`
+
+Os valores ja utilizam `toLocaleString('pt-BR', { minimumFractionDigits: 2 })`, mas precisamos garantir:
+
+1. **Arredondamento correto** (nao truncar)
+2. **Aplicacao em todos os pontos**
+
+**Locais a verificar/ajustar:**
+
+| Local | Linha | Status Atual | Ajuste |
+|-------|-------|--------------|--------|
+| transformedRecords.formattedCredito | 340 | Correto | Manter |
+| selectedCredito (card) | 985 | Correto | Manter |
+| totalCredito (card) | 1007 | Correto | Manter |
+| calculatedCredito (form) | 909 | Correto | Manter |
+| UtilizarCreditoDialog | 84, 115 | Correto | Manter |
+
+**Garantir arredondamento na funcao calculateCredito:**
+
 ```typescript
-type Cobranca = {
-  // ... campos existentes
-  group_id: string | null;
-  observacoes: string | null;
+// ANTES (linha 386-388):
+const calculateCredito = (quantidade: number) => {
+  return (quantidade * 112) / 100;
+};
+
+// DEPOIS (com arredondamento para 2 casas):
+const calculateCredito = (quantidade: number) => {
+  return Math.round(((quantidade * 112) / 100) * 100) / 100;
 };
 ```
 
+Este padrao `Math.round((value) * 100) / 100` ja e utilizado nos modulos financeiros conforme memoria do sistema.
+
 ---
 
-### 7. Filtro por Grupo nos Relatorios
+## Arquivos a Modificar
 
-**Arquivo:** `src/pages/Reports.tsx`
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/pages/CreditControl.tsx` | Layout sticky, Select ordenacao, arredondamento |
 
-**Adicionar filtro de Grupo para tabs:**
-- customers
-- cobrancas
-- accounts-receivable
+---
 
-**Implementacao:**
+## Fluxo Visual Apos Implementacao
 
-1. Adicionar estado para grupos:
-```typescript
-const [groups, setGroups] = useState<{id: string; name: string}[]>([]);
-const [groupFilter, setGroupFilter] = useState("all");
-```
+```text
++------------------------------------------------+
+|  CABECALHO FIXO (sticky)                       |
++------------------------------------------------+
+| Controle de Crédito                            |
+|                                                |
+| Ordenar Crédito: [Decrescente v]  [+ Novo]     |
++------------------------------------------------+
+| [Selecionados: 3] [Total: 15.847,62]           |
+| [registros: 3]    [registros: 127]             |
++------------------------------------------------+
 
-2. Buscar grupos no carregamento:
-```typescript
-useEffect(() => {
-  const fetchGroups = async () => {
-    const { data } = await supabase.from("customer_groups").select("id, name");
-    setGroups(data || []);
-  };
-  fetchGroups();
-}, []);
-```
-
-3. Adicionar Select de Grupo nos filtros (linha 166-172):
-```jsx
-{showGroupFilter && (
-  <div className="space-y-2">
-    <Label>Grupo</Label>
-    <Select value={groupFilter} onValueChange={setGroupFilter}>
-      <SelectTrigger className="w-40">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">Todos</SelectItem>
-        {groups.map(g => (
-          <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  </div>
-)}
-```
-
-4. Aplicar filtro nas queries:
-```typescript
-// Para customers
-if (groupFilter !== "all") {
-  query = query.eq("group_id", groupFilter);
-}
++------------------------------------------------+
+|  CONTEUDO ROLAVEL                              |
++------------------------------------------------+
+| [Buscar...] [De] [Até]                         |
++------------------------------------------------+
+| NFe | Chave | CNPJ | ... | Crédito  | Ações   |
++------------------------------------------------+
+| 001 | ...   | ...  | ... | 147,62   | [E] [X] |
+| 002 | ...   | ...  | ... | 1.234,50 | [E] [X] |
+| ... (rola independente)                        |
++------------------------------------------------+
 ```
 
 ---
 
-## Arquivos a Modificar/Criar
+## Compatibilidade Mobile
 
-| Arquivo | Tipo | Descricao |
-|---------|------|-----------|
-| `customer_groups` (tabela) | Criar | Nova tabela de grupos |
-| `customers` (tabela) | Alterar | Adicionar `group_id` |
-| `boletos` (tabela) | Alterar | Adicionar `group_id` e `observacoes` |
-| `src/pages/Groups.tsx` | Criar | Pagina CRUD de grupos |
-| `src/App.tsx` | Modificar | Adicionar rota /groups |
-| `src/components/AppSidebar.tsx` | Modificar | Adicionar menu Grupos |
-| `src/pages/Customers.tsx` | Modificar | Adicionar Select de Grupo |
-| `src/pages/Cobrancas.tsx` | Modificar | Adicionar Grupo e Observacoes |
-| `src/pages/Reports.tsx` | Modificar | Adicionar filtro por Grupo |
+- O cabecalho sticky tera altura adaptativa
+- Os cards de totais empilharao verticalmente em telas pequenas
+- O Select de ordenacao ficara abaixo do titulo em mobile
+- A tabela mantera scroll horizontal existente
 
 ---
 
-## Ordem de Implementacao
+## Checklist Final
 
-1. **Migracoes de banco de dados**
-   - Criar tabela `customer_groups`
-   - Adicionar `group_id` em `customers`
-   - Adicionar `group_id` e `observacoes` em `boletos`
-
-2. **Groups.tsx (nova pagina)**
-   - CRUD completo de grupos
-   - Validacao de nome unico
-   - Verificacao de vinculos antes de excluir
-
-3. **App.tsx e AppSidebar.tsx**
-   - Adicionar rota /groups
-   - Adicionar menu Grupos no Cadastro
-
-4. **Customers.tsx**
-   - Buscar grupos
-   - Adicionar Select no formulario
-   - Exibir grupo no card
-
-5. **Cobrancas.tsx**
-   - Buscar grupos
-   - Adicionar Select de Grupo
-   - Adicionar Textarea de Observacoes
-   - Salvar/editar com novos campos
-
-6. **Reports.tsx**
-   - Buscar grupos
-   - Adicionar filtro de Grupo
-   - Aplicar filtro nas queries
-
----
-
-## Validacoes e Regras de Negocio
-
-| Funcionalidade | Regra |
-|----------------|-------|
-| Nome do Grupo | Obrigatorio e unico |
-| Exclusao de Grupo | Bloqueada se houver clientes ou cobrancas vinculadas |
-| Campo Grupo | Opcional em Clientes e Cobrancas |
-| Campo Observacoes | Opcional, texto livre (textarea) |
-| Filtro por Grupo | Funciona junto com outros filtros existentes |
-
----
-
-## Experiencia do Usuario
-
-- Grupos aparecem em dropdown ordenados alfabeticamente
-- Ao excluir grupo vinculado, exibir mensagem explicativa
-- Campo Observacoes permite textos longos para historico de tratativas
-- Filtro de Grupo se integra naturalmente aos filtros existentes
-- Padroes visuais consistentes com restante do sistema
-
----
-
-## Correcao do Erro de Build
-
-O erro de build relacionado ao OpenAI em `@supabase/functions-js` nao esta relacionado ao codigo das edge functions do projeto. Este e um problema de tipagem do pacote `@supabase/functions-js` que referencia uma dependencia que nao esta instalada. Para resolver, sera necessario aguardar uma atualizacao do pacote ou ignorar este erro especifico de tipagem.
+- Cabecalho fixo com titulo, botao e totais
+- Select de ordenacao por credito (Crescente/Decrescente)
+- Valores formatados com 2 casas decimais (formato brasileiro)
+- Arredondamento matematico correto
+- Layout responsivo mantido
+- Sem impacto em outros modulos
 
