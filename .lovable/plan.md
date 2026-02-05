@@ -1,168 +1,231 @@
 
 
-## Plano de Implementacao - Melhorias Modulo Controle de Credito
+## Plano de Implementacao - Campos Comerciais no Modulo Dados da Empresa
 
 ---
 
 ## Resumo das Alteracoes
 
-Este plano implementa melhorias de UX e padronizacao no modulo de Controle de Credito.
+Este plano adiciona informacoes comerciais da empresa e as exibe nos cabecalhos dos documentos gerados.
 
-| Melhoria | Descricao | Complexidade |
-|----------|-----------|--------------|
-| Cabecalho fixo | Manter totais e botao visiveis durante rolagem | Baixa |
-| Ordenacao por credito | Filtro de ordenacao crescente/decrescente | Baixa |
-| Formatacao monetaria | Valores com 2 casas decimais no formato brasileiro | Baixa |
+| Componente | Alteracao | Complexidade |
+|------------|-----------|--------------|
+| Banco de Dados | Adicionar 3 colunas (vendedor, contato, email) | Baixa |
+| Dados da Empresa | Novos campos no formulario | Baixa |
+| Ordem de Coleta | Exibir informacoes comerciais no cabecalho | Baixa |
+| Proposta Comercial | Exibir informacoes comerciais no cabecalho | Baixa |
 
 ---
 
 ## Detalhamento Tecnico
 
-### 1. Cabecalho Fixo (Sticky Header)
+### 1. Alteracoes no Banco de Dados
 
-**Arquivo:** `src/pages/CreditControl.tsx`
+**Tabela:** `company_settings`
 
-**Alteracao estrutural no layout principal:**
+**Adicionar novas colunas:**
 
-```text
-ANTES:
-+--------------------------------------+
-| Controle de Crédito    [Novo Registro]| <- Header
-+--------------------------------------+
-| [Card Selecionados] [Card Total Geral]| <- Summary Cards
-+--------------------------------------+
-| Filtros e Tabela de Registros        | <- Conteudo (tudo rola junto)
-+--------------------------------------+
-
-DEPOIS:
-+--------------------------------------+ \
-| Controle de Crédito    [Novo Registro]|  |
-+--------------------------------------+  | STICKY (fixo no topo)
-| [Card Selecionados] [Card Total Geral]|  |
-+--------------------------------------+ /
-| Filtros e Tabela de Registros        | <- Conteudo (apenas isso rola)
-+--------------------------------------+
+```sql
+ALTER TABLE public.company_settings
+ADD COLUMN vendedor TEXT,
+ADD COLUMN contato TEXT,
+ADD COLUMN email TEXT;
 ```
 
-**Implementacao:**
-- Dividir o conteudo em duas secoes: cabecalho fixo e conteudo rolavel
-- Utilizar CSS `sticky` com `top-0` e `z-index` adequado
-- Adicionar `bg-background` para evitar sobreposicao visual
-- Garantir responsividade mobile
+| Coluna | Tipo | Nullable | Descricao |
+|--------|------|----------|-----------|
+| vendedor | TEXT | Sim | Nome do vendedor/comercial responsavel |
+| contato | TEXT | Sim | Telefone de contato |
+| email | TEXT | Sim | E-mail comercial |
 
-**Codigo principal (linha 756-1014):**
+---
+
+### 2. Modulo Dados da Empresa
+
+**Arquivo:** `src/pages/CompanySettings.tsx`
+
+**2.1 Atualizar interface CompanyData (linha 11-24):**
 
 ```typescript
-<div className="p-6 flex flex-col h-[calc(100vh-4rem)]">
-  {/* STICKY HEADER - Titulo + Cards */}
-  <div className="sticky top-0 z-10 bg-background pb-4 space-y-4">
-    <div className="flex justify-between items-center">
-      <h1>Controle de Crédito</h1>
-      <Button>Novo Registro</Button>
-    </div>
-    
-    {/* Summary Cards */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Card Selecionados + Card Total Geral */}
-    </div>
-  </div>
+interface CompanyData {
+  // ... campos existentes
+  vendedor: string;
+  contato: string;
+  email: string;
+}
+```
 
-  {/* SCROLLABLE CONTENT - Tabela */}
-  <div className="flex-1 overflow-y-auto">
-    <Card>
-      <CardContent>
-        <FilterableTable ... />
-      </CardContent>
-    </Card>
-  </div>
-</div>
+**2.2 Atualizar estado inicial (linha 31-43):**
+
+```typescript
+const [formData, setFormData] = useState<CompanyData>({
+  // ... campos existentes
+  vendedor: "",
+  contato: "",
+  email: "",
+});
+```
+
+**2.3 Atualizar useEffect (linha 58-75):**
+
+Carregar os novos campos do banco de dados.
+
+**2.4 Adicionar funcao de formatacao de telefone:**
+
+```typescript
+const formatPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 10) {
+    return digits
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
+  }
+  return digits
+    .replace(/(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+};
+```
+
+**2.5 Adicionar nova secao no formulario (apos Endereco):**
+
+```text
++------------------------------------------+
+| Informacoes Comerciais                   |
++------------------------------------------+
+| Vendedor                                 |
+| [Nome do vendedor responsavel       ]    |
++------------------------------------------+
+| Contato            | E-mail              |
+| [(11) 99999-9999]  | [email@empresa.com] |
++------------------------------------------+
+```
+
+**Posicionamento:** Antes do botao "Salvar Dados"
+
+**2.6 Atualizar payload de salvamento (linha 192-204):**
+
+```typescript
+const payload = {
+  // ... campos existentes
+  vendedor: data.vendedor || null,
+  contato: data.contato?.replace(/\D/g, "") || null,
+  email: data.email || null,
+};
 ```
 
 ---
 
-### 2. Ordenacao por Valor de Credito
+### 3. Cabecalho da Ordem de Coleta
 
-**Arquivo:** `src/pages/CreditControl.tsx`
+**Arquivo:** `src/components/CollectionOrderPrint.tsx`
 
-**Adicionar filtro de ordenacao dedicado para credito:**
+**3.1 Atualizar a area do cabecalho da empresa (linhas 60-91):**
 
-A coluna "Crédito" ja possui `sortable: true` (linha 716-722), porem vamos adicionar um dropdown explicito para ordenacao rapida.
+Adicionar linha com Vendedor, Contato e E-mail abaixo das informacoes de endereco.
 
-**Adicionar Select de ordenacao no cabecalho fixo:**
+**Estrutura visual proposta:**
 
 ```text
 +------------------------------------------+
-| Controle de Crédito                      |
-|                                          |
-| Ordenar Crédito: [Crescente v] [+ Novo]  |
+| [LOGO]                                   |
+| CNPJ: xx.xxx.xxx/xxxx-xx - I.E.: xxxxx   |
+| Rua Exemplo, 123, Bairro                 |
+| Cidade-UF CEP 00000-000                  |
+| Vendedor: Nome | Tel: (11) 99999-9999    |
+| Email: comercial@empresa.com             |
 +------------------------------------------+
 ```
+
+**Codigo (apos linha 88):**
+
+```jsx
+{/* Commercial Info */}
+{(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
+  <div className="mt-1">
+    {companySettings?.vendedor && (
+      <div><span className="font-semibold">Vendedor:</span> {companySettings.vendedor}</div>
+    )}
+    {companySettings?.contato && (
+      <div><span className="font-semibold">Tel:</span> {formatPhone(companySettings.contato)}</div>
+    )}
+    {companySettings?.email && (
+      <div>{companySettings.email}</div>
+    )}
+  </div>
+)}
+```
+
+**3.2 Adicionar funcao formatPhone no componente:**
+
+```typescript
+const formatPhone = (value: string | null) => {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+  }
+  return value;
+};
+```
+
+---
+
+### 4. Cabecalho da Proposta Comercial
+
+**Arquivo:** `src/components/QuotePrintView.tsx`
+
+**4.1 Atualizar interface CompanySettings (linhas 33-44):**
+
+```typescript
+interface CompanySettings {
+  // ... campos existentes
+  vendedor: string | null;
+  contato: string | null;
+  email: string | null;
+}
+```
+
+**4.2 Adicionar funcao formatPhone:**
+
+```typescript
+const formatPhone = (value: string | null) => {
+  if (!value) return "";
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11) {
+    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+  }
+  return value;
+};
+```
+
+**4.3 Atualizar secao company-details (linhas 103-118):**
+
+Adicionar informacoes comerciais abaixo do endereco.
 
 **Codigo:**
 
-```typescript
-// Novo estado para ordenacao rapida de credito
-const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
-
-// Aplicar ordenacao apos filtros
-const sortedFilteredData = useMemo(() => {
-  if (creditoSort === 'none') return filteredData;
-  return [...filteredData].sort((a, b) => {
-    return creditoSort === 'asc' 
-      ? a.credito - b.credito 
-      : b.credito - a.credito;
-  });
-}, [filteredData, creditoSort]);
-
-// Componente Select
-<Select value={creditoSort} onValueChange={setCreditoSort}>
-  <SelectTrigger className="w-[180px]">
-    <SelectValue placeholder="Ordenar Crédito" />
-  </SelectTrigger>
-  <SelectContent>
-    <SelectItem value="none">Sem ordenação</SelectItem>
-    <SelectItem value="asc">Crédito: Crescente</SelectItem>
-    <SelectItem value="desc">Crédito: Decrescente</SelectItem>
-  </SelectContent>
-</Select>
+```jsx
+{/* Commercial Info */}
+{(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
+  <div className="mt-1">
+    {companySettings?.vendedor && (
+      <span>Vendedor: {companySettings.vendedor}</span>
+    )}
+    {companySettings?.contato && (
+      <span> | Tel: {formatPhone(companySettings.contato)}</span>
+    )}
+    {companySettings?.email && (
+      <span> | {companySettings.email}</span>
+    )}
+  </div>
+)}
 ```
-
----
-
-### 3. Padronizacao de Valores Monetarios (2 Casas Decimais)
-
-**Arquivo:** `src/pages/CreditControl.tsx`
-
-Os valores ja utilizam `toLocaleString('pt-BR', { minimumFractionDigits: 2 })`, mas precisamos garantir:
-
-1. **Arredondamento correto** (nao truncar)
-2. **Aplicacao em todos os pontos**
-
-**Locais a verificar/ajustar:**
-
-| Local | Linha | Status Atual | Ajuste |
-|-------|-------|--------------|--------|
-| transformedRecords.formattedCredito | 340 | Correto | Manter |
-| selectedCredito (card) | 985 | Correto | Manter |
-| totalCredito (card) | 1007 | Correto | Manter |
-| calculatedCredito (form) | 909 | Correto | Manter |
-| UtilizarCreditoDialog | 84, 115 | Correto | Manter |
-
-**Garantir arredondamento na funcao calculateCredito:**
-
-```typescript
-// ANTES (linha 386-388):
-const calculateCredito = (quantidade: number) => {
-  return (quantidade * 112) / 100;
-};
-
-// DEPOIS (com arredondamento para 2 casas):
-const calculateCredito = (quantidade: number) => {
-  return Math.round(((quantidade * 112) / 100) * 100) / 100;
-};
-```
-
-Este padrao `Math.round((value) * 100) / 100` ja e utilizado nos modulos financeiros conforme memoria do sistema.
 
 ---
 
@@ -170,54 +233,84 @@ Este padrao `Math.round((value) * 100) / 100` ja e utilizado nos modulos finance
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/CreditControl.tsx` | Layout sticky, Select ordenacao, arredondamento |
+| `company_settings` (tabela) | Adicionar vendedor, contato, email |
+| `src/pages/CompanySettings.tsx` | Novos campos no formulario |
+| `src/components/CollectionOrderPrint.tsx` | Exibir dados comerciais no cabecalho |
+| `src/components/QuotePrintView.tsx` | Exibir dados comerciais no cabecalho |
 
 ---
 
-## Fluxo Visual Apos Implementacao
+## Ordem de Implementacao
+
+1. **Migracao de banco de dados**
+   - Adicionar colunas vendedor, contato e email em company_settings
+
+2. **CompanySettings.tsx**
+   - Atualizar interface e estado
+   - Adicionar funcao formatPhone
+   - Adicionar secao "Informacoes Comerciais" no formulario
+   - Atualizar carregamento e salvamento
+
+3. **CollectionOrderPrint.tsx**
+   - Adicionar funcao formatPhone
+   - Exibir dados comerciais no cabecalho
+
+4. **QuotePrintView.tsx**
+   - Atualizar interface CompanySettings
+   - Adicionar funcao formatPhone
+   - Exibir dados comerciais no cabecalho
+
+---
+
+## Validacoes e Comportamento
+
+| Campo | Validacao | Comportamento |
+|-------|-----------|---------------|
+| Vendedor | Opcional, texto livre | Nao exibir se vazio |
+| Contato | Opcional, formatacao telefone | Armazenar apenas digitos, formatar na exibicao |
+| E-mail | Opcional, texto | Nao exibir se vazio |
+
+**Regras de exibicao nos documentos:**
+- Se nenhum campo comercial estiver preenchido, a secao nao aparece
+- Cada campo e exibido apenas se possuir valor
+- Layout se adapta aos campos disponiveis
+- Nao quebra geracao de documentos com campos vazios
+
+---
+
+## Fluxo Visual nos Documentos
+
+**Ordem de Coleta (cabecalho compacto):**
 
 ```text
-+------------------------------------------------+
-|  CABECALHO FIXO (sticky)                       |
-+------------------------------------------------+
-| Controle de Crédito                            |
-|                                                |
-| Ordenar Crédito: [Decrescente v]  [+ Novo]     |
-+------------------------------------------------+
-| [Selecionados: 3] [Total: 15.847,62]           |
-| [registros: 3]    [registros: 127]             |
-+------------------------------------------------+
++------------------------------------------+
+| [LOGO]                                   |
+| CNPJ: 00.000.000/0000-00 - I.E.: 123456  |
+| Rua Exemplo, 123, Centro                 |
+| Sao Paulo-SP CEP 01234-567               |
+| Vendedor: Joao Silva                     |
+| Tel: (11) 98765-4321 | email@empresa.com |
++------------------------------------------+
+```
 
-+------------------------------------------------+
-|  CONTEUDO ROLAVEL                              |
-+------------------------------------------------+
-| [Buscar...] [De] [Até]                         |
-+------------------------------------------------+
-| NFe | Chave | CNPJ | ... | Crédito  | Ações   |
-+------------------------------------------------+
-| 001 | ...   | ...  | ... | 147,62   | [E] [X] |
-| 002 | ...   | ...  | ... | 1.234,50 | [E] [X] |
-| ... (rola independente)                        |
-+------------------------------------------------+
+**Proposta Comercial (cabecalho horizontal):**
+
+```text
++----------------------------------------------------------+
+| [LOGO]  | EMPRESA LTDA                                   |
+|         | CNPJ: 00.000.000/0000-00                        |
+|         | IE: 123456789                                   |
+|         | Rua Exemplo, 123, Centro - Sao Paulo/SP         |
+|         | Vendedor: Joao | Tel: (11) 98765-4321 | email@x |
++----------------------------------------------------------+
 ```
 
 ---
 
-## Compatibilidade Mobile
+## Consideracoes Finais
 
-- O cabecalho sticky tera altura adaptativa
-- Os cards de totais empilharao verticalmente em telas pequenas
-- O Select de ordenacao ficara abaixo do titulo em mobile
-- A tabela mantera scroll horizontal existente
-
----
-
-## Checklist Final
-
-- [x] Cabecalho fixo com titulo, botao e totais
-- [x] Select de ordenacao por credito (Crescente/Decrescente)
-- [x] Valores formatados com 2 casas decimais (formato brasileiro)
-- [x] Arredondamento matematico correto
-- [x] Layout responsivo mantido
-- [x] Sem impacto em outros modulos
+- Todos os campos sao opcionais, nao afetando registros existentes
+- Formatacao de telefone suporta fixo (10 digitos) e celular (11 digitos)
+- Layout responsivo mantido no formulario de configuracao
+- Documentos PDF existentes nao serao afetados ate atualizacao dos dados
 
