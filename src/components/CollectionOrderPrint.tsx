@@ -39,6 +39,18 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
     }
   };
 
+  const formatPhone = (value: string | null) => {
+    if (!value) return "";
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 11) {
+      return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+      return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
+    }
+    return value;
+  };
+
   const standardText = `"Fica estabelecido entre as partes que o prazo para carga é de até 48 horas úteis e para descarga é de até 24 horas úteis. Considerando que o horário para carga e descarga é das 08:00 às 18:00 horas, de segunda a sexta-feira, exceto feriados. Com base nos termos do §6º, artigo 11 da Lei nº 11.442/2007. Será pago o valor de até R$ 0,35 / t / h para carga a partir da 49ª hora e descarga a partir da 25ª hora."`;
 
   return (
@@ -85,6 +97,20 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   <div>
                     {companySettings?.city}{companySettings?.state && `-${companySettings.state}`}
                     {companySettings?.cep && ` CEP ${companySettings.cep}`}
+                  </div>
+                )}
+                {/* Commercial Info */}
+                {((companySettings as any)?.vendedor || (companySettings as any)?.contato || (companySettings as any)?.email) && (
+                  <div className="mt-1">
+                    {(companySettings as any)?.vendedor && (
+                      <div><span className="font-semibold">Vendedor:</span> {(companySettings as any).vendedor}</div>
+                    )}
+                    {(companySettings as any)?.contato && (
+                      <div><span className="font-semibold">Tel:</span> {formatPhone((companySettings as any).contato)}</div>
+                    )}
+                    {(companySettings as any)?.email && (
+                      <div>{(companySettings as any).email}</div>
+                    )}
                   </div>
                 )}
               </div>

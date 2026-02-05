@@ -41,6 +41,9 @@ interface CompanySettings {
   state: string | null;
   cep: string | null;
   logo_url: string | null;
+  vendedor: string | null;
+  contato: string | null;
+  email: string | null;
 }
 
 interface QuotePrintViewProps {
@@ -64,6 +67,18 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         /(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,
         "$1.$2.$3/$4-$5"
       );
+    }
+    return value;
+  };
+
+  const formatPhone = (value: string | null) => {
+    if (!value) return "";
+    const digits = value.replace(/\D/g, "");
+    if (digits.length === 11) {
+      return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+      return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
     }
     return value;
   };
@@ -114,6 +129,20 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
                 {companySettings.city && ` - ${companySettings.city}`}
                 {companySettings.state && `/${companySettings.state}`}
                 {companySettings.cep && ` - CEP: ${companySettings.cep}`}
+              </div>
+            )}
+            {/* Commercial Info */}
+            {(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
+              <div className="mt-1">
+                {companySettings?.vendedor && (
+                  <span>Vendedor: {companySettings.vendedor}</span>
+                )}
+                {companySettings?.contato && (
+                  <span>{companySettings?.vendedor ? " | " : ""}Tel: {formatPhone(companySettings.contato)}</span>
+                )}
+                {companySettings?.email && (
+                  <span>{(companySettings?.vendedor || companySettings?.contato) ? " | " : ""}{companySettings.email}</span>
+                )}
               </div>
             )}
           </div>

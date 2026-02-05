@@ -112,6 +112,9 @@ interface CompanySettings {
   state: string | null;
   cep: string | null;
   logo_url: string | null;
+  vendedor: string | null;
+  contato: string | null;
+  email: string | null;
 }
 
 export default function Quotes() {

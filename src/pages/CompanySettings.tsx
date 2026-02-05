@@ -21,6 +21,9 @@ interface CompanyData {
   neighborhood: string;
   logo_url: string | null;
   collection_order_start_number: string;
+  vendedor: string;
+  contato: string;
+  email: string;
 }
 
 export default function CompanySettings() {
@@ -40,6 +43,9 @@ export default function CompanySettings() {
     neighborhood: "",
     logo_url: null,
     collection_order_start_number: "",
+    vendedor: "",
+    contato: "",
+    email: "",
   });
 
   const { data: companyData, isLoading } = useQuery({
@@ -70,6 +76,9 @@ export default function CompanySettings() {
         neighborhood: companyData.neighborhood || "",
         logo_url: (companyData as any).logo_url || null,
         collection_order_start_number: (companyData as any).collection_order_start_number?.toString() || "",
+        vendedor: (companyData as any).vendedor || "",
+        contato: formatContato((companyData as any).contato || ""),
+        email: (companyData as any).email || "",
       });
     }
   }, [companyData]);
@@ -86,6 +95,18 @@ export default function CompanySettings() {
   const formatCep = (value: string) => {
     const digits = value.replace(/\D/g, "");
     return digits.replace(/(\d{5})(\d{1,3})/, "$1-$2");
+  };
+
+  const formatContato = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 10) {
+      return digits
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d)/, "$1-$2");
+    }
+    return digits
+      .replace(/(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2");
   };
 
   const fetchCnpjData = async (cnpj: string) => {
@@ -201,6 +222,9 @@ export default function CompanySettings() {
         neighborhood: data.neighborhood || null,
         logo_url: data.logo_url,
         collection_order_start_number: data.collection_order_start_number ? parseInt(data.collection_order_start_number) : null,
+        vendedor: data.vendedor || null,
+        contato: data.contato?.replace(/\D/g, "") || null,
+        email: data.email || null,
       };
 
       if (data.id) {
@@ -441,6 +465,43 @@ export default function CompanySettings() {
                   onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
                   placeholder="UF"
                   maxLength={2}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">Informações Comerciais</Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vendedor">Vendedor</Label>
+              <Input
+                id="vendedor"
+                value={formData.vendedor}
+                onChange={(e) => setFormData({ ...formData, vendedor: e.target.value })}
+                placeholder="Nome do vendedor/comercial responsável"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="contato">Contato</Label>
+                <Input
+                  id="contato"
+                  value={formData.contato}
+                  onChange={(e) => setFormData({ ...formData, contato: formatContato(e.target.value) })}
+                  placeholder="(00) 00000-0000"
+                  maxLength={15}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="email@empresa.com"
                 />
               </div>
             </div>
