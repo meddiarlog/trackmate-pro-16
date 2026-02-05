@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { Pencil, Trash2, Plus, Download, Copy, Check, Calculator, X, CreditCard } from "lucide-react";
+import { Pencil, Trash2, Plus, Download, Copy, Check, Calculator, X, CreditCard, ArrowUpDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
@@ -284,6 +284,7 @@ const CreditControl = () => {
   const [utilizarDialogOpen, setUtilizarDialogOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -383,8 +384,18 @@ const CreditControl = () => {
     'numero_nfe', 'cnpj_emitente', 'razao_social', 'chave_acesso', 'uf', 'tipo_combustivel'
   ]);
 
+  // Apply credit sorting after useTableFilters
+  const sortedFilteredData = useMemo(() => {
+    if (creditoSort === 'none') return filteredData;
+    return [...filteredData].sort((a, b) => {
+      return creditoSort === 'asc'
+        ? a.credito - b.credito
+        : b.credito - a.credito;
+    });
+  }, [filteredData, creditoSort]);
+
   const calculateCredito = (quantidade: number) => {
-    return (quantidade * 112) / 100;
+    return Math.round(((quantidade * 112) / 100) * 100) / 100;
   };
 
   const checkDuplicateNfe = async (chaveAcesso: string, currentId?: string): Promise<boolean> => {
@@ -578,7 +589,7 @@ const CreditControl = () => {
   // Selection handlers
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(filteredData.map(r => r.id)));
+      setSelectedIds(new Set(sortedFilteredData.map(r => r.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -597,15 +608,15 @@ const CreditControl = () => {
   };
 
   // Calculate totals
-  const totalCredito = filteredData.reduce((sum, record) => sum + record.credito, 0);
-  const selectedRecords = filteredData.filter(r => selectedIds.has(r.id));
+  const totalCredito = sortedFilteredData.reduce((sum, record) => sum + record.credito, 0);
+  const selectedRecords = sortedFilteredData.filter(r => selectedIds.has(r.id));
   const selectedCredito = selectedRecords.reduce((sum, record) => sum + record.credito, 0);
 
   const calculatedCredito = formData.quantidade
     ? calculateCredito(parseFloat(formData.quantidade))
     : 0;
 
-  const isAllSelected = filteredData.length > 0 && filteredData.every(r => selectedIds.has(r.id));
+  const isAllSelected = sortedFilteredData.length > 0 && sortedFilteredData.every(r => selectedIds.has(r.id));
   const isIndeterminate = selectedIds.size > 0 && !isAllSelected;
 
   const columns: FilterableColumn<CreditRecord>[] = [
@@ -754,16 +765,32 @@ const CreditControl = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Controle de Crédito</h1>
+    <div className="p-6 flex flex-col h-[calc(100vh-4rem)]">
+      {/* STICKY HEADER - Título + Ordenação + Botão + Cards */}
+      <div className="sticky top-0 z-10 bg-background pb-4 space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-3xl font-bold">Controle de Crédito</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <Select value={creditoSort} onValueChange={(value: 'none' | 'asc' | 'desc') => setCreditoSort(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Ordenar Crédito" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem ordenação</SelectItem>
+                  <SelectItem value="asc">Crédito: Crescente</SelectItem>
+                  <SelectItem value="desc">Crédito: Decrescente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Registro
-            </Button>
-          </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Registro
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -940,7 +967,8 @@ const CreditControl = () => {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+          </div>
+        </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1012,6 +1040,7 @@ const CreditControl = () => {
           </CardContent>
         </Card>
       </div>
+      </div>
 
       {/* Utilizar Crédito Dialog */}
       <UtilizarCreditoDialog
@@ -1020,35 +1049,38 @@ const CreditControl = () => {
         selectedRecords={selectedRecords}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Registros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FilterableTable
-            data={filteredData}
-            columns={columns}
-            globalSearch={globalSearch}
-            onGlobalSearchChange={setGlobalSearch}
-            columnFilters={columnFilters}
-            onColumnFilterChange={updateColumnFilter}
-            sortConfig={sortConfig}
-            onSort={toggleSort}
-            onClearFilters={clearAllFilters}
-            hasActiveFilters={hasActiveFilters}
-            totalCount={totalCount}
-            filteredCount={filteredCount}
-            keyExtractor={(item) => item.id}
-            isLoading={loading}
-            emptyMessage="Nenhum registro encontrado"
-            showDateFilters={true}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-          />
-        </CardContent>
-      </Card>
+      {/* SCROLLABLE CONTENT - Tabela */}
+      <div className="flex-1 overflow-y-auto mt-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Registros</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FilterableTable
+              data={sortedFilteredData}
+              columns={columns}
+              globalSearch={globalSearch}
+              onGlobalSearchChange={setGlobalSearch}
+              columnFilters={columnFilters}
+              onColumnFilterChange={updateColumnFilter}
+              sortConfig={sortConfig}
+              onSort={toggleSort}
+              onClearFilters={clearAllFilters}
+              hasActiveFilters={hasActiveFilters}
+              totalCount={totalCount}
+              filteredCount={filteredCount}
+              keyExtractor={(item) => item.id}
+              isLoading={loading}
+              emptyMessage="Nenhum registro encontrado"
+              showDateFilters={true}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

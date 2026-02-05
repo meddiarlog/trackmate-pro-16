@@ -214,10 +214,10 @@ Este padrao `Math.round((value) * 100) / 100` ja e utilizado nos modulos finance
 
 ## Checklist Final
 
-- Cabecalho fixo com titulo, botao e totais
-- Select de ordenacao por credito (Crescente/Decrescente)
-- Valores formatados com 2 casas decimais (formato brasileiro)
-- Arredondamento matematico correto
-- Layout responsivo mantido
-- Sem impacto em outros modulos
+- [x] Cabecalho fixo com titulo, botao e totais
+- [x] Select de ordenacao por credito (Crescente/Decrescente)
+- [x] Valores formatados com 2 casas decimais (formato brasileiro)
+- [x] Arredondamento matematico correto
+- [x] Layout responsivo mantido
+- [x] Sem impacto em outros modulos
 
