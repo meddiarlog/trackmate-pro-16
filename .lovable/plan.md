@@ -1,230 +1,216 @@
 
 
-## Plano de Implementacao - Campos Comerciais no Modulo Dados da Empresa
+## Plano de Implementacao - Melhorias no Modulo de Cotacao
 
 ---
 
-## Resumo das Alteracoes
+## Resumo
 
-Este plano adiciona informacoes comerciais da empresa e as exibe nos cabecalhos dos documentos gerados.
+Transformar o campo "Tipo de Servico" de select unico para multipla escolha por checkbox, adicionar novos tipos de servico (Carregamento e Descarga) com valores individuais, e incluir checkboxes de responsabilidade para Carga e Descarga.
 
-| Componente | Alteracao | Complexidade |
-|------------|-----------|--------------|
-| Banco de Dados | Adicionar 3 colunas (vendedor, contato, email) | Baixa |
-| Dados da Empresa | Novos campos no formulario | Baixa |
-| Ordem de Coleta | Exibir informacoes comerciais no cabecalho | Baixa |
-| Proposta Comercial | Exibir informacoes comerciais no cabecalho | Baixa |
+| Alteracao | Complexidade |
+|-----------|--------------|
+| Banco de dados: novas colunas | Baixa |
+| Formulario: checkboxes de servico + valores dinamicos | Media |
+| Checkboxes de Carga/Descarga com responsabilidade | Baixa |
+| Totalizacao automatica | Baixa |
+| Listagem e impressao atualizadas | Baixa |
 
 ---
 
-## Detalhamento Tecnico
+## 1. Alteracoes no Banco de Dados
 
-### 1. Alteracoes no Banco de Dados
+**Tabela:** `quotes`
 
-**Tabela:** `company_settings`
+Novas colunas a adicionar:
 
-**Adicionar novas colunas:**
+| Coluna | Tipo | Default | Descricao |
+|--------|------|---------|-----------|
+| service_transporte | BOOLEAN | false | Servico de transporte selecionado |
+| service_munck | BOOLEAN | false | Servico de munck selecionado |
+| service_carregamento | BOOLEAN | false | Servico de carregamento selecionado |
+| service_descarga | BOOLEAN | false | Servico de descarga selecionado |
+| carregamento_value | NUMERIC | 0 | Valor do carregamento |
+| descarga_value | NUMERIC | 0 | Valor da descarga |
+| carga_responsavel | TEXT | NULL | "contratante" ou "contratado" |
+| descarga_responsavel | TEXT | NULL | "contratante" ou "contratado" |
+
+**Migracao SQL:**
 
 ```sql
-ALTER TABLE public.company_settings
-ADD COLUMN vendedor TEXT,
-ADD COLUMN contato TEXT,
-ADD COLUMN email TEXT;
+ALTER TABLE public.quotes
+ADD COLUMN IF NOT EXISTS service_transporte BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS service_munck BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS service_carregamento BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS service_descarga BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS carregamento_value NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS descarga_value NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS carga_responsavel TEXT,
+ADD COLUMN IF NOT EXISTS descarga_responsavel TEXT;
+
+-- Migrar dados existentes baseado no service_type atual
+UPDATE public.quotes SET service_transporte = true WHERE service_type = 'transporte';
+UPDATE public.quotes SET service_munck = true WHERE service_type = 'munck';
 ```
 
-| Coluna | Tipo | Nullable | Descricao |
-|--------|------|----------|-----------|
-| vendedor | TEXT | Sim | Nome do vendedor/comercial responsavel |
-| contato | TEXT | Sim | Telefone de contato |
-| email | TEXT | Sim | E-mail comercial |
+O campo `service_type` existente sera mantido para compatibilidade mas gerado automaticamente a partir dos checkboxes.
 
 ---
 
-### 2. Modulo Dados da Empresa
+## 2. Formulario - Checkboxes de Servico
 
-**Arquivo:** `src/pages/CompanySettings.tsx`
-
-**2.1 Atualizar interface CompanyData (linha 11-24):**
-
-```typescript
-interface CompanyData {
-  // ... campos existentes
-  vendedor: string;
-  contato: string;
-  email: string;
-}
-```
-
-**2.2 Atualizar estado inicial (linha 31-43):**
-
-```typescript
-const [formData, setFormData] = useState<CompanyData>({
-  // ... campos existentes
-  vendedor: "",
-  contato: "",
-  email: "",
-});
-```
-
-**2.3 Atualizar useEffect (linha 58-75):**
-
-Carregar os novos campos do banco de dados.
-
-**2.4 Adicionar funcao de formatacao de telefone:**
-
-```typescript
-const formatPhone = (value: string) => {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length <= 10) {
-    return digits
-      .replace(/(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2");
-  }
-  return digits
-    .replace(/(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d)/, "$1-$2");
-};
-```
-
-**2.5 Adicionar nova secao no formulario (apos Endereco):**
+Substituir o Select de "Tipo de Servico" por checkboxes:
 
 ```text
 +------------------------------------------+
-| Informacoes Comerciais                   |
+| Tipo de Servico                          |
 +------------------------------------------+
-| Vendedor                                 |
-| [Nome do vendedor responsavel       ]    |
-+------------------------------------------+
-| Contato            | E-mail              |
-| [(11) 99999-9999]  | [email@empresa.com] |
+| [x] Transporte   [ ] Munck              |
+| [ ] Carregamento  [ ] Descarga          |
 +------------------------------------------+
 ```
 
-**Posicionamento:** Antes do botao "Salvar Dados"
+**Estado no formData:**
 
-**2.6 Atualizar payload de salvamento (linha 192-204):**
+```typescript
+// Substituir service_type por:
+service_transporte: false,
+service_munck: false,
+service_carregamento: false,
+service_descarga: false,
+carregamento_value: "",
+descarga_value: "",
+carga_responsavel: "",
+descarga_responsavel: "",
+```
+
+**Exibicao dinamica de valores:**
+
+- Se "Transporte" marcado: exibir campo "Valor de Frete (R$)"
+- Se "Munck" marcado: exibir campo "Valor de Servico de Munck (R$)"
+- Se "Carregamento" marcado: exibir campo "Valor de Carregamento (R$)"
+- Se "Descarga" marcado: exibir campo "Valor de Descarga (R$)"
+
+**Totalizacao automatica:**
+
+```text
++------------------------------------------+
+| Valores                                  |
++------------------------------------------+
+| Frete:         R$ 5.000,00              |
+| Munck:         R$ 1.200,00              |
+| Carregamento:  R$ 800,00               |
+|                                          |
+| TOTAL:         R$ 7.000,00              |
++------------------------------------------+
+```
+
+O total e calculado em tempo real somando todos os valores dos servicos selecionados.
+
+---
+
+## 3. Checkboxes de Carga e Descarga (Responsabilidade)
+
+Secao separada, abaixo dos valores:
+
+```text
++------------------------------------------+
+| Responsabilidade                         |
++------------------------------------------+
+| [x] Carga                               |
+|     ( ) Por Conta do Contratante        |
+|     (x) Por Conta do Contratado         |
+|                                          |
+| [x] Descarga                            |
+|     (x) Por Conta do Contratante        |
+|     ( ) Por Conta do Contratado         |
++------------------------------------------+
+```
+
+- Ao marcar "Carga", exibir radio buttons de responsabilidade
+- Ao marcar "Descarga", exibir radio buttons de responsabilidade
+- Ambos podem ser marcados simultaneamente
+
+---
+
+## 4. Salvamento (Payload)
 
 ```typescript
 const payload = {
   // ... campos existentes
-  vendedor: data.vendedor || null,
-  contato: data.contato?.replace(/\D/g, "") || null,
-  email: data.email || null,
+  service_transporte: formData.service_transporte,
+  service_munck: formData.service_munck,
+  service_carregamento: formData.service_carregamento,
+  service_descarga: formData.service_descarga,
+  // Gerar service_type como string para compatibilidade
+  service_type: buildServiceTypeString(),
+  freight_value: formData.service_transporte ? parseFloat(formData.freight_value) || 0 : 0,
+  munck_value: formData.service_munck ? parseFloat(formData.munck_value) || 0 : 0,
+  carregamento_value: formData.service_carregamento ? parseFloat(formData.carregamento_value) || 0 : 0,
+  descarga_value: formData.service_descarga ? parseFloat(formData.descarga_value) || 0 : 0,
+  carga_responsavel: formData.carga_responsavel || null,
+  descarga_responsavel: formData.descarga_responsavel || null,
 };
 ```
 
+A funcao `buildServiceTypeString()` gera uma string como "transporte, munck" para compatibilidade com a coluna existente.
+
 ---
 
-### 3. Cabecalho da Ordem de Coleta
+## 5. Listagem (Tabela)
 
-**Arquivo:** `src/components/CollectionOrderPrint.tsx`
+A coluna "Servico" exibira os tipos selecionados separados por virgula:
 
-**3.1 Atualizar a area do cabecalho da empresa (linhas 60-91):**
+```text
+| Servico                    |
+|----------------------------|
+| Transporte, Munck          |
+| Carregamento, Descarga     |
+| Transporte                 |
+```
 
-Adicionar linha com Vendedor, Contato e E-mail abaixo das informacoes de endereco.
+A coluna "Valor" exibira o total de todos os servicos.
 
-**Estrutura visual proposta:**
+---
+
+## 6. Impressao (QuotePrintView)
+
+Atualizar a interface Quote e a secao de valores para:
+
+- Listar cada servico selecionado com seu valor individual
+- Exibir linha de totalizacao
+- Mostrar responsabilidades de Carga/Descarga quando preenchidas
+- Manter formatacao brasileira (R$)
 
 ```text
 +------------------------------------------+
-| [LOGO]                                   |
-| CNPJ: xx.xxx.xxx/xxxx-xx - I.E.: xxxxx   |
-| Rua Exemplo, 123, Bairro                 |
-| Cidade-UF CEP 00000-000                  |
-| Vendedor: Nome | Tel: (11) 99999-9999    |
-| Email: comercial@empresa.com             |
+| VALORES                                  |
 +------------------------------------------+
-```
-
-**Codigo (apos linha 88):**
-
-```jsx
-{/* Commercial Info */}
-{(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
-  <div className="mt-1">
-    {companySettings?.vendedor && (
-      <div><span className="font-semibold">Vendedor:</span> {companySettings.vendedor}</div>
-    )}
-    {companySettings?.contato && (
-      <div><span className="font-semibold">Tel:</span> {formatPhone(companySettings.contato)}</div>
-    )}
-    {companySettings?.email && (
-      <div>{companySettings.email}</div>
-    )}
-  </div>
-)}
-```
-
-**3.2 Adicionar funcao formatPhone no componente:**
-
-```typescript
-const formatPhone = (value: string | null) => {
-  if (!value) return "";
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11) {
-    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
-  }
-  return value;
-};
+| Frete:            R$ 5.000,00           |
+| Munck:            R$ 1.200,00           |
+| Carregamento:     R$ 800,00            |
+| ----------------------------------------|
+| VALOR TOTAL:      R$ 7.000,00          |
++------------------------------------------+
+| Carga: Por Conta do Contratado          |
+| Descarga: Por Conta do Contratante      |
++------------------------------------------+
 ```
 
 ---
 
-### 4. Cabecalho da Proposta Comercial
+## 7. Edicao de Registros Existentes
 
-**Arquivo:** `src/components/QuotePrintView.tsx`
-
-**4.1 Atualizar interface CompanySettings (linhas 33-44):**
-
-```typescript
-interface CompanySettings {
-  // ... campos existentes
-  vendedor: string | null;
-  contato: string | null;
-  email: string | null;
-}
-```
-
-**4.2 Adicionar funcao formatPhone:**
+Ao abrir um registro existente para edicao:
+- Se possuir os campos booleanos novos, usar diretamente
+- Se nao (registros antigos), inferir dos campos `service_type`, `freight_value` e `munck_value`
 
 ```typescript
-const formatPhone = (value: string | null) => {
-  if (!value) return "";
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11) {
-    return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`;
-  }
-  if (digits.length === 10) {
-    return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`;
-  }
-  return value;
-};
-```
-
-**4.3 Atualizar secao company-details (linhas 103-118):**
-
-Adicionar informacoes comerciais abaixo do endereco.
-
-**Codigo:**
-
-```jsx
-{/* Commercial Info */}
-{(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
-  <div className="mt-1">
-    {companySettings?.vendedor && (
-      <span>Vendedor: {companySettings.vendedor}</span>
-    )}
-    {companySettings?.contato && (
-      <span> | Tel: {formatPhone(companySettings.contato)}</span>
-    )}
-    {companySettings?.email && (
-      <span> | {companySettings.email}</span>
-    )}
-  </div>
-)}
+// handleEdit - compatibilidade retroativa
+service_transporte: quote.service_transporte ?? (quote.service_type === 'transporte'),
+service_munck: quote.service_munck ?? (quote.service_type === 'munck'),
+service_carregamento: quote.service_carregamento ?? false,
+service_descarga: quote.service_descarga ?? false,
 ```
 
 ---
@@ -233,84 +219,18 @@ Adicionar informacoes comerciais abaixo do endereco.
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `company_settings` (tabela) | Adicionar vendedor, contato, email |
-| `src/pages/CompanySettings.tsx` | Novos campos no formulario |
-| `src/components/CollectionOrderPrint.tsx` | Exibir dados comerciais no cabecalho |
-| `src/components/QuotePrintView.tsx` | Exibir dados comerciais no cabecalho |
+| `quotes` (tabela) | Adicionar 8 colunas |
+| `src/pages/Quotes.tsx` | Formulario, listagem, payload |
+| `src/components/QuotePrintView.tsx` | Impressao com novos campos |
 
 ---
 
-## Ordem de Implementacao
+## Validacoes
 
-1. **Migracao de banco de dados**
-   - Adicionar colunas vendedor, contato e email em company_settings
-
-2. **CompanySettings.tsx**
-   - Atualizar interface e estado
-   - Adicionar funcao formatPhone
-   - Adicionar secao "Informacoes Comerciais" no formulario
-   - Atualizar carregamento e salvamento
-
-3. **CollectionOrderPrint.tsx**
-   - Adicionar funcao formatPhone
-   - Exibir dados comerciais no cabecalho
-
-4. **QuotePrintView.tsx**
-   - Atualizar interface CompanySettings
-   - Adicionar funcao formatPhone
-   - Exibir dados comerciais no cabecalho
-
----
-
-## Validacoes e Comportamento
-
-| Campo | Validacao | Comportamento |
-|-------|-----------|---------------|
-| Vendedor | Opcional, texto livre | Nao exibir se vazio |
-| Contato | Opcional, formatacao telefone | Armazenar apenas digitos, formatar na exibicao |
-| E-mail | Opcional, texto | Nao exibir se vazio |
-
-**Regras de exibicao nos documentos:**
-- Se nenhum campo comercial estiver preenchido, a secao nao aparece
-- Cada campo e exibido apenas se possuir valor
-- Layout se adapta aos campos disponiveis
-- Nao quebra geracao de documentos com campos vazios
-
----
-
-## Fluxo Visual nos Documentos
-
-**Ordem de Coleta (cabecalho compacto):**
-
-```text
-+------------------------------------------+
-| [LOGO]                                   |
-| CNPJ: 00.000.000/0000-00 - I.E.: 123456  |
-| Rua Exemplo, 123, Centro                 |
-| Sao Paulo-SP CEP 01234-567               |
-| Vendedor: Joao Silva                     |
-| Tel: (11) 98765-4321 | email@empresa.com |
-+------------------------------------------+
-```
-
-**Proposta Comercial (cabecalho horizontal):**
-
-```text
-+----------------------------------------------------------+
-| [LOGO]  | EMPRESA LTDA                                   |
-|         | CNPJ: 00.000.000/0000-00                        |
-|         | IE: 123456789                                   |
-|         | Rua Exemplo, 123, Centro - Sao Paulo/SP         |
-|         | Vendedor: Joao | Tel: (11) 98765-4321 | email@x |
-+----------------------------------------------------------+
-```
-
----
-
-## Consideracoes Finais
-
-- Todos os campos sao opcionais, nao afetando registros existentes
-- Formatacao de telefone suporta fixo (10 digitos) e celular (11 digitos)
-- Layout responsivo mantido no formulario de configuracao
-- Documentos PDF existentes nao serao afetados ate atualizacao dos dados
+| Regra | Descricao |
+|-------|-----------|
+| Ao menos 1 servico | Pelo menos um checkbox de servico deve ser marcado |
+| Origem/Destino | Obrigatorios apenas se "Transporte" estiver marcado |
+| Valores zerados | Servicos nao marcados salvam valor 0 |
+| Responsabilidade | Radio buttons so aparecem quando checkbox correspondente esta marcado |
 
