@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -58,6 +60,10 @@ interface Quote {
   responsavel: string | null;
   contato: string | null;
   service_type: string;
+  service_transporte?: boolean;
+  service_munck?: boolean;
+  service_carregamento?: boolean;
+  service_descarga?: boolean;
   origin_city: string | null;
   origin_state: string | null;
   destination_city: string | null;
@@ -65,6 +71,10 @@ interface Quote {
   product_id: string | null;
   freight_value: number;
   munck_value: number;
+  carregamento_value?: number;
+  descarga_value?: number;
+  carga_responsavel?: string | null;
+  descarga_responsavel?: string | null;
   vehicle_type_id: string | null;
   body_type_id?: string | null;
   delivery_days: number;
@@ -139,7 +149,10 @@ export default function Quotes() {
     customer_id: "",
     responsavel: "",
     contato: "",
-    service_type: "transporte",
+    service_transporte: false,
+    service_munck: false,
+    service_carregamento: false,
+    service_descarga: false,
     origin_city: "",
     origin_state: "",
     destination_city: "",
@@ -147,6 +160,10 @@ export default function Quotes() {
     product_id: "",
     freight_value: "",
     munck_value: "",
+    carregamento_value: "",
+    descarga_value: "",
+    carga_responsavel: "",
+    descarga_responsavel: "",
     vehicle_type_id: "",
     body_type_id: "",
     delivery_days: "0",
@@ -155,6 +172,44 @@ export default function Quotes() {
     observations: "",
     payment_method: "",
   });
+
+  // Helper to build service_type string for backward compatibility
+  const buildServiceTypeString = () => {
+    const services: string[] = [];
+    if (formData.service_transporte) services.push("transporte");
+    if (formData.service_munck) services.push("munck");
+    if (formData.service_carregamento) services.push("carregamento");
+    if (formData.service_descarga) services.push("descarga");
+    return services.join(", ") || "transporte";
+  };
+
+  // Calculate total value
+  const calculateTotal = () => {
+    let total = 0;
+    if (formData.service_transporte) total += parseFloat(formData.freight_value) || 0;
+    if (formData.service_munck) total += parseFloat(formData.munck_value) || 0;
+    if (formData.service_carregamento) total += parseFloat(formData.carregamento_value) || 0;
+    if (formData.service_descarga) total += parseFloat(formData.descarga_value) || 0;
+    return total;
+  };
+
+  // Helper to get total from a quote record
+  const getQuoteTotal = (quote: Quote) => {
+    return (quote.freight_value || 0) + (quote.munck_value || 0) + (quote.carregamento_value || 0) + (quote.descarga_value || 0);
+  };
+
+  // Helper to get service display string from a quote
+  const getServiceDisplay = (quote: Quote) => {
+    // Use new boolean fields if available, fallback to service_type
+    const services: string[] = [];
+    if (quote.service_transporte) services.push("Transporte");
+    if (quote.service_munck) services.push("Munck");
+    if (quote.service_carregamento) services.push("Carregamento");
+    if (quote.service_descarga) services.push("Descarga");
+    if (services.length > 0) return services.join(", ");
+    // Fallback for old records
+    return quote.service_type?.split(",").map(s => s.trim().charAt(0).toUpperCase() + s.trim().slice(1)).join(", ") || "-";
+  };
 
   const { data: quotes = [], isLoading } = useQuery({
     queryKey: ["quotes"],
@@ -265,18 +320,26 @@ export default function Quotes() {
 
   const saveQuoteMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const payload = {
+      const payload: any = {
         customer_id: data.customer_id || null,
         responsavel: data.responsavel || null,
         contato: data.contato || null,
-        service_type: data.service_type,
+        service_transporte: data.service_transporte,
+        service_munck: data.service_munck,
+        service_carregamento: data.service_carregamento,
+        service_descarga: data.service_descarga,
+        service_type: buildServiceTypeString(),
         origin_city: data.origin_city || null,
         origin_state: data.origin_state || null,
         destination_city: data.destination_city || null,
         destination_state: data.destination_state || null,
         product_id: data.product_id || null,
-        freight_value: parseFloat(data.freight_value) || 0,
-        munck_value: parseFloat(data.munck_value) || 0,
+        freight_value: data.service_transporte ? parseFloat(data.freight_value) || 0 : 0,
+        munck_value: data.service_munck ? parseFloat(data.munck_value) || 0 : 0,
+        carregamento_value: data.service_carregamento ? parseFloat(data.carregamento_value) || 0 : 0,
+        descarga_value: data.service_descarga ? parseFloat(data.descarga_value) || 0 : 0,
+        carga_responsavel: data.carga_responsavel || null,
+        descarga_responsavel: data.descarga_responsavel || null,
         vehicle_type_id: data.vehicle_type_id || null,
         body_type_id: data.body_type_id || null,
         delivery_days: parseInt(data.delivery_days) || 0,
@@ -403,7 +466,10 @@ export default function Quotes() {
       customer_id: "",
       responsavel: "",
       contato: "",
-      service_type: "transporte",
+      service_transporte: false,
+      service_munck: false,
+      service_carregamento: false,
+      service_descarga: false,
       origin_city: "",
       origin_state: "",
       destination_city: "",
@@ -411,6 +477,10 @@ export default function Quotes() {
       product_id: "",
       freight_value: "",
       munck_value: "",
+      carregamento_value: "",
+      descarga_value: "",
+      carga_responsavel: "",
+      descarga_responsavel: "",
       vehicle_type_id: "",
       body_type_id: "",
       delivery_days: "0",
@@ -425,7 +495,13 @@ export default function Quotes() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.service_type === "transporte") {
+    // At least one service must be selected
+    if (!formData.service_transporte && !formData.service_munck && !formData.service_carregamento && !formData.service_descarga) {
+      toast.error("Selecione pelo menos um tipo de serviço");
+      return;
+    }
+
+    if (formData.service_transporte) {
       if (!formData.origin_city || !formData.destination_city) {
         toast.error("Origem e Destino são obrigatórios para Transporte");
         return;
@@ -441,7 +517,10 @@ export default function Quotes() {
       customer_id: quote.customer_id || "",
       responsavel: quote.responsavel || "",
       contato: quote.contato || "",
-      service_type: quote.service_type,
+      service_transporte: quote.service_transporte ?? (quote.service_type === "transporte"),
+      service_munck: quote.service_munck ?? (quote.service_type === "munck"),
+      service_carregamento: quote.service_carregamento ?? false,
+      service_descarga: quote.service_descarga ?? false,
       origin_city: quote.origin_city || "",
       origin_state: quote.origin_state || "",
       destination_city: quote.destination_city || "",
@@ -449,6 +528,10 @@ export default function Quotes() {
       product_id: quote.product_id || "",
       freight_value: quote.freight_value?.toString() || "",
       munck_value: quote.munck_value?.toString() || "",
+      carregamento_value: (quote.carregamento_value || 0)?.toString() || "",
+      descarga_value: (quote.descarga_value || 0)?.toString() || "",
+      carga_responsavel: quote.carga_responsavel || "",
+      descarga_responsavel: quote.descarga_responsavel || "",
       vehicle_type_id: quote.vehicle_type_id || "",
       body_type_id: quote.body_type_id || "",
       delivery_days: quote.delivery_days?.toString() || "0",
@@ -530,6 +613,8 @@ export default function Quotes() {
 
   const deliveryDaysOptions = Array.from({ length: 51 }, (_, i) => i);
 
+  const hasAnyService = formData.service_transporte || formData.service_munck || formData.service_carregamento || formData.service_descarga;
+
   return (
     <div className="container mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
@@ -586,6 +671,7 @@ export default function Quotes() {
                     </Select>
                   </div>
                   <Button 
+                    type="button"
                     variant="outline" 
                     size="icon" 
                     className="mt-6"
@@ -636,23 +722,59 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Tipo de Serviço */}
-              <div className="space-y-2">
-                <Label>Tipo de Serviço</Label>
-                <Select
-                  value={formData.service_type}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, service_type: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="transporte">Transporte</SelectItem>
-                    <SelectItem value="munck">Munck</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Tipo de Serviço - Checkboxes */}
+              <div className="space-y-3">
+                <Label>Tipo de Serviço <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="service_transporte"
+                      checked={formData.service_transporte}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, service_transporte: !!checked })
+                      }
+                    />
+                    <Label htmlFor="service_transporte" className="font-normal cursor-pointer">
+                      Transporte
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="service_munck"
+                      checked={formData.service_munck}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, service_munck: !!checked })
+                      }
+                    />
+                    <Label htmlFor="service_munck" className="font-normal cursor-pointer">
+                      Munck
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="service_carregamento"
+                      checked={formData.service_carregamento}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, service_carregamento: !!checked })
+                      }
+                    />
+                    <Label htmlFor="service_carregamento" className="font-normal cursor-pointer">
+                      Carregamento
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="service_descarga"
+                      checked={formData.service_descarga}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, service_descarga: !!checked })
+                      }
+                    />
+                    <Label htmlFor="service_descarga" className="font-normal cursor-pointer">
+                      Descarga
+                    </Label>
+                  </div>
+                </div>
               </div>
 
               {/* Origem e Destino */}
@@ -660,7 +782,7 @@ export default function Quotes() {
                 <div className="space-y-2">
                   <Label>
                     Origem{" "}
-                    {formData.service_type === "transporte" && (
+                    {formData.service_transporte && (
                       <span className="text-destructive">*</span>
                     )}
                   </Label>
@@ -690,7 +812,7 @@ export default function Quotes() {
                 <div className="space-y-2">
                   <Label>
                     Destino{" "}
-                    {formData.service_type === "transporte" && (
+                    {formData.service_transporte && (
                       <span className="text-destructive">*</span>
                     )}
                   </Label>
@@ -756,40 +878,170 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Valores - Condicional baseado no tipo de serviço */}
-              <div className="grid grid-cols-1 gap-4">
-                {formData.service_type === "transporte" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="freight_value">Valor de Frete (R$)</Label>
-                    <Input
-                      id="freight_value"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.freight_value}
-                      onChange={(e) =>
-                        setFormData({ ...formData, freight_value: e.target.value })
-                      }
-                      placeholder="0,00"
-                    />
+              {/* Valores - Dynamic based on selected services */}
+              {hasAnyService && (
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Valores</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {formData.service_transporte && (
+                      <div className="space-y-2">
+                        <Label htmlFor="freight_value">Valor de Frete (R$)</Label>
+                        <Input
+                          id="freight_value"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.freight_value}
+                          onChange={(e) =>
+                            setFormData({ ...formData, freight_value: e.target.value })
+                          }
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
+                    {formData.service_munck && (
+                      <div className="space-y-2">
+                        <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
+                        <Input
+                          id="munck_value"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.munck_value}
+                          onChange={(e) =>
+                            setFormData({ ...formData, munck_value: e.target.value })
+                          }
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
+                    {formData.service_carregamento && (
+                      <div className="space-y-2">
+                        <Label htmlFor="carregamento_value">Valor de Carregamento (R$)</Label>
+                        <Input
+                          id="carregamento_value"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.carregamento_value}
+                          onChange={(e) =>
+                            setFormData({ ...formData, carregamento_value: e.target.value })
+                          }
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
+                    {formData.service_descarga && (
+                      <div className="space-y-2">
+                        <Label htmlFor="descarga_value">Valor de Descarga (R$)</Label>
+                        <Input
+                          id="descarga_value"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.descarga_value}
+                          onChange={(e) =>
+                            setFormData({ ...formData, descarga_value: e.target.value })
+                          }
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-                {formData.service_type === "munck" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
-                    <Input
-                      id="munck_value"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.munck_value}
-                      onChange={(e) =>
-                        setFormData({ ...formData, munck_value: e.target.value })
-                      }
-                      placeholder="0,00"
-                    />
+                  {/* Total */}
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <span className="font-bold text-sm">VALOR TOTAL:</span>
+                    <span className="font-bold text-lg">{formatCurrency(calculateTotal())}</span>
                   </div>
-                )}
+                </div>
+              )}
+
+              {/* Responsabilidade - Carga e Descarga */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Responsabilidade</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Carga */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carga_check"
+                        checked={!!formData.carga_responsavel}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            carga_responsavel: checked ? "contratante" : "",
+                          })
+                        }
+                      />
+                      <Label htmlFor="carga_check" className="font-normal cursor-pointer">
+                        Carga
+                      </Label>
+                    </div>
+                    {formData.carga_responsavel && (
+                      <RadioGroup
+                        value={formData.carga_responsavel}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, carga_responsavel: value })
+                        }
+                        className="ml-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="contratante" id="carga_contratante" />
+                          <Label htmlFor="carga_contratante" className="font-normal cursor-pointer text-sm">
+                            Por Conta do Contratante
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="contratado" id="carga_contratado" />
+                          <Label htmlFor="carga_contratado" className="font-normal cursor-pointer text-sm">
+                            Por Conta do Contratado
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    )}
+                  </div>
+
+                  {/* Descarga */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="descarga_check"
+                        checked={!!formData.descarga_responsavel}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            descarga_responsavel: checked ? "contratante" : "",
+                          })
+                        }
+                      />
+                      <Label htmlFor="descarga_check" className="font-normal cursor-pointer">
+                        Descarga
+                      </Label>
+                    </div>
+                    {formData.descarga_responsavel && (
+                      <RadioGroup
+                        value={formData.descarga_responsavel}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, descarga_responsavel: value })
+                        }
+                        className="ml-6"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="contratante" id="descarga_contratante" />
+                          <Label htmlFor="descarga_contratante" className="font-normal cursor-pointer text-sm">
+                            Por Conta do Contratante
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="contratado" id="descarga_contratado" />
+                          <Label htmlFor="descarga_contratado" className="font-normal cursor-pointer text-sm">
+                            Por Conta do Contratado
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Tipo de Veículo e Carroceria */}
@@ -1015,8 +1267,8 @@ export default function Quotes() {
                         {quote.quote_number}
                       </TableCell>
                       <TableCell>{quote.customer?.name || "-"}</TableCell>
-                      <TableCell className="capitalize">
-                        {quote.service_type}
+                      <TableCell>
+                        {getServiceDisplay(quote)}
                       </TableCell>
                       <TableCell>
                         {quote.origin_city && quote.destination_city
@@ -1024,9 +1276,7 @@ export default function Quotes() {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        {formatCurrency(
-                          (quote.freight_value || 0) + (quote.munck_value || 0)
-                        )}
+                        {formatCurrency(getQuoteTotal(quote))}
                       </TableCell>
                       <TableCell>
                         {format(

@@ -8,6 +8,10 @@ interface Quote {
   responsavel: string | null;
   contato: string | null;
   service_type: string;
+  service_transporte?: boolean;
+  service_munck?: boolean;
+  service_carregamento?: boolean;
+  service_descarga?: boolean;
   origin_city: string | null;
   origin_state: string | null;
   destination_city: string | null;
@@ -15,6 +19,10 @@ interface Quote {
   product_id: string | null;
   freight_value: number;
   munck_value: number;
+  carregamento_value?: number;
+  descarga_value?: number;
+  carga_responsavel?: string | null;
+  descarga_responsavel?: string | null;
   vehicle_type_id: string | null;
   body_type_id?: string | null;
   delivery_days: number;
@@ -85,20 +93,40 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
 
   const getPaymentMethodLabel = (method: string | null) => {
     switch (method) {
-      case "pix":
-        return "PIX";
-      case "boleto":
-        return "Boleto";
-      case "transferencia":
-        return "Transferência Bancária";
-      case "80_saldo":
-        return "80% + SALDO";
-      case "a_combinar":
-        return "A Combinar";
-      default:
-        return method || "-";
+      case "pix": return "PIX";
+      case "boleto": return "Boleto";
+      case "transferencia": return "Transferência Bancária";
+      case "80_saldo": return "80% + SALDO";
+      case "a_combinar": return "A Combinar";
+      default: return method || "-";
     }
   };
+
+  const getResponsavelLabel = (value: string | null) => {
+    if (value === "contratante") return "Por Conta do Contratante";
+    if (value === "contratado") return "Por Conta do Contratado";
+    return "";
+  };
+
+  // Determine which services are active (support old and new records)
+  const isTransporte = quote.service_transporte ?? (quote.service_type === "transporte");
+  const isMunck = quote.service_munck ?? (quote.service_type === "munck");
+  const isCarregamento = quote.service_carregamento ?? false;
+  const isDescarga = quote.service_descarga ?? false;
+
+  // Build service display
+  const serviceNames: string[] = [];
+  if (isTransporte) serviceNames.push("Transporte");
+  if (isMunck) serviceNames.push("Munck");
+  if (isCarregamento) serviceNames.push("Carregamento");
+  if (isDescarga) serviceNames.push("Descarga");
+
+  // Calculate total
+  const total =
+    (isTransporte ? (quote.freight_value || 0) : 0) +
+    (isMunck ? (quote.munck_value || 0) : 0) +
+    (isCarregamento ? (quote.carregamento_value || 0) : 0) +
+    (isDescarga ? (quote.descarga_value || 0) : 0);
 
   return (
     <div className="print-container p-6 bg-white text-black">
@@ -131,7 +159,6 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
                 {companySettings.cep && ` - CEP: ${companySettings.cep}`}
               </div>
             )}
-            {/* Commercial Info */}
             {(companySettings?.vendedor || companySettings?.contato || companySettings?.email) && (
               <div className="mt-1">
                 {companySettings?.vendedor && (
@@ -166,27 +193,19 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Cliente:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.customer?.name || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.customer?.name || "-"}</span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">CNPJ:</span>
-          <span className="field-value flex-1 text-sm">
-            {formatCnpj(quote.customer?.cpf_cnpj || "") || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{formatCnpj(quote.customer?.cpf_cnpj || "") || "-"}</span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Responsável:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.responsavel || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.responsavel || "-"}</span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Contato:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.contato || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.contato || "-"}</span>
         </div>
       </div>
 
@@ -197,44 +216,34 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Tipo de Serviço:</span>
-          <span className="field-value flex-1 text-sm capitalize">
-            {quote.service_type}
+          <span className="field-value flex-1 text-sm">
+            {serviceNames.join(", ") || "-"}
           </span>
         </div>
         {quote.origin_city && (
           <div className="field flex mb-2">
             <span className="field-label font-bold w-48 text-sm">Origem:</span>
-            <span className="field-value flex-1 text-sm">
-              {quote.origin_city}/{quote.origin_state}
-            </span>
+            <span className="field-value flex-1 text-sm">{quote.origin_city}/{quote.origin_state}</span>
           </div>
         )}
         {quote.destination_city && (
           <div className="field flex mb-2">
             <span className="field-label font-bold w-48 text-sm">Destino:</span>
-            <span className="field-value flex-1 text-sm">
-              {quote.destination_city}/{quote.destination_state}
-            </span>
+            <span className="field-value flex-1 text-sm">{quote.destination_city}/{quote.destination_state}</span>
           </div>
         )}
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Produto:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.product?.name || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.product?.name || "-"}</span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Tipo de Veículo:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.vehicle_type?.name || "-"}
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.vehicle_type?.name || "-"}</span>
         </div>
         {quote.body_type?.name && (
           <div className="field flex mb-2">
             <span className="field-label font-bold w-48 text-sm">Tipo de Carroceria:</span>
-            <span className="field-value flex-1 text-sm">
-              {quote.body_type.name}
-            </span>
+            <span className="field-value flex-1 text-sm">{quote.body_type.name}</span>
           </div>
         )}
       </div>
@@ -244,35 +253,56 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         <div className="section-title font-bold text-sm mb-3 border-b pb-2">
           VALORES
         </div>
-        {(quote.freight_value || 0) > 0 && (
+        {isTransporte && (quote.freight_value || 0) > 0 && (
           <div className="field flex mb-2">
-            <span className="field-label font-bold w-48 text-sm">
-              Valor Frete Carreta:
-            </span>
-            <span className="field-value flex-1 text-sm">
-              {formatCurrency(quote.freight_value || 0)}
-            </span>
+            <span className="field-label font-bold w-48 text-sm">Valor Frete:</span>
+            <span className="field-value flex-1 text-sm">{formatCurrency(quote.freight_value || 0)}</span>
           </div>
         )}
-        {(quote.munck_value || 0) > 0 && (
+        {isMunck && (quote.munck_value || 0) > 0 && (
           <div className="field flex mb-2">
-            <span className="field-label font-bold w-48 text-sm">
-              Valor Serviço Munck:
-            </span>
-            <span className="field-value flex-1 text-sm">
-              {formatCurrency(quote.munck_value || 0)}
-            </span>
+            <span className="field-label font-bold w-48 text-sm">Valor Serviço Munck:</span>
+            <span className="field-value flex-1 text-sm">{formatCurrency(quote.munck_value || 0)}</span>
+          </div>
+        )}
+        {isCarregamento && (quote.carregamento_value || 0) > 0 && (
+          <div className="field flex mb-2">
+            <span className="field-label font-bold w-48 text-sm">Valor Carregamento:</span>
+            <span className="field-value flex-1 text-sm">{formatCurrency(quote.carregamento_value || 0)}</span>
+          </div>
+        )}
+        {isDescarga && (quote.descarga_value || 0) > 0 && (
+          <div className="field flex mb-2">
+            <span className="field-label font-bold w-48 text-sm">Valor Descarga:</span>
+            <span className="field-value flex-1 text-sm">{formatCurrency(quote.descarga_value || 0)}</span>
           </div>
         )}
         <div className="field flex mb-2 pt-2 border-t">
           <span className="field-label font-bold w-48 text-sm">VALOR TOTAL:</span>
-          <span className="field-value flex-1 text-sm font-bold">
-            {formatCurrency(
-              (quote.freight_value || 0) + (quote.munck_value || 0)
-            )}
-          </span>
+          <span className="field-value flex-1 text-sm font-bold">{formatCurrency(total)}</span>
         </div>
       </div>
+
+      {/* Responsabilidade Section */}
+      {(quote.carga_responsavel || quote.descarga_responsavel) && (
+        <div className="section mb-6">
+          <div className="section-title font-bold text-sm mb-3 border-b pb-2">
+            RESPONSABILIDADE
+          </div>
+          {quote.carga_responsavel && (
+            <div className="field flex mb-2">
+              <span className="field-label font-bold w-48 text-sm">Carga:</span>
+              <span className="field-value flex-1 text-sm">{getResponsavelLabel(quote.carga_responsavel)}</span>
+            </div>
+          )}
+          {quote.descarga_responsavel && (
+            <div className="field flex mb-2">
+              <span className="field-label font-bold w-48 text-sm">Descarga:</span>
+              <span className="field-value flex-1 text-sm">{getResponsavelLabel(quote.descarga_responsavel)}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Condições da Proposta Section */}
       <div className="section mb-6">
@@ -281,23 +311,15 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Validade da Proposta:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.quote_validity_days || 15} dias
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.quote_validity_days || 15} dias</span>
         </div>
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Prazo de Pagamento:</span>
-          <span className="field-value flex-1 text-sm">
-            {quote.payment_term_days || 30} dias
-          </span>
+          <span className="field-value flex-1 text-sm">{quote.payment_term_days || 30} dias</span>
         </div>
         <div className="field flex mb-2">
-          <span className="field-label font-bold w-48 text-sm">
-            Forma de Pagamento:
-          </span>
-          <span className="field-value flex-1 text-sm">
-            {getPaymentMethodLabel(quote.payment_method)}
-          </span>
+          <span className="field-label font-bold w-48 text-sm">Forma de Pagamento:</span>
+          <span className="field-value flex-1 text-sm">{getPaymentMethodLabel(quote.payment_method)}</span>
         </div>
       </div>
 
