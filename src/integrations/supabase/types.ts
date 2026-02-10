@@ -1300,10 +1300,14 @@ export type Database = {
       quotes: {
         Row: {
           body_type_id: string | null
+          carga_responsavel: string | null
+          carregamento_value: number | null
           contato: string | null
           created_at: string
           customer_id: string | null
           delivery_days: number | null
+          descarga_responsavel: string | null
+          descarga_value: number | null
           destination_city: string | null
           destination_state: string | null
           freight_value: number | null
@@ -1318,6 +1322,10 @@ export type Database = {
           quote_number: number
           quote_validity_days: number | null
           responsavel: string | null
+          service_carregamento: boolean | null
+          service_descarga: boolean | null
+          service_munck: boolean | null
+          service_transporte: boolean | null
           service_type: string
           status: string | null
           updated_at: string
@@ -1325,10 +1333,14 @@ export type Database = {
         }
         Insert: {
           body_type_id?: string | null
+          carga_responsavel?: string | null
+          carregamento_value?: number | null
           contato?: string | null
           created_at?: string
           customer_id?: string | null
           delivery_days?: number | null
+          descarga_responsavel?: string | null
+          descarga_value?: number | null
           destination_city?: string | null
           destination_state?: string | null
           freight_value?: number | null
@@ -1343,6 +1355,10 @@ export type Database = {
           quote_number?: number
           quote_validity_days?: number | null
           responsavel?: string | null
+          service_carregamento?: boolean | null
+          service_descarga?: boolean | null
+          service_munck?: boolean | null
+          service_transporte?: boolean | null
           service_type?: string
           status?: string | null
           updated_at?: string
@@ -1350,10 +1366,14 @@ export type Database = {
         }
         Update: {
           body_type_id?: string | null
+          carga_responsavel?: string | null
+          carregamento_value?: number | null
           contato?: string | null
           created_at?: string
           customer_id?: string | null
           delivery_days?: number | null
+          descarga_responsavel?: string | null
+          descarga_value?: number | null
           destination_city?: string | null
           destination_state?: string | null
           freight_value?: number | null
@@ -1368,6 +1388,10 @@ export type Database = {
           quote_number?: number
           quote_validity_days?: number | null
           responsavel?: string | null
+          service_carregamento?: boolean | null
+          service_descarga?: boolean | null
+          service_munck?: boolean | null
+          service_transporte?: boolean | null
           service_type?: string
           status?: string | null
           updated_at?: string
