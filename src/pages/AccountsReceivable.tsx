@@ -105,6 +105,19 @@ export default function AccountsReceivable() {
     },
   });
 
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ["payment-methods-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Mutations
   const saveAccountMutation = useMutation({
     mutationFn: async (accountData: any) => {
@@ -556,8 +569,11 @@ export default function AccountsReceivable() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="boleto">Boleto</SelectItem>
-                        <SelectItem value="pix">Pix</SelectItem>
+                        {paymentMethods.map((pm) => (
+                          <SelectItem key={pm.id} value={pm.name}>
+                            {pm.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

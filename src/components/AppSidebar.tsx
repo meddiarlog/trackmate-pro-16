@@ -106,6 +106,13 @@ const menuItems = [
     items: [
       { title: "Dados da Empresa", url: "/settings/company", icon: Building2 },
       { title: "Unidades", url: "/settings/units", icon: Building2 },
+      {
+        title: "Banco",
+        icon: Wallet,
+        items: [
+          { title: "Forma de Pagamento", url: "/settings/payment-methods", icon: CreditCard },
+        ],
+      },
     ],
   },
   {

@@ -24,7 +24,7 @@ const BRAZILIAN_STATES = [
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
 ];
 
-const PAYMENT_METHODS = ["80% + SALDO", "Pix", "Boleto", "Transferência", "Depósito", "Saldo"];
+// PAYMENT_METHODS now loaded dynamically from payment_methods table
 
 const FREIGHT_MODES = ["Frete FOB", "Frete CIF"];
 
@@ -363,6 +363,20 @@ export default function CollectionOrders() {
     queryKey: ["body-types"],
     queryFn: async () => {
       const { data, error } = await supabase.from("body_types").select("*").order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch payment methods
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ["payment-methods-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -1020,7 +1034,7 @@ export default function CollectionOrders() {
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PAYMENT_METHODS.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                        {paymentMethods.map((pm: any) => <SelectItem key={pm.id} value={pm.name}>{pm.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
