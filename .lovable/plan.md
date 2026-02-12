@@ -1,227 +1,195 @@
 
 
-## Plano de Implementacao - Melhorias no Modulo de Cotacao
+## Plano de Implementacao - Formas de Pagamento
 
 ---
 
 ## Resumo
 
-Transformar o campo "Tipo de Servico" de select unico para multipla escolha por checkbox, adicionar novos tipos de servico (Carregamento e Descarga) com valores individuais, e incluir checkboxes de responsabilidade para Carga e Descarga.
+Criar um cadastro de Formas de Pagamento em Configuracoes > Banco, e integrar como dropdown dinamico nos modulos financeiros e operacionais.
 
-| Alteracao | Complexidade |
-|-----------|--------------|
-| Banco de dados: novas colunas | Baixa |
-| Formulario: checkboxes de servico + valores dinamicos | Media |
-| Checkboxes de Carga/Descarga com responsabilidade | Baixa |
-| Totalizacao automatica | Baixa |
-| Listagem e impressao atualizadas | Baixa |
+| Componente | Alteracao | Complexidade |
+|------------|-----------|--------------|
+| Banco de dados: tabela payment_methods | Baixa |
+| Menu lateral: submenu Banco | Baixa |
+| Pagina PaymentMethods (CRUD) | Media |
+| Rota no App.tsx | Baixa |
+| Integracao nos 5 modulos | Media |
 
 ---
 
-## 1. Alteracoes no Banco de Dados
+## 1. Banco de Dados
 
-**Tabela:** `quotes`
-
-Novas colunas a adicionar:
-
-| Coluna | Tipo | Default | Descricao |
-|--------|------|---------|-----------|
-| service_transporte | BOOLEAN | false | Servico de transporte selecionado |
-| service_munck | BOOLEAN | false | Servico de munck selecionado |
-| service_carregamento | BOOLEAN | false | Servico de carregamento selecionado |
-| service_descarga | BOOLEAN | false | Servico de descarga selecionado |
-| carregamento_value | NUMERIC | 0 | Valor do carregamento |
-| descarga_value | NUMERIC | 0 | Valor da descarga |
-| carga_responsavel | TEXT | NULL | "contratante" ou "contratado" |
-| descarga_responsavel | TEXT | NULL | "contratante" ou "contratado" |
-
-**Migracao SQL:**
+**Nova tabela:** `payment_methods`
 
 ```sql
-ALTER TABLE public.quotes
-ADD COLUMN IF NOT EXISTS service_transporte BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS service_munck BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS service_carregamento BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS service_descarga BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS carregamento_value NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS descarga_value NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS carga_responsavel TEXT,
-ADD COLUMN IF NOT EXISTS descarga_responsavel TEXT;
+CREATE TABLE public.payment_methods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
--- Migrar dados existentes baseado no service_type atual
-UPDATE public.quotes SET service_transporte = true WHERE service_type = 'transporte';
-UPDATE public.quotes SET service_munck = true WHERE service_type = 'munck';
+ALTER TABLE public.payment_methods ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view payment_methods" ON public.payment_methods FOR SELECT USING (true);
+CREATE POLICY "Anyone can insert payment_methods" ON public.payment_methods FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can update payment_methods" ON public.payment_methods FOR UPDATE USING (true);
+CREATE POLICY "Anyone can delete payment_methods" ON public.payment_methods FOR DELETE USING (true);
+
+-- Seed com formas de pagamento existentes no sistema
+INSERT INTO public.payment_methods (name) VALUES
+  ('Boleto'),
+  ('Pix'),
+  ('Transferência'),
+  ('Depósito'),
+  ('80% + SALDO'),
+  ('Saldo'),
+  ('A Combinar');
 ```
-
-O campo `service_type` existente sera mantido para compatibilidade mas gerado automaticamente a partir dos checkboxes.
 
 ---
 
-## 2. Formulario - Checkboxes de Servico
+## 2. Menu Lateral
 
-Substituir o Select de "Tipo de Servico" por checkboxes:
+**Arquivo:** `src/components/AppSidebar.tsx`
+
+Dentro do grupo "Configuracoes", apos "Unidades", adicionar submenu "Banco" com item "Forma de Pagamento":
+
+```text
+Configuracoes
+  ├── Dados da Empresa
+  ├── Unidades
+  └── Banco
+      └── Forma de Pagamento
+```
+
+O item "Banco" tera icone `Wallet` e a rota sera `/settings/payment-methods`.
+
+---
+
+## 3. Pagina CRUD - Forma de Pagamento
+
+**Novo arquivo:** `src/pages/PaymentMethods.tsx`
+
+Seguira o padrao existente (similar a BodyTypes.tsx):
+
+- Listagem com busca por nome
+- Dialog para criar/editar com campos: Nome e Status (Ativo/Inativo)
+- Menu de acoes (hamburger) com Editar e Excluir
+- Badge de status (verde para Ativo, cinza para Inativo)
+- Validacao de duplicidade por nome
+- **Validacao de exclusao**: antes de excluir, verificar se a forma de pagamento esta em uso nas tabelas `accounts_payable`, `accounts_receivable`, `collection_orders`, `quotes`. Se estiver vinculada, exibir mensagem impedindo a exclusao.
 
 ```text
 +------------------------------------------+
-| Tipo de Servico                          |
+| Formas de Pagamento          [+ Incluir] |
 +------------------------------------------+
-| [x] Transporte   [ ] Munck              |
-| [ ] Carregamento  [ ] Descarga          |
+| [Buscar...]                              |
++------------------------------------------+
+| Nome           | Status    | Acoes       |
+|----------------|-----------|-------------|
+| Boleto         | Ativo     | [...]       |
+| Pix            | Ativo     | [...]       |
+| Transferencia  | Inativo   | [...]       |
 +------------------------------------------+
 ```
 
-**Estado no formData:**
+---
+
+## 4. Rota no App.tsx
+
+**Arquivo:** `src/App.tsx`
+
+Adicionar:
+- Import do componente PaymentMethods
+- Rota `settings/payment-methods`
+
+---
+
+## 5. Integracao nos Modulos
+
+Em cada modulo, substituir as opcoes hardcoded do Select de "Forma de Pagamento" por uma query dinamica a tabela `payment_methods` (filtrando `is_active = true`).
+
+### 5.1 Contas a Pagar (`src/pages/AccountsPayable.tsx`)
+
+- Adicionar query: `useQuery` para buscar `payment_methods` ativos
+- Substituir SelectItems hardcoded (Boleto, Pix) por items dinamicos
+- Manter valor do `payment_method` como texto (nome da forma de pagamento)
+
+### 5.2 Contas a Receber (`src/pages/AccountsReceivable.tsx`)
+
+- Mesmo padrao do Contas a Pagar
+
+### 5.3 Cobrancas (`src/pages/Cobrancas.tsx`)
+
+- Este modulo nao possui campo payment_method atualmente
+- **Nao sera alterado** pois nao ha campo de forma de pagamento no formulario de cobrancas
+
+### 5.4 Ordem de Coleta (`src/pages/CollectionOrders.tsx`)
+
+- Substituir o array `PAYMENT_METHODS` hardcoded (linha 27) por query dinamica
+- Atualizar o Select correspondente
+
+### 5.5 Cotacao (`src/pages/Quotes.tsx`)
+
+- Substituir SelectItems hardcoded (PIX, Boleto, Transferencia, etc.) por items dinamicos
+
+---
+
+## 6. Padrao da Query Reutilizavel
+
+Em cada modulo, a query seguira este padrao:
 
 ```typescript
-// Substituir service_type por:
-service_transporte: false,
-service_munck: false,
-service_carregamento: false,
-service_descarga: false,
-carregamento_value: "",
-descarga_value: "",
-carga_responsavel: "",
-descarga_responsavel: "",
+const { data: paymentMethods = [] } = useQuery({
+  queryKey: ["payment-methods-active"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("payment_methods")
+      .select("*")
+      .eq("is_active", true)
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+});
 ```
 
-**Exibicao dinamica de valores:**
+E o Select sera renderizado como:
 
-- Se "Transporte" marcado: exibir campo "Valor de Frete (R$)"
-- Se "Munck" marcado: exibir campo "Valor de Servico de Munck (R$)"
-- Se "Carregamento" marcado: exibir campo "Valor de Carregamento (R$)"
-- Se "Descarga" marcado: exibir campo "Valor de Descarga (R$)"
-
-**Totalizacao automatica:**
-
-```text
-+------------------------------------------+
-| Valores                                  |
-+------------------------------------------+
-| Frete:         R$ 5.000,00              |
-| Munck:         R$ 1.200,00              |
-| Carregamento:  R$ 800,00               |
-|                                          |
-| TOTAL:         R$ 7.000,00              |
-+------------------------------------------+
+```jsx
+<Select value={form.payment_method} onValueChange={...}>
+  <SelectTrigger>
+    <SelectValue placeholder="Selecione" />
+  </SelectTrigger>
+  <SelectContent>
+    {paymentMethods.map((pm) => (
+      <SelectItem key={pm.id} value={pm.name}>
+        {pm.name}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
 ```
 
-O total e calculado em tempo real somando todos os valores dos servicos selecionados.
+**Nota:** O valor armazenado sera o **nome** da forma de pagamento (texto), mantendo compatibilidade com dados existentes.
 
 ---
 
-## 3. Checkboxes de Carga e Descarga (Responsabilidade)
+## Arquivos a Criar/Modificar
 
-Secao separada, abaixo dos valores:
-
-```text
-+------------------------------------------+
-| Responsabilidade                         |
-+------------------------------------------+
-| [x] Carga                               |
-|     ( ) Por Conta do Contratante        |
-|     (x) Por Conta do Contratado         |
-|                                          |
-| [x] Descarga                            |
-|     (x) Por Conta do Contratante        |
-|     ( ) Por Conta do Contratado         |
-+------------------------------------------+
-```
-
-- Ao marcar "Carga", exibir radio buttons de responsabilidade
-- Ao marcar "Descarga", exibir radio buttons de responsabilidade
-- Ambos podem ser marcados simultaneamente
-
----
-
-## 4. Salvamento (Payload)
-
-```typescript
-const payload = {
-  // ... campos existentes
-  service_transporte: formData.service_transporte,
-  service_munck: formData.service_munck,
-  service_carregamento: formData.service_carregamento,
-  service_descarga: formData.service_descarga,
-  // Gerar service_type como string para compatibilidade
-  service_type: buildServiceTypeString(),
-  freight_value: formData.service_transporte ? parseFloat(formData.freight_value) || 0 : 0,
-  munck_value: formData.service_munck ? parseFloat(formData.munck_value) || 0 : 0,
-  carregamento_value: formData.service_carregamento ? parseFloat(formData.carregamento_value) || 0 : 0,
-  descarga_value: formData.service_descarga ? parseFloat(formData.descarga_value) || 0 : 0,
-  carga_responsavel: formData.carga_responsavel || null,
-  descarga_responsavel: formData.descarga_responsavel || null,
-};
-```
-
-A funcao `buildServiceTypeString()` gera uma string como "transporte, munck" para compatibilidade com a coluna existente.
-
----
-
-## 5. Listagem (Tabela)
-
-A coluna "Servico" exibira os tipos selecionados separados por virgula:
-
-```text
-| Servico                    |
-|----------------------------|
-| Transporte, Munck          |
-| Carregamento, Descarga     |
-| Transporte                 |
-```
-
-A coluna "Valor" exibira o total de todos os servicos.
-
----
-
-## 6. Impressao (QuotePrintView)
-
-Atualizar a interface Quote e a secao de valores para:
-
-- Listar cada servico selecionado com seu valor individual
-- Exibir linha de totalizacao
-- Mostrar responsabilidades de Carga/Descarga quando preenchidas
-- Manter formatacao brasileira (R$)
-
-```text
-+------------------------------------------+
-| VALORES                                  |
-+------------------------------------------+
-| Frete:            R$ 5.000,00           |
-| Munck:            R$ 1.200,00           |
-| Carregamento:     R$ 800,00            |
-| ----------------------------------------|
-| VALOR TOTAL:      R$ 7.000,00          |
-+------------------------------------------+
-| Carga: Por Conta do Contratado          |
-| Descarga: Por Conta do Contratante      |
-+------------------------------------------+
-```
-
----
-
-## 7. Edicao de Registros Existentes
-
-Ao abrir um registro existente para edicao:
-- Se possuir os campos booleanos novos, usar diretamente
-- Se nao (registros antigos), inferir dos campos `service_type`, `freight_value` e `munck_value`
-
-```typescript
-// handleEdit - compatibilidade retroativa
-service_transporte: quote.service_transporte ?? (quote.service_type === 'transporte'),
-service_munck: quote.service_munck ?? (quote.service_type === 'munck'),
-service_carregamento: quote.service_carregamento ?? false,
-service_descarga: quote.service_descarga ?? false,
-```
-
----
-
-## Arquivos a Modificar
-
-| Arquivo | Alteracao |
-|---------|-----------|
-| `quotes` (tabela) | Adicionar 8 colunas |
-| `src/pages/Quotes.tsx` | Formulario, listagem, payload |
-| `src/components/QuotePrintView.tsx` | Impressao com novos campos |
+| Arquivo | Acao |
+|---------|------|
+| `payment_methods` (tabela) | Criar |
+| `src/pages/PaymentMethods.tsx` | Criar |
+| `src/components/AppSidebar.tsx` | Modificar (adicionar submenu Banco) |
+| `src/App.tsx` | Modificar (adicionar rota) |
+| `src/pages/AccountsPayable.tsx` | Modificar (query dinamica) |
+| `src/pages/AccountsReceivable.tsx` | Modificar (query dinamica) |
+| `src/pages/CollectionOrders.tsx` | Modificar (query dinamica) |
+| `src/pages/Quotes.tsx` | Modificar (query dinamica) |
 
 ---
 
@@ -229,8 +197,18 @@ service_descarga: quote.service_descarga ?? false,
 
 | Regra | Descricao |
 |-------|-----------|
-| Ao menos 1 servico | Pelo menos um checkbox de servico deve ser marcado |
-| Origem/Destino | Obrigatorios apenas se "Transporte" estiver marcado |
-| Valores zerados | Servicos nao marcados salvam valor 0 |
-| Responsabilidade | Radio buttons so aparecem quando checkbox correspondente esta marcado |
+| Nome unico | Nao permitir formas de pagamento com nome duplicado |
+| Exclusao segura | Impedir exclusao se vinculada a registros existentes |
+| Status ativo | Apenas formas ativas aparecem nos dropdowns |
+| Compatibilidade | Registros existentes com valores hardcoded continuam funcionando |
+
+---
+
+## Ordem de Implementacao
+
+1. Migracao de banco de dados (criar tabela + seed)
+2. Criar pagina PaymentMethods.tsx
+3. Adicionar rota no App.tsx
+4. Atualizar menu lateral (AppSidebar.tsx)
+5. Integrar nos modulos (AccountsPayable, AccountsReceivable, CollectionOrders, Quotes)
 
