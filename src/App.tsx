@@ -37,6 +37,7 @@ import AccessUsers from "./pages/AccessUsers";
 import AccessUserGroups from "./pages/AccessUserGroups";
 import AccessPermissions from "./pages/AccessPermissions";
 import Help from "./pages/Help";
+import PaymentMethods from "./pages/PaymentMethods";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -99,6 +100,7 @@ const App = () => (
               {/* Settings */}
               <Route path="settings/units" element={<SettingsUnits />} />
               <Route path="settings/company" element={<CompanySettings />} />
+              <Route path="settings/payment-methods" element={<PaymentMethods />} />
               
               {/* Account */}
               <Route path="account" element={<Account />} />

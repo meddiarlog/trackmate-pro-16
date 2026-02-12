@@ -299,6 +299,19 @@ export default function Quotes() {
     },
   });
 
+  const { data: paymentMethods = [] } = useQuery({
+    queryKey: ["payment-methods-active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: companySettings } = useQuery({
     queryKey: ["company_settings"],
     queryFn: async () => {
@@ -1189,11 +1202,11 @@ export default function Quotes() {
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pix">PIX</SelectItem>
-                    <SelectItem value="boleto">Boleto</SelectItem>
-                    <SelectItem value="transferencia">Transferência</SelectItem>
-                    <SelectItem value="80_saldo">80% + SALDO</SelectItem>
-                    <SelectItem value="a_combinar">A Combinar</SelectItem>
+                    {paymentMethods.map((pm) => (
+                      <SelectItem key={pm.id} value={pm.name}>
+                        {pm.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
