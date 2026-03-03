@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Truck } from "lucide-react";
+import logoMutlog from "@/assets/LogoMutlog.png";
 
 export default function Layout() {
   return (
@@ -14,9 +14,7 @@ export default function Layout() {
             <div className="flex h-14 sm:h-16 items-center gap-2 sm:gap-4 px-3 sm:px-6">
               <SidebarTrigger className="shrink-0" />
               <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary to-primary-dark rounded-lg shrink-0">
-                  <Truck className="h-4 w-4 sm:h-6 sm:w-6 text-primary-foreground" />
-                </div>
+                <img src={logoMutlog} alt="Mutlog" className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg shrink-0" />
                 <div className="min-w-0">
                   <h1 className="text-base sm:text-xl font-bold text-foreground truncate">Mutlog</h1>
                   <p className="text-[10px] sm:text-xs text-muted-foreground truncate hidden xs:block">Sistema de Gestão de Fretes</p>
