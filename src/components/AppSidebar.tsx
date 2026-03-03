@@ -1,4 +1,5 @@
 import { ChevronDown, Home, Users, Truck, Package, FileText, DollarSign, BarChart3, Folder, Settings, User, HelpCircle, LogOut, UserCircle, Building2, MapPin, ClipboardList, CreditCard, Receipt, FileCheck, Calculator, Archive, Briefcase, Shield, Wallet, FolderOpen } from "lucide-react";
+import logoMutlog from "@/assets/LogoMutlog.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -259,7 +260,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className={cn("h-12 flex items-center px-4", !open && "justify-center")}>
-            <Truck className="h-6 w-6" />
+            <img src={logoMutlog} alt="Mutlog" className="h-7 w-7 rounded" />
             {open && <span className="ml-3 text-lg font-bold">Mutlog</span>}
           </SidebarGroupLabel>
           <SidebarGroupContent>
