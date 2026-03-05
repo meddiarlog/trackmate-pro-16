@@ -1,29 +1,18 @@
 
 
-## Plano - Busca de Cliente por CPF/CNPJ/Nome na Cotacao
+## Plano - Corrigir Logo da Tela de Login
 
-### Problema
-O campo "Cliente" no formulario de Cotacao usa um Select simples que so permite escolher pelo nome. Precisa permitir busca por CPF/CNPJ/Nome.
+O codigo em `Login.tsx` ja esta correto (importa e exibe `LogoTelaLogin.png`), porem o arquivo `src/assets/LogoTelaLogin.png` aparentemente nao foi substituido corretamente na ultima edicao — o diff mostra que o arquivo binario foi alterado mas a imagem antiga (icone do caminhao no circulo azul) continua aparecendo.
 
 ### Solucao
-Substituir o `Select` por um `Popover + Command` com busca, seguindo o mesmo padrao ja implementado no modulo de Cobrancas (`src/pages/Cobrancas.tsx`).
 
-### Alteracoes em `src/pages/Quotes.tsx`
+Recopiar o arquivo `LogoTelaLogin.png` fornecido pelo usuario para `src/assets/LogoTelaLogin.png`, garantindo que o binario correto seja gravado. O codigo em `Login.tsx` nao precisa de alteracao pois ja referencia esse arquivo.
 
-1. **Imports**: Adicionar `Popover`, `PopoverContent`, `PopoverTrigger`, `Command`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandItem`, `Search`
+### Alteracoes
 
-2. **Estado**: Adicionar `customerPopoverOpen` (boolean) e `customerSearch` (string)
-
-3. **Filtro**: Criar `filteredCustomerOptions` que filtra por nome (case-insensitive) e CPF/CNPJ (apenas digitos)
-
-4. **UI**: Substituir o bloco `Select` (linhas ~668-684) pelo componente Popover+Command que exibe nome e CPF/CNPJ em cada item da lista
-
-O botao "+" para cadastro rapido de cliente sera mantido ao lado.
-
-### Arquivos
 | Arquivo | Acao |
 |---------|------|
-| `src/pages/Quotes.tsx` | Modificar campo Cliente |
+| `src/assets/LogoTelaLogin.png` | Recopiar a imagem correta do upload do usuario |
 
-Nenhuma alteracao de banco de dados necessaria.
+Nenhuma outra alteracao necessaria.
 
