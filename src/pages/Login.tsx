@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Truck, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
+import logoTelaLogin from '@/assets/LogoTelaLogin.png';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
@@ -83,9 +84,7 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="bg-primary rounded-full p-3">
-              <Truck className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img src={logoTelaLogin} alt="Mutlog" className="h-20 w-auto" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">MUTLOG</CardTitle>
