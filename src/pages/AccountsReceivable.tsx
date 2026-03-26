@@ -48,6 +48,7 @@ interface Customer {
   id: string;
   name: string;
   cpf_cnpj: string | null;
+  nome_fantasia: string | null;
 }
 
 export default function AccountsReceivable() {
