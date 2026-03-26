@@ -1122,51 +1122,12 @@ Equipe de Cobrança`;
               </div>
 
               <div>
-                <Label htmlFor="customer_id">Cliente * (busque por nome ou CNPJ)</Label>
-                <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={customerPopoverOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {formData.customer_id ? getSelectedCustomerName() : "Selecione um cliente..."}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder="Buscar por nome ou CNPJ..." 
-                        value={customerSearch}
-                        onValueChange={setCustomerSearch}
-                      />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {filteredCustomerOptions.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.id}
-                              onSelect={() => {
-                                handleCustomerChange(customer.id);
-                                setCustomerPopoverOpen(false);
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span>{customer.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {customer.cpf_cnpj || "Sem CNPJ"} {customer.prazo_dias ? `• ${customer.prazo_dias} dias` : ""}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Label htmlFor="customer_id">Cliente * (busque por nome, nome fantasia, CPF ou CNPJ)</Label>
+                <CustomerSearchSelect
+                  customers={customers}
+                  value={formData.customer_id}
+                  onChange={(id) => handleCustomerChange(id)}
+                />
               </div>
 
               <div>
