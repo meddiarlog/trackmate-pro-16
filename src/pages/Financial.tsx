@@ -372,21 +372,11 @@ const Financial = () => {
                   <div className="space-y-4">
                     <div>
                       <Label>Cliente *</Label>
-                      <Select
+                      <CustomerSearchSelect
+                        customers={customers}
                         value={paymentForm.customer_id}
-                        onValueChange={(value) => setPaymentForm({ ...paymentForm, customer_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o cliente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(value) => setPaymentForm({ ...paymentForm, customer_id: value })}
+                      />
                     </div>
                     <div>
                       <Label>Valor *</Label>
