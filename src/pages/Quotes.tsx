@@ -138,8 +138,6 @@ export default function Quotes() {
   const [searchTerm, setSearchTerm] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState("");
   
   // Quick-add dialogs states
   const [productDialogOpen, setProductDialogOpen] = useState(false);
