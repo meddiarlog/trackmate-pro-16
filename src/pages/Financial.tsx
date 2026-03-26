@@ -91,7 +91,7 @@ const Financial = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, email")
+        .select("id, name, email, cpf_cnpj, nome_fantasia")
         .order("name", { ascending: true });
       if (error) throw error;
       return data as Customer[];
