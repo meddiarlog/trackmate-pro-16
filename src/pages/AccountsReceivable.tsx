@@ -432,21 +432,11 @@ export default function AccountsReceivable() {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Label>Cliente *</Label>
-                        <Select
+                        <CustomerSearchSelect
+                          customers={customers}
                           value={form.customer_id}
-                          onValueChange={(value) => setForm({ ...form, customer_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cliente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
-                                {customer.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(value) => setForm({ ...form, customer_id: value })}
+                        />
                       </div>
                       <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
                         <DialogTrigger asChild>
