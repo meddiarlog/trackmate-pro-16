@@ -1132,59 +1132,14 @@ Equipe de Cobrança`;
 
               <div>
                 <Label htmlFor="pagador_id">Pagador (opcional)</Label>
-                <Popover open={pagadorPopoverOpen} onOpenChange={setPagadorPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={pagadorPopoverOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {formData.pagador_id ? getSelectedPagadorName() : "Selecione um pagador..."}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder="Buscar por nome ou CNPJ..." 
-                        value={pagadorSearch}
-                        onValueChange={setPagadorSearch}
-                      />
-                      <CommandList>
-                        <CommandEmpty>Nenhum pagador encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="none"
-                            onSelect={() => {
-                              setFormData({ ...formData, pagador_id: "" });
-                              setPagadorPopoverOpen(false);
-                            }}
-                          >
-                            <span className="text-muted-foreground">Nenhum (usar cliente)</span>
-                          </CommandItem>
-                          {filteredPagadorOptions.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.id}
-                              onSelect={() => {
-                                setFormData({ ...formData, pagador_id: customer.id });
-                                setPagadorPopoverOpen(false);
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span>{customer.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {customer.cpf_cnpj || "Sem CNPJ"}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <CustomerSearchSelect
+                  customers={customers}
+                  value={formData.pagador_id}
+                  onChange={(id) => setFormData({ ...formData, pagador_id: id })}
+                  placeholder="Selecione um pagador..."
+                  allowNone
+                  noneLabel="Nenhum (usar cliente)"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
