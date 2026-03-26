@@ -14,8 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
 import {
   Dialog,
   DialogContent,
@@ -101,6 +100,7 @@ interface Customer {
   id: string;
   name: string;
   cpf_cnpj: string | null;
+  nome_fantasia: string | null;
 }
 
 interface Product {
@@ -138,8 +138,6 @@ export default function Quotes() {
   const [searchTerm, setSearchTerm] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState("");
   
   // Quick-add dialogs states
   const [productDialogOpen, setProductDialogOpen] = useState(false);
@@ -260,7 +258,7 @@ export default function Quotes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, cpf_cnpj")
+        .select("id, name, cpf_cnpj, nome_fantasia")
         .order("name");
       if (error) throw error;
       return data as Customer[];
@@ -669,67 +667,11 @@ export default function Quotes() {
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <Label>Cliente</Label>
-                    <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={customerPopoverOpen}
-                          className="w-full justify-between font-normal"
-                          type="button"
-                        >
-                          {formData.customer_id
-                            ? customers.find((c) => c.id === formData.customer_id)?.name || "Selecione um cliente"
-                            : "Selecione um cliente"}
-                          <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput
-                            placeholder="Buscar por nome, CPF ou CNPJ..."
-                            value={customerSearch}
-                            onValueChange={setCustomerSearch}
-                          />
-                          <CommandList>
-                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                            <CommandGroup>
-                              {customers
-                                .filter((c) => {
-                                  if (!customerSearch) return true;
-                                  const search = customerSearch.toLowerCase();
-                                  const searchDigits = search.replace(/\D/g, "");
-                                  const nameMatch = c.name.toLowerCase().includes(search);
-                                  const docMatch = searchDigits && c.cpf_cnpj
-                                    ? c.cpf_cnpj.replace(/\D/g, "").includes(searchDigits)
-                                    : false;
-                                  return nameMatch || docMatch;
-                                })
-                                .map((customer) => (
-                                  <CommandItem
-                                    key={customer.id}
-                                    value={customer.id}
-                                    onSelect={() => {
-                                      setFormData({ ...formData, customer_id: customer.id });
-                                      setCustomerPopoverOpen(false);
-                                      setCustomerSearch("");
-                                    }}
-                                  >
-                                    <div className="flex flex-col">
-                                      <span>{customer.name}</span>
-                                      {customer.cpf_cnpj && (
-                                        <span className="text-xs text-muted-foreground">
-                                          {customer.cpf_cnpj}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
+                    <CustomerSearchSelect
+                      customers={customers}
+                      value={formData.customer_id}
+                      onChange={(id) => setFormData({ ...formData, customer_id: id })}
+                    />
                   </div>
                   <Button 
                     type="button"

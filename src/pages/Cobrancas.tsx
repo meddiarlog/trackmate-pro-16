@@ -28,6 +28,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Download, Eye, Upload, FileText, Loader2, MoreVertical, Calendar, CheckCircle2, XCircle, Pencil, Trash2, Phone, MessageSquare, Search, FileCheck } from "lucide-react";
+import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
 import { format, addDays, isWeekend, nextMonday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
@@ -102,6 +103,7 @@ type Customer = {
   prazo_dias: number | null;
   cpf_cnpj: string | null;
   phone: string | null;
+  nome_fantasia: string | null;
 };
 
 type CustomerContact = {
@@ -247,7 +249,7 @@ const Cobrancas = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, prazo_dias, cpf_cnpj, phone")
+        .select("id, name, prazo_dias, cpf_cnpj, phone, nome_fantasia")
         .order("name");
 
       if (error) throw error;
@@ -1120,108 +1122,24 @@ Equipe de Cobrança`;
               </div>
 
               <div>
-                <Label htmlFor="customer_id">Cliente * (busque por nome ou CNPJ)</Label>
-                <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={customerPopoverOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {formData.customer_id ? getSelectedCustomerName() : "Selecione um cliente..."}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder="Buscar por nome ou CNPJ..." 
-                        value={customerSearch}
-                        onValueChange={setCustomerSearch}
-                      />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {filteredCustomerOptions.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.id}
-                              onSelect={() => {
-                                handleCustomerChange(customer.id);
-                                setCustomerPopoverOpen(false);
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span>{customer.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {customer.cpf_cnpj || "Sem CNPJ"} {customer.prazo_dias ? `• ${customer.prazo_dias} dias` : ""}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Label htmlFor="customer_id">Cliente * (busque por nome, nome fantasia, CPF ou CNPJ)</Label>
+                <CustomerSearchSelect
+                  customers={customers}
+                  value={formData.customer_id}
+                  onChange={(id) => handleCustomerChange(id)}
+                />
               </div>
 
               <div>
                 <Label htmlFor="pagador_id">Pagador (opcional)</Label>
-                <Popover open={pagadorPopoverOpen} onOpenChange={setPagadorPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={pagadorPopoverOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {formData.pagador_id ? getSelectedPagadorName() : "Selecione um pagador..."}
-                      <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput 
-                        placeholder="Buscar por nome ou CNPJ..." 
-                        value={pagadorSearch}
-                        onValueChange={setPagadorSearch}
-                      />
-                      <CommandList>
-                        <CommandEmpty>Nenhum pagador encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          <CommandItem
-                            value="none"
-                            onSelect={() => {
-                              setFormData({ ...formData, pagador_id: "" });
-                              setPagadorPopoverOpen(false);
-                            }}
-                          >
-                            <span className="text-muted-foreground">Nenhum (usar cliente)</span>
-                          </CommandItem>
-                          {filteredPagadorOptions.map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.id}
-                              onSelect={() => {
-                                setFormData({ ...formData, pagador_id: customer.id });
-                                setPagadorPopoverOpen(false);
-                              }}
-                            >
-                              <div className="flex flex-col">
-                                <span>{customer.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {customer.cpf_cnpj || "Sem CNPJ"}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <CustomerSearchSelect
+                  customers={customers}
+                  value={formData.pagador_id}
+                  onChange={(id) => setFormData({ ...formData, pagador_id: id })}
+                  placeholder="Selecione um pagador..."
+                  allowNone
+                  noneLabel="Nenhum (usar cliente)"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,8 @@ interface Customer {
   id: string;
   name: string;
   email: string;
+  cpf_cnpj?: string | null;
+  nome_fantasia?: string | null;
 }
 
 const Financial = () => {
@@ -88,7 +91,7 @@ const Financial = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, email")
+        .select("id, name, email, cpf_cnpj, nome_fantasia")
         .order("name", { ascending: true });
       if (error) throw error;
       return data as Customer[];
@@ -369,21 +372,11 @@ const Financial = () => {
                   <div className="space-y-4">
                     <div>
                       <Label>Cliente *</Label>
-                      <Select
+                      <CustomerSearchSelect
+                        customers={customers}
                         value={paymentForm.customer_id}
-                        onValueChange={(value) => setPaymentForm({ ...paymentForm, customer_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o cliente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={customer.id}>
-                              {customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onChange={(value) => setPaymentForm({ ...paymentForm, customer_id: value })}
+                      />
                     </div>
                     <div>
                       <Label>Valor *</Label>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ interface Customer {
   id: string;
   name: string;
   cpf_cnpj: string | null;
+  nome_fantasia: string | null;
 }
 
 export default function AccountsReceivable() {
@@ -98,7 +100,7 @@ export default function AccountsReceivable() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, cpf_cnpj")
+        .select("id, name, cpf_cnpj, nome_fantasia")
         .order("name");
       if (error) throw error;
       return data as Customer[];
@@ -430,21 +432,11 @@ export default function AccountsReceivable() {
                     <div className="flex items-center gap-2">
                       <div className="flex-1">
                         <Label>Cliente *</Label>
-                        <Select
+                        <CustomerSearchSelect
+                          customers={customers}
                           value={form.customer_id}
-                          onValueChange={(value) => setForm({ ...form, customer_id: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o cliente" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
-                                {customer.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(value) => setForm({ ...form, customer_id: value })}
+                        />
                       </div>
                       <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
                         <DialogTrigger asChild>
