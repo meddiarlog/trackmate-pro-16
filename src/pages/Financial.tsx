@@ -43,6 +43,8 @@ interface Customer {
   id: string;
   name: string;
   email: string;
+  cpf_cnpj?: string | null;
+  nome_fantasia?: string | null;
 }
 
 const Financial = () => {
