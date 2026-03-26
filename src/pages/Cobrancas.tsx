@@ -102,6 +102,7 @@ type Customer = {
   prazo_dias: number | null;
   cpf_cnpj: string | null;
   phone: string | null;
+  nome_fantasia: string | null;
 };
 
 type CustomerContact = {
