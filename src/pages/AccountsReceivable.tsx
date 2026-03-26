@@ -100,7 +100,7 @@ export default function AccountsReceivable() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, cpf_cnpj")
+        .select("id, name, cpf_cnpj, nome_fantasia")
         .order("name");
       if (error) throw error;
       return data as Customer[];
