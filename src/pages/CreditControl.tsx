@@ -658,6 +658,18 @@ const CreditControl = () => {
       ),
     },
     {
+      key: "sequentialId",
+      header: "ID",
+      filterable: false,
+      className: "w-[50px] text-center",
+      headerClassName: "w-[50px] text-center",
+      render: (item) => (
+        <span className="font-medium text-muted-foreground">
+          {sequentialIdMap.get(item.id)}
+        </span>
+      ),
+    },
+    {
       key: "numero_nfe",
       header: "NF-e",
       sortable: true,
