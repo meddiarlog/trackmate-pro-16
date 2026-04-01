@@ -20,6 +20,7 @@ type CreditRecord = {
   credito: number;
   chave_acesso: string;
   formattedCredito?: string;
+  sequentialId?: number;
 };
 
 interface UtilizarCreditoDialogProps {
@@ -100,6 +101,9 @@ export const UtilizarCreditoDialog = ({
                     <div className="flex justify-between items-start">
                       <div className="space-y-1">
                         <p className="font-medium">
+                          {record.sequentialId && (
+                            <span className="text-muted-foreground mr-2">ID: {record.sequentialId} |</span>
+                          )}
                           NF-e: {record.numero_nfe}
                         </p>
                         <p className="text-sm text-muted-foreground">
