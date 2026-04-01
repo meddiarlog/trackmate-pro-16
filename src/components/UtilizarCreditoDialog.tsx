@@ -20,6 +20,7 @@ type CreditRecord = {
   credito: number;
   chave_acesso: string;
   formattedCredito?: string;
+  sequentialId?: number;
 };
 
 interface UtilizarCreditoDialogProps {
