@@ -609,7 +609,18 @@ const CreditControl = () => {
 
   // Calculate totals
   const totalCredito = sortedFilteredData.reduce((sum, record) => sum + record.credito, 0);
-  const selectedRecords = sortedFilteredData.filter(r => selectedIds.has(r.id));
+  // Sequential ID map based on current sorted/filtered position
+  const sequentialIdMap = useMemo(() => {
+    const map = new Map<string, number>();
+    sortedFilteredData.forEach((item, index) => {
+      map.set(item.id, index + 1);
+    });
+    return map;
+  }, [sortedFilteredData]);
+
+  const selectedRecords = sortedFilteredData
+    .filter(r => selectedIds.has(r.id))
+    .map(r => ({ ...r, sequentialId: sequentialIdMap.get(r.id) }));
   const selectedCredito = selectedRecords.reduce((sum, record) => sum + record.credito, 0);
 
   const calculatedCredito = formData.quantidade
