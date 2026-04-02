@@ -264,6 +264,9 @@ export function CustomerFormDialog({
       cpf_cnpj: "",
       prazo_dias: 30,
       observacoes: "",
+      cobranca_responsavel: "",
+      cobranca_contato: "",
+      cobranca_email: "",
     });
     setContacts([]);
   };
