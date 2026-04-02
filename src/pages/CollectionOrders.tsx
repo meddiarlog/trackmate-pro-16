@@ -1077,16 +1077,18 @@ export default function CollectionOrders() {
                             <div className="max-h-[300px] overflow-y-auto p-1">
                               {(() => {
                                 const filtered = drivers.filter((d: any) => {
-                                  if (!driverSearch) return true;
-                                  const search = driverSearch.toLowerCase();
+                                  const search = driverSearch.toLowerCase().trim();
+                                  if (!search) return true;
+
                                   const normalizedSearch = driverSearch.replace(/\D/g, "");
                                   const normalizedCpf = d.cpf?.replace(/\D/g, "") || "";
                                   const normalizedCnh = d.cnh?.replace(/\D/g, "") || "";
-                                  return (
-                                    d.name?.toLowerCase().includes(search) ||
-                                    normalizedCpf.includes(normalizedSearch) ||
-                                    normalizedCnh.includes(normalizedSearch)
-                                  );
+
+                                  const nameMatch = d.name?.toLowerCase().includes(search);
+                                  const cpfMatch = normalizedSearch.length > 0 && normalizedCpf.includes(normalizedSearch);
+                                  const cnhMatch = normalizedSearch.length > 0 && normalizedCnh.includes(normalizedSearch);
+
+                                  return nameMatch || cpfMatch || cnhMatch;
                                 });
                                 return (
                                   <>
@@ -1219,8 +1221,8 @@ export default function CollectionOrders() {
                                   </CommandItem>
                                   {cavalosVehicles
                                     .filter((v: any) => {
-                                      if (!cavaloSearch) return true;
-                                      const search = cavaloSearch.toLowerCase();
+                                      const search = cavaloSearch.toLowerCase().trim();
+                                      if (!search) return true;
                                       return v.license_plate.toLowerCase().includes(search) || 
                                              (v.model && v.model.toLowerCase().includes(search));
                                     })
@@ -1295,7 +1297,7 @@ export default function CollectionOrders() {
                                     </CommandItem>
                                     {carretasVehicles
                                       .filter((v: any) => {
-                                        const search = (carretaSearches[index] || '').toLowerCase();
+                                        const search = (carretaSearches[index] || '').toLowerCase().trim();
                                         if (!search) return true;
                                         return v.license_plate.toLowerCase().includes(search) || 
                                                (v.model && v.model.toLowerCase().includes(search));
