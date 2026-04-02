@@ -390,6 +390,41 @@ export function CustomerFormDialog({
             <CustomerContactList contacts={contacts} onChange={setContacts} />
           </div>
 
+          {/* Dados de Cobrança */}
+          <div className="border-t pt-6 space-y-4">
+            <Label className="text-base font-semibold">Dados de Cobrança</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="cobranca_responsavel">Responsável</Label>
+                <Input
+                  id="cobranca_responsavel"
+                  placeholder="Nome do responsável"
+                  value={formData.cobranca_responsavel}
+                  onChange={(e) => setFormData({ ...formData, cobranca_responsavel: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cobranca_contato">Contato</Label>
+                <Input
+                  id="cobranca_contato"
+                  placeholder="Telefone ou contato"
+                  value={formData.cobranca_contato}
+                  onChange={(e) => setFormData({ ...formData, cobranca_contato: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cobranca_email">E-mail para Cobrança</Label>
+                <Input
+                  id="cobranca_email"
+                  type="email"
+                  placeholder="cobranca@empresa.com"
+                  value={formData.cobranca_email}
+                  onChange={(e) => setFormData({ ...formData, cobranca_email: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Prazo do Cliente */}
           <div className="space-y-2">
             <Label htmlFor="prazo_dias">Prazo do Cliente (dias)</Label>

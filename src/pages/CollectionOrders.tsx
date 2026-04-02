@@ -1170,22 +1170,48 @@ export default function CollectionOrders() {
                     <div>
                       <Label>Placa (Cavalo)</Label>
                       <div className="flex gap-2">
-                        <Select 
-                          value={formData.vehicle_plate} 
-                          onValueChange={(v) => setFormData(prev => ({ ...prev, vehicle_plate: v === "__none__" ? "" : v }))}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Selecione o cavalo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">Nenhum</SelectItem>
-                            {cavalosVehicles.map((v: any) => (
-                              <SelectItem key={v.id} value={v.license_plate}>
-                                {v.license_plate} {v.model ? `- ${v.model}` : ''}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                              {formData.vehicle_plate 
+                                ? (() => {
+                                    const found = cavalosVehicles.find((v: any) => v.license_plate === formData.vehicle_plate);
+                                    return found ? `${found.license_plate}${found.model ? ` - ${found.model}` : ''}` : formData.vehicle_plate;
+                                  })()
+                                : "Selecione o cavalo"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0">
+                            <Command shouldFilter={false}>
+                              <CommandInput placeholder="Buscar por placa ou modelo..." />
+                              <CommandList>
+                                <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
+                                <CommandGroup>
+                                  <CommandItem onSelect={() => setFormData(prev => ({ ...prev, vehicle_plate: "" }))}>
+                                    Nenhum
+                                  </CommandItem>
+                                  {cavalosVehicles
+                                    .filter((v: any) => {
+                                      const input = document.querySelector<HTMLInputElement>('[cmdk-input]');
+                                      const search = (input?.value || '').toLowerCase();
+                                      if (!search) return true;
+                                      return v.license_plate.toLowerCase().includes(search) || 
+                                             (v.model && v.model.toLowerCase().includes(search));
+                                    })
+                                    .map((v: any) => (
+                                      <CommandItem 
+                                        key={v.id} 
+                                        value={v.license_plate}
+                                        onSelect={() => setFormData(prev => ({ ...prev, vehicle_plate: v.license_plate }))}
+                                      >
+                                        {v.license_plate} {v.model ? `- ${v.model}` : ''}
+                                      </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <Button variant="outline" size="icon" onClick={() => openQuickVehicleDialog("Cavalo")}>
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -1206,22 +1232,49 @@ export default function CollectionOrders() {
                       </div>
                       {formData.trailer_plates.map((plate, index) => (
                         <div key={index} className="flex gap-2 mb-2">
-                          <Select 
-                            value={plate} 
-                            onValueChange={(v) => updateTrailerPlate(index, v === "__none__" ? "" : v)}
-                          >
-                            <SelectTrigger className="flex-1">
-                              <SelectValue placeholder={`Selecione carreta ${index + 1}`} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">Nenhum</SelectItem>
-                              {carretasVehicles.map((v: any) => (
-                                <SelectItem key={v.id} value={v.license_plate}>
-                                  {v.license_plate} {v.model ? `- ${v.model}` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
+                                {plate 
+                                  ? (() => {
+                                      const found = carretasVehicles.find((v: any) => v.license_plate === plate);
+                                      return found ? `${found.license_plate}${found.model ? ` - ${found.model}` : ''}` : plate;
+                                    })()
+                                  : `Selecione carreta ${index + 1}`}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0">
+                              <Command shouldFilter={false}>
+                                <CommandInput placeholder="Buscar por placa ou modelo..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
+                                  <CommandGroup>
+                                    <CommandItem onSelect={() => updateTrailerPlate(index, "")}>
+                                      Nenhum
+                                    </CommandItem>
+                                    {carretasVehicles
+                                      .filter((v: any) => {
+                                        const inputs = document.querySelectorAll<HTMLInputElement>('[cmdk-input]');
+                                        const input = inputs[inputs.length - 1];
+                                        const search = (input?.value || '').toLowerCase();
+                                        if (!search) return true;
+                                        return v.license_plate.toLowerCase().includes(search) || 
+                                               (v.model && v.model.toLowerCase().includes(search));
+                                      })
+                                      .map((v: any) => (
+                                        <CommandItem 
+                                          key={v.id} 
+                                          value={v.license_plate}
+                                          onSelect={() => updateTrailerPlate(index, v.license_plate)}
+                                        >
+                                          {v.license_plate} {v.model ? `- ${v.model}` : ''}
+                                        </CommandItem>
+                                      ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                           {formData.trailer_plates.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" onClick={() => removeTrailerPlate(index)}>
                               <X className="h-4 w-4" />
