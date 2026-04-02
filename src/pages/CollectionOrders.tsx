@@ -249,6 +249,10 @@ export default function CollectionOrders() {
   const [printOrder, setPrintOrder] = useState<any>(null);
   const [driverSearch, setDriverSearch] = useState("");
   const [driverPopoverOpen, setDriverPopoverOpen] = useState(false);
+  const [cavaloSearch, setCavaloSearch] = useState("");
+  const [cavaloPopoverOpen, setCavaloPopoverOpen] = useState(false);
+  const [carretaSearches, setCarretaSearches] = useState<Record<number, string>>({});
+  const [carretaPopoverOpen, setCarretaPopoverOpen] = useState<Record<number, boolean>>({});
   
   // Quick add dialogs
   const [isDriverDialogOpen, setIsDriverDialogOpen] = useState(false);
