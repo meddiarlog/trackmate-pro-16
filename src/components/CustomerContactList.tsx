@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 export interface Contact {
   id?: string;
+  label?: string;
   tipo: "financeiro" | "comercial";
   telefone: string;
   email: string;
@@ -76,7 +77,12 @@ export function CustomerContactList({ contacts, onChange }: CustomerContactListP
       {contacts.map((contact, index) => (
         <div key={index} className="p-4 border rounded-lg space-y-4 bg-muted/30">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">Contato {index + 1}</span>
+            <Input
+              value={contact.label || ""}
+              onChange={(e) => updateContact(index, "label", e.target.value)}
+              placeholder={`Contato ${index + 1}`}
+              className="h-8 border-0 bg-transparent p-0 text-sm font-medium text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 w-auto max-w-[200px]"
+            />
             <Button
               type="button"
               variant="ghost"
