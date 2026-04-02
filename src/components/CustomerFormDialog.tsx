@@ -80,6 +80,9 @@ export function CustomerFormDialog({
         cpf_cnpj: editingCustomer.cpf_cnpj || "",
         prazo_dias: editingCustomer.prazo_dias || 30,
         observacoes: editingCustomer.observacoes || "",
+        cobranca_responsavel: (editingCustomer as any).cobranca_responsavel || "",
+        cobranca_contato: (editingCustomer as any).cobranca_contato || "",
+        cobranca_email: (editingCustomer as any).cobranca_email || "",
       });
       // Fetch contacts
       fetchContactsForCustomer(editingCustomer.id);
