@@ -1,43 +1,51 @@
 
+Problema real: a busca por nome até está sendo executada, mas a lógica atual invalida o filtro.
 
-## Plano - Corrigir Busca de Motorista por Nome
+O que identifiquei em `src/pages/CollectionOrders.tsx`:
+- O filtro do motorista faz 3 verificações:
+  - nome: `d.name?.toLowerCase().includes(search)`
+  - CPF: `normalizedCpf.includes(normalizedSearch)`
+  - CNH: `normalizedCnh.includes(normalizedSearch)`
+- Quando o usuário digita um nome, por exemplo `CARLOS ALBERTO`, `normalizedSearch` vira string vazia (`""`) porque remove tudo que não é número.
+- Em JavaScript, `"qualquercoisa".includes("")` retorna `true`.
+- Resultado: a parte de CPF/CNH passa para praticamente todos os motoristas, então a lista deixa de filtrar corretamente por nome.
 
-### Problema
+Do I know what the issue is?
+Sim.
 
-No cmdk v1, o `CommandInput` gerencia o estado de busca internamente. Mesmo com `shouldFilter={false}`, o `value`/`onValueChange` do `CommandInput` pode não estar sincronizando corretamente com o estado `driverSearch`, fazendo com que o filtro customizado não funcione.
+Correção proposta:
+1. Ajustar o filtro do motorista para só consultar CPF/CNH quando a busca tiver dígitos.
+2. Manter a busca por nome funcionando com texto livre.
+3. Aplicar o mesmo cuidado na busca de veículos, porque ali existe o mesmo risco de comportamento inconsistente em filtros mistos.
 
-### Solução
+Implementação sugerida:
+- Em `src/pages/CollectionOrders.tsx`, trocar a condição atual por algo neste padrão:
 
-Substituir o `CommandInput` por um `<Input>` comum (fora do `Command`) para controlar o texto de busca de forma independente do cmdk. Isso garante que o estado `driverSearch` seja atualizado corretamente e o filtro customizado por nome, CPF e CNH funcione.
+```ts
+const filtered = drivers.filter((d: any) => {
+  if (!driverSearch) return true;
 
-### Alteração
+  const search = driverSearch.toLowerCase().trim();
+  const normalizedSearch = driverSearch.replace(/\D/g, "");
+  const normalizedCpf = d.cpf?.replace(/\D/g, "") || "";
+  const normalizedCnh = d.cnh?.replace(/\D/g, "") || "";
 
-| Arquivo | Ação |
-|---------|------|
-| `src/pages/CollectionOrders.tsx` | Substituir `CommandInput` do motorista por `<Input>` controlado + manter `Command shouldFilter={false}` apenas para a lista |
+  const nameMatch = d.name?.toLowerCase().includes(search);
+  const cpfMatch = normalizedSearch.length > 0 && normalizedCpf.includes(normalizedSearch);
+  const cnhMatch = normalizedSearch.length > 0 && normalizedCnh.includes(normalizedSearch);
 
-**Estrutura proposta:**
-```tsx
-<PopoverContent>
-  <div className="flex items-center border-b px-3">
-    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-    <Input
-      placeholder="Buscar por nome, CPF ou CNH..."
-      value={driverSearch}
-      onChange={(e) => setDriverSearch(e.target.value)}
-      className="border-0 focus-visible:ring-0"
-    />
-  </div>
-  <Command shouldFilter={false}>
-    <CommandList>
-      <CommandEmpty>Nenhum motorista encontrado</CommandEmpty>
-      <CommandGroup>
-        {/* filtro customizado permanece igual */}
-      </CommandGroup>
-    </CommandList>
-  </Command>
-</PopoverContent>
+  return nameMatch || cpfMatch || cnhMatch;
+});
 ```
 
-Isso separa completamente o input de busca do mecanismo interno do cmdk, garantindo que a filtragem por nome, CPF e CNH funcione corretamente.
+Arquivos a revisar/ajustar:
+- `src/pages/CollectionOrders.tsx`
 
+Resultado esperado após a correção:
+- Buscar por nome: retorna apenas motoristas cujo nome contém o texto digitado
+- Buscar por CPF: retorna por números do CPF
+- Buscar por CNH: retorna por números da CNH
+- Busca vazia: lista completa
+
+Detalhe técnico:
+A causa não é o componente visual do campo, e sim a lógica do `.includes("")`, que em JavaScript sempre retorna `true`. Por isso as tentativas anteriores no input/popover não resolveram o problema de forma definitiva.
