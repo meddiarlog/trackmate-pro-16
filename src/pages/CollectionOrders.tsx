@@ -1094,7 +1094,7 @@ export default function CollectionOrders() {
                                       );
                                     })
                                     .map((d: any) => (
-                                      <CommandItem key={d.id} onSelect={() => {
+                                      <CommandItem key={d.id} value={d.id} onSelect={() => {
                                         handleDriverSelect(d.id);
                                         setDriverPopoverOpen(false);
                                         setDriverSearch("");
