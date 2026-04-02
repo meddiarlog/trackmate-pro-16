@@ -1174,7 +1174,7 @@ export default function CollectionOrders() {
                     <div>
                       <Label>Placa (Cavalo)</Label>
                       <div className="flex gap-2">
-                        <Popover>
+                        <Popover open={cavaloPopoverOpen} onOpenChange={setCavaloPopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
                               {formData.vehicle_plate 
@@ -1187,18 +1187,25 @@ export default function CollectionOrders() {
                           </PopoverTrigger>
                           <PopoverContent className="w-[300px] p-0">
                             <Command shouldFilter={false}>
-                              <CommandInput placeholder="Buscar por placa ou modelo..." />
+                              <CommandInput 
+                                placeholder="Buscar por placa ou modelo..." 
+                                value={cavaloSearch}
+                                onValueChange={setCavaloSearch}
+                              />
                               <CommandList>
                                 <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
                                 <CommandGroup>
-                                  <CommandItem onSelect={() => setFormData(prev => ({ ...prev, vehicle_plate: "" }))}>
-                                    Nenhum
+                                  <CommandItem onSelect={() => {
+                                    setFormData(prev => ({ ...prev, vehicle_plate: "" }));
+                                    setCavaloPopoverOpen(false);
+                                    setCavaloSearch("");
+                                  }}>
+                                    <span className="text-muted-foreground">Nenhum</span>
                                   </CommandItem>
                                   {cavalosVehicles
                                     .filter((v: any) => {
-                                      const input = document.querySelector<HTMLInputElement>('[cmdk-input]');
-                                      const search = (input?.value || '').toLowerCase();
-                                      if (!search) return true;
+                                      if (!cavaloSearch) return true;
+                                      const search = cavaloSearch.toLowerCase();
                                       return v.license_plate.toLowerCase().includes(search) || 
                                              (v.model && v.model.toLowerCase().includes(search));
                                     })
@@ -1206,7 +1213,11 @@ export default function CollectionOrders() {
                                       <CommandItem 
                                         key={v.id} 
                                         value={v.license_plate}
-                                        onSelect={() => setFormData(prev => ({ ...prev, vehicle_plate: v.license_plate }))}
+                                        onSelect={() => {
+                                          setFormData(prev => ({ ...prev, vehicle_plate: v.license_plate }));
+                                          setCavaloPopoverOpen(false);
+                                          setCavaloSearch("");
+                                        }}
                                       >
                                         {v.license_plate} {v.model ? `- ${v.model}` : ''}
                                       </CommandItem>
@@ -1236,7 +1247,10 @@ export default function CollectionOrders() {
                       </div>
                       {formData.trailer_plates.map((plate, index) => (
                         <div key={index} className="flex gap-2 mb-2">
-                          <Popover>
+                          <Popover 
+                            open={carretaPopoverOpen[index] || false} 
+                            onOpenChange={(open) => setCarretaPopoverOpen(prev => ({ ...prev, [index]: open }))}
+                          >
                             <PopoverTrigger asChild>
                               <Button variant="outline" role="combobox" className="flex-1 justify-between font-normal">
                                 {plate 
@@ -1249,18 +1263,24 @@ export default function CollectionOrders() {
                             </PopoverTrigger>
                             <PopoverContent className="w-[300px] p-0">
                               <Command shouldFilter={false}>
-                                <CommandInput placeholder="Buscar por placa ou modelo..." />
+                                <CommandInput 
+                                  placeholder="Buscar por placa ou modelo..." 
+                                  value={carretaSearches[index] || ""}
+                                  onValueChange={(val) => setCarretaSearches(prev => ({ ...prev, [index]: val }))}
+                                />
                                 <CommandList>
                                   <CommandEmpty>Nenhum veículo encontrado.</CommandEmpty>
                                   <CommandGroup>
-                                    <CommandItem onSelect={() => updateTrailerPlate(index, "")}>
-                                      Nenhum
+                                    <CommandItem onSelect={() => {
+                                      updateTrailerPlate(index, "");
+                                      setCarretaPopoverOpen(prev => ({ ...prev, [index]: false }));
+                                      setCarretaSearches(prev => ({ ...prev, [index]: "" }));
+                                    }}>
+                                      <span className="text-muted-foreground">Nenhum</span>
                                     </CommandItem>
                                     {carretasVehicles
                                       .filter((v: any) => {
-                                        const inputs = document.querySelectorAll<HTMLInputElement>('[cmdk-input]');
-                                        const input = inputs[inputs.length - 1];
-                                        const search = (input?.value || '').toLowerCase();
+                                        const search = (carretaSearches[index] || '').toLowerCase();
                                         if (!search) return true;
                                         return v.license_plate.toLowerCase().includes(search) || 
                                                (v.model && v.model.toLowerCase().includes(search));
@@ -1269,7 +1289,11 @@ export default function CollectionOrders() {
                                         <CommandItem 
                                           key={v.id} 
                                           value={v.license_plate}
-                                          onSelect={() => updateTrailerPlate(index, v.license_plate)}
+                                          onSelect={() => {
+                                            updateTrailerPlate(index, v.license_plate);
+                                            setCarretaPopoverOpen(prev => ({ ...prev, [index]: false }));
+                                            setCarretaSearches(prev => ({ ...prev, [index]: "" }));
+                                          }}
                                         >
                                           {v.license_plate} {v.model ? `- ${v.model}` : ''}
                                         </CommandItem>
