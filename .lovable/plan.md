@@ -1,27 +1,58 @@
 
 
-## Plano - ID Sequencial no Controle de Credito
+## Plano - Melhorias em Ordem de Coleta e Cadastro de Cliente
 
-Adicionar coluna "ID" sequencial dinamica (baseada na posicao do item na lista filtrada/ordenada) na tabela e no dialog "Utilizar Credito".
+### 1. Ordem de Coleta - Busca de Motorista
 
-### Alteracoes
+**Status atual**: Ja implementado com Popover+Command buscando por nome, CPF e CNH (linhas 1060-1110 de CollectionOrders.tsx). A busca ja normaliza digitos para CPF/CNH.
+
+**Conclusao**: Nenhuma alteracao necessaria - a funcionalidade ja existe conforme solicitado.
+
+### 2. Ordem de Coleta - Placa (Cavalo e Carreta) com busca digitavel
+
+**Status atual**: Usa `Select` padrao (sem busca por digitacao). O usuario precisa rolar a lista para encontrar a placa.
+
+**Alteracao**: Substituir os `Select` de Cavalo e Carreta(s) por `Popover + Command` (mesmo padrao do motorista), permitindo digitar a placa para filtrar.
 
 | Arquivo | Acao |
 |---------|------|
-| `src/pages/CreditControl.tsx` | Adicionar coluna "ID" na tabela (apos checkbox, antes de NF-e); passar `sequentialId` aos selectedRecords |
-| `src/components/UtilizarCreditoDialog.tsx` | Adicionar campo `sequentialId` ao tipo e exibir na listagem |
+| `src/pages/CollectionOrders.tsx` | Substituir Select por Popover+Command para placa Cavalo e Carreta(s) |
 
-### Detalhes
+- Adicionar estados `cavaloSearch`/`cavaloPopoverOpen` e equivalentes para carreta
+- Filtrar por `license_plate` e `model` (case-insensitive, parcial)
+- Manter botao "+" para adicao rapida de veiculo
 
-**CreditControl.tsx:**
-- Nova coluna apos "select" com `key: "sequentialId"`, header "ID", sem filtro
-- O `render` usa o indice do item em `sortedFilteredData`: `sortedFilteredData.indexOf(item) + 1`
-  - Alternativa mais eficiente: criar um `Map<string, number>` via `useMemo` mapeando `item.id -> index+1`
-- Ao montar `selectedRecords`, incluir o `sequentialId` de cada registro a partir desse Map
+### 3. Cadastro de Cliente - Secao "Dados de Cobranca"
 
-**UtilizarCreditoDialog.tsx:**
-- Adicionar `sequentialId?: number` ao tipo `CreditRecord`
-- Exibir antes do numero NF-e: `ID: {record.sequentialId} | NF-e: {record.numero_nfe}`
+**Status atual**: O formulario nao possui campos especificos de cobranca. A tabela `customers` nao tem colunas para responsavel de cobranca, contato de cobranca ou email de cobranca.
 
-Os IDs sao recalculados automaticamente quando filtros, ordenacao ou paginacao mudam, pois derivam da posicao no array `sortedFilteredData`.
+**Alteracoes**:
+
+| Arquivo | Acao |
+|---------|------|
+| Migracao SQL | Adicionar 3 colunas: `cobranca_responsavel`, `cobranca_contato`, `cobranca_email` na tabela `customers` |
+| `src/components/CustomerFormDialog.tsx` | Adicionar secao "Dados de Cobranca" com os 3 campos; incluir no formData, load e save |
+
+**Migracao**:
+```sql
+ALTER TABLE public.customers
+  ADD COLUMN cobranca_responsavel text,
+  ADD COLUMN cobranca_contato text,
+  ADD COLUMN cobranca_email text;
+```
+
+**Formulario**: Nova secao entre "Contatos" e "Prazo do Cliente" com:
+- Responsavel (text input)
+- Contato (text input, telefone)
+- E-mail para Cobranca (text input, type=email)
+
+Atualizar `editingCustomer` interface, `formData`, `useEffect` de load, e `saveCustomerMutation` para incluir os novos campos.
+
+### Resumo de Arquivos
+
+| Arquivo | Tipo |
+|---------|------|
+| Migracao SQL (customers) | Criar 3 colunas |
+| `src/pages/CollectionOrders.tsx` | Placa Cavalo/Carreta com busca digitavel |
+| `src/components/CustomerFormDialog.tsx` | Secao "Dados de Cobranca" |
 
