@@ -2,29 +2,42 @@
 
 ## Plano - Corrigir Busca de Motorista por Nome
 
-### Problema Identificado
+### Problema
 
-O componente `CommandItem` do cmdk v1 nao possui a prop `value` explicita. O cmdk deriva o valor do conteudo textual do item (ex: `"JOSE LUCIANO DE ARAUJOCPF: 05978761426 | CNH: 035023750026"`). Mesmo com `shouldFilter={false}`, o cmdk v1 pode interferir na visibilidade dos itens quando o input controlado nao corresponde ao valor derivado.
+No cmdk v1, o `CommandInput` gerencia o estado de busca internamente. Mesmo com `shouldFilter={false}`, o `value`/`onValueChange` do `CommandInput` pode não estar sincronizando corretamente com o estado `driverSearch`, fazendo com que o filtro customizado não funcione.
 
-### Solucao
+### Solução
 
-No arquivo `src/pages/CollectionOrders.tsx`, adicionar a prop `value` explicita em cada `CommandItem` do motorista, usando uma combinacao unica (ex: `d.id`) para evitar conflitos com a logica interna do cmdk:
+Substituir o `CommandInput` por um `<Input>` comum (fora do `Command`) para controlar o texto de busca de forma independente do cmdk. Isso garante que o estado `driverSearch` seja atualizado corretamente e o filtro customizado por nome, CPF e CNH funcione.
 
-```typescript
-<CommandItem 
-  key={d.id} 
-  value={d.id}  // <-- adicionar valor explicito
-  onSelect={() => { ... }}
->
+### Alteração
+
+| Arquivo | Ação |
+|---------|------|
+| `src/pages/CollectionOrders.tsx` | Substituir `CommandInput` do motorista por `<Input>` controlado + manter `Command shouldFilter={false}` apenas para a lista |
+
+**Estrutura proposta:**
+```tsx
+<PopoverContent>
+  <div className="flex items-center border-b px-3">
+    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+    <Input
+      placeholder="Buscar por nome, CPF ou CNH..."
+      value={driverSearch}
+      onChange={(e) => setDriverSearch(e.target.value)}
+      className="border-0 focus-visible:ring-0"
+    />
+  </div>
+  <Command shouldFilter={false}>
+    <CommandList>
+      <CommandEmpty>Nenhum motorista encontrado</CommandEmpty>
+      <CommandGroup>
+        {/* filtro customizado permanece igual */}
+      </CommandGroup>
+    </CommandList>
+  </Command>
+</PopoverContent>
 ```
 
-Isso garante que o cmdk nao tente fazer matching interno pelo conteudo textual, respeitando completamente o `shouldFilter={false}` e deixando a filtragem customizada (por nome, CPF e CNH) funcionar corretamente.
-
-### Arquivo
-
-| Arquivo | Acao |
-|---------|------|
-| `src/pages/CollectionOrders.tsx` | Adicionar `value={d.id}` ao `CommandItem` do motorista (~linha 1097) |
-
-Alteracao minima de 1 linha.
+Isso separa completamente o input de busca do mecanismo interno do cmdk, garantindo que a filtragem por nome, CPF e CNH funcione corretamente.
 
