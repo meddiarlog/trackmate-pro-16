@@ -1044,6 +1044,9 @@ export type Database = {
           address: string | null
           cep: string | null
           city: string | null
+          cobranca_contato: string | null
+          cobranca_email: string | null
+          cobranca_responsavel: string | null
           cpf_cnpj: string | null
           created_at: string
           email: string
@@ -1066,6 +1069,9 @@ export type Database = {
           address?: string | null
           cep?: string | null
           city?: string | null
+          cobranca_contato?: string | null
+          cobranca_email?: string | null
+          cobranca_responsavel?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email: string
@@ -1088,6 +1094,9 @@ export type Database = {
           address?: string | null
           cep?: string | null
           city?: string | null
+          cobranca_contato?: string | null
+          cobranca_email?: string | null
+          cobranca_responsavel?: string | null
           cpf_cnpj?: string | null
           created_at?: string
           email?: string
