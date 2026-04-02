@@ -1066,54 +1066,65 @@ export default function CollectionOrders() {
                           <PopoverContent className="w-[350px] p-0" align="start">
                             <div className="flex items-center border-b px-3">
                               <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                              <Input
+                              <input
                                 placeholder="Buscar por nome, CPF ou CNH..."
                                 value={driverSearch}
                                 onChange={(e) => setDriverSearch(e.target.value)}
-                                className="h-11 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                autoFocus
                               />
                             </div>
-                            <Command shouldFilter={false}>
-                              <CommandList>
-                                <CommandEmpty>Nenhum motorista encontrado</CommandEmpty>
-                                <CommandGroup>
-                                  <CommandItem onSelect={() => {
-                                    handleDriverSelect("__none__");
-                                    setDriverPopoverOpen(false);
-                                    setDriverSearch("");
-                                  }}>
-                                    <span className="text-muted-foreground">Nenhum</span>
-                                  </CommandItem>
-                                  {drivers
-                                    .filter((d: any) => {
-                                      if (!driverSearch) return true;
-                                      const search = driverSearch.toLowerCase();
-                                      const normalizedSearch = driverSearch.replace(/\D/g, "");
-                                      const normalizedCpf = d.cpf?.replace(/\D/g, "") || "";
-                                      const normalizedCnh = d.cnh?.replace(/\D/g, "") || "";
-                                      return (
-                                        d.name?.toLowerCase().includes(search) ||
-                                        normalizedCpf.includes(normalizedSearch) ||
-                                        normalizedCnh.includes(normalizedSearch)
-                                      );
-                                    })
-                                    .map((d: any) => (
-                                      <CommandItem key={d.id} value={d.id} onSelect={() => {
-                                        handleDriverSelect(d.id);
+                            <div className="max-h-[300px] overflow-y-auto p-1">
+                              {(() => {
+                                const filtered = drivers.filter((d: any) => {
+                                  if (!driverSearch) return true;
+                                  const search = driverSearch.toLowerCase();
+                                  const normalizedSearch = driverSearch.replace(/\D/g, "");
+                                  const normalizedCpf = d.cpf?.replace(/\D/g, "") || "";
+                                  const normalizedCnh = d.cnh?.replace(/\D/g, "") || "";
+                                  return (
+                                    d.name?.toLowerCase().includes(search) ||
+                                    normalizedCpf.includes(normalizedSearch) ||
+                                    normalizedCnh.includes(normalizedSearch)
+                                  );
+                                });
+                                return (
+                                  <>
+                                    <div
+                                      className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                      onClick={() => {
+                                        handleDriverSelect("__none__");
                                         setDriverPopoverOpen(false);
                                         setDriverSearch("");
-                                      }}>
+                                      }}
+                                    >
+                                      <span className="text-muted-foreground">Nenhum</span>
+                                    </div>
+                                    {filtered.length === 0 && (
+                                      <div className="py-6 text-center text-sm text-muted-foreground">Nenhum motorista encontrado</div>
+                                    )}
+                                    {filtered.map((d: any) => (
+                                      <div
+                                        key={d.id}
+                                        className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                        onClick={() => {
+                                          handleDriverSelect(d.id);
+                                          setDriverPopoverOpen(false);
+                                          setDriverSearch("");
+                                        }}
+                                      >
                                         <div className="flex flex-col">
                                           <span className="font-medium">{d.name}</span>
                                           <span className="text-xs text-muted-foreground">
                                             CPF: {d.cpf || "-"} | CNH: {d.cnh || "-"}
                                           </span>
                                         </div>
-                                      </CommandItem>
+                                      </div>
                                     ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
+                                  </>
+                                );
+                              })()}
+                            </div>
                           </PopoverContent>
                         </Popover>
                         <Button variant="outline" size="icon" onClick={openQuickDriverDialog}>
