@@ -1064,12 +1064,16 @@ export default function CollectionOrders() {
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[350px] p-0" align="start">
-                            <Command shouldFilter={false}>
-                              <CommandInput 
+                            <div className="flex items-center border-b px-3">
+                              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                              <Input
                                 placeholder="Buscar por nome, CPF ou CNH..."
                                 value={driverSearch}
-                                onValueChange={setDriverSearch}
+                                onChange={(e) => setDriverSearch(e.target.value)}
+                                className="h-11 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                               />
+                            </div>
+                            <Command shouldFilter={false}>
                               <CommandList>
                                 <CommandEmpty>Nenhum motorista encontrado</CommandEmpty>
                                 <CommandGroup>
