@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 export interface Contact {
   id?: string;
+  label?: string;
   tipo: "financeiro" | "comercial";
   telefone: string;
   email: string;
