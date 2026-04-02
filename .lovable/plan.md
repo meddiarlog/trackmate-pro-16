@@ -1,58 +1,30 @@
 
 
-## Plano - Melhorias em Ordem de Coleta e Cadastro de Cliente
+## Plano - Corrigir Busca de Motorista por Nome
 
-### 1. Ordem de Coleta - Busca de Motorista
+### Problema Identificado
 
-**Status atual**: Ja implementado com Popover+Command buscando por nome, CPF e CNH (linhas 1060-1110 de CollectionOrders.tsx). A busca ja normaliza digitos para CPF/CNH.
+O componente `CommandItem` do cmdk v1 nao possui a prop `value` explicita. O cmdk deriva o valor do conteudo textual do item (ex: `"JOSE LUCIANO DE ARAUJOCPF: 05978761426 | CNH: 035023750026"`). Mesmo com `shouldFilter={false}`, o cmdk v1 pode interferir na visibilidade dos itens quando o input controlado nao corresponde ao valor derivado.
 
-**Conclusao**: Nenhuma alteracao necessaria - a funcionalidade ja existe conforme solicitado.
+### Solucao
 
-### 2. Ordem de Coleta - Placa (Cavalo e Carreta) com busca digitavel
+No arquivo `src/pages/CollectionOrders.tsx`, adicionar a prop `value` explicita em cada `CommandItem` do motorista, usando uma combinacao unica (ex: `d.id`) para evitar conflitos com a logica interna do cmdk:
 
-**Status atual**: Usa `Select` padrao (sem busca por digitacao). O usuario precisa rolar a lista para encontrar a placa.
-
-**Alteracao**: Substituir os `Select` de Cavalo e Carreta(s) por `Popover + Command` (mesmo padrao do motorista), permitindo digitar a placa para filtrar.
-
-| Arquivo | Acao |
-|---------|------|
-| `src/pages/CollectionOrders.tsx` | Substituir Select por Popover+Command para placa Cavalo e Carreta(s) |
-
-- Adicionar estados `cavaloSearch`/`cavaloPopoverOpen` e equivalentes para carreta
-- Filtrar por `license_plate` e `model` (case-insensitive, parcial)
-- Manter botao "+" para adicao rapida de veiculo
-
-### 3. Cadastro de Cliente - Secao "Dados de Cobranca"
-
-**Status atual**: O formulario nao possui campos especificos de cobranca. A tabela `customers` nao tem colunas para responsavel de cobranca, contato de cobranca ou email de cobranca.
-
-**Alteracoes**:
-
-| Arquivo | Acao |
-|---------|------|
-| Migracao SQL | Adicionar 3 colunas: `cobranca_responsavel`, `cobranca_contato`, `cobranca_email` na tabela `customers` |
-| `src/components/CustomerFormDialog.tsx` | Adicionar secao "Dados de Cobranca" com os 3 campos; incluir no formData, load e save |
-
-**Migracao**:
-```sql
-ALTER TABLE public.customers
-  ADD COLUMN cobranca_responsavel text,
-  ADD COLUMN cobranca_contato text,
-  ADD COLUMN cobranca_email text;
+```typescript
+<CommandItem 
+  key={d.id} 
+  value={d.id}  // <-- adicionar valor explicito
+  onSelect={() => { ... }}
+>
 ```
 
-**Formulario**: Nova secao entre "Contatos" e "Prazo do Cliente" com:
-- Responsavel (text input)
-- Contato (text input, telefone)
-- E-mail para Cobranca (text input, type=email)
+Isso garante que o cmdk nao tente fazer matching interno pelo conteudo textual, respeitando completamente o `shouldFilter={false}` e deixando a filtragem customizada (por nome, CPF e CNH) funcionar corretamente.
 
-Atualizar `editingCustomer` interface, `formData`, `useEffect` de load, e `saveCustomerMutation` para incluir os novos campos.
+### Arquivo
 
-### Resumo de Arquivos
-
-| Arquivo | Tipo |
+| Arquivo | Acao |
 |---------|------|
-| Migracao SQL (customers) | Criar 3 colunas |
-| `src/pages/CollectionOrders.tsx` | Placa Cavalo/Carreta com busca digitavel |
-| `src/components/CustomerFormDialog.tsx` | Secao "Dados de Cobranca" |
+| `src/pages/CollectionOrders.tsx` | Adicionar `value={d.id}` ao `CommandItem` do motorista (~linha 1097) |
+
+Alteracao minima de 1 linha.
 
