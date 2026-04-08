@@ -1072,7 +1072,11 @@ const CreditControl = () => {
         open={utilizarDialogOpen}
         onOpenChange={setUtilizarDialogOpen}
         selectedRecords={selectedRecords}
+        onCreditSaved={() => setSavedCreditsRefreshKey((k) => k + 1)}
       />
+
+      {/* Créditos Salvos */}
+      <SavedCreditsSection refreshKey={savedCreditsRefreshKey} />
 
       {/* SCROLLABLE CONTENT - Tabela */}
       <div className="flex-1 overflow-y-auto mt-4">
