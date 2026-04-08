@@ -1528,6 +1528,71 @@ export type Database = {
           },
         ]
       }
+      saved_credit_items: {
+        Row: {
+          chave_acesso: string | null
+          cnpj_emitente: string | null
+          credit_control_id: string | null
+          credito: number | null
+          id: string
+          numero_nfe: string | null
+          razao_social: string | null
+          saved_credit_id: string
+        }
+        Insert: {
+          chave_acesso?: string | null
+          cnpj_emitente?: string | null
+          credit_control_id?: string | null
+          credito?: number | null
+          id?: string
+          numero_nfe?: string | null
+          razao_social?: string | null
+          saved_credit_id: string
+        }
+        Update: {
+          chave_acesso?: string | null
+          cnpj_emitente?: string | null
+          credit_control_id?: string | null
+          credito?: number | null
+          id?: string
+          numero_nfe?: string | null
+          razao_social?: string | null
+          saved_credit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_credit_items_saved_credit_id_fkey"
+            columns: ["saved_credit_id"]
+            isOneToOne: false
+            referencedRelation: "saved_credits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_credits: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          total_credit: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          total_credit?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          total_credit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       supplier_contacts: {
         Row: {
           created_at: string | null
