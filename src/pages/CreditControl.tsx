@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { useTableFilters } from "@/hooks/useTableFilters";
 import { UtilizarCreditoDialog } from "@/components/UtilizarCreditoDialog";
+import { SavedCreditsSection } from "@/components/SavedCreditsSection";
 
 type CreditRecord = {
   id: string;
@@ -285,6 +286,7 @@ const CreditControl = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
+  const [savedCreditsRefreshKey, setSavedCreditsRefreshKey] = useState(0);
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -1070,7 +1072,11 @@ const CreditControl = () => {
         open={utilizarDialogOpen}
         onOpenChange={setUtilizarDialogOpen}
         selectedRecords={selectedRecords}
+        onCreditSaved={() => setSavedCreditsRefreshKey((k) => k + 1)}
       />
+
+      {/* Créditos Salvos */}
+      <SavedCreditsSection refreshKey={savedCreditsRefreshKey} />
 
       {/* SCROLLABLE CONTENT - Tabela */}
       <div className="flex-1 overflow-y-auto mt-4">
