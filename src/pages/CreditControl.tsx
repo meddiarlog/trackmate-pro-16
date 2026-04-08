@@ -695,6 +695,17 @@ const CreditControl = () => {
       ),
     },
     {
+      key: "creditoUtilizadoEm",
+      header: "Crédito Utilizado Em",
+      filterable: false,
+      render: (item) => {
+        const name = usedCreditMap.get(item.id);
+        return name
+          ? <Badge variant="secondary">{name}</Badge>
+          : <span className="text-muted-foreground text-xs">Não utilizado</span>;
+      },
+    },
+    {
       key: "numero_nfe",
       header: "NF-e",
       sortable: true,
