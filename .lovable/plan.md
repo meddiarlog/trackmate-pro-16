@@ -1,79 +1,49 @@
 
 
-## Plano — Créditos Utilizados (Salvar, Listar, Editar, Excluir)
+## Plano — Coluna "Crédito Utilizado Em"
 
 ### Resumo
 
-Adicionar funcionalidade para salvar conjuntos de NF-e selecionadas como "créditos utilizados", com nome/identificação definido pelo usuário. Criar listagem dos créditos salvos com visualização, edição e exclusão.
+Adicionar uma coluna após o ID na tabela de Controle de Crédito que mostra em qual crédito salvo cada NF-e foi utilizada. O preenchimento é automático ao salvar um crédito utilizado.
 
-### 1. Banco de Dados — 2 novas tabelas
+### Abordagem
 
-**`saved_credits`** — cabeçalho do crédito salvo
-| Coluna | Tipo | Obs |
-|--------|------|-----|
-| id | uuid PK | gen_random_uuid() |
-| name | text NOT NULL | nome/identificação (unique) |
-| total_credit | numeric NOT NULL | valor total |
-| created_at | timestamptz | now() |
-| updated_at | timestamptz | now() |
+Em vez de adicionar uma coluna no banco (redundância), buscar a informação via lookup: ao carregar a página, consultar `saved_credit_items` agrupando por `credit_control_id` e cruzar com `saved_credits.name`. Isso garante que a coluna sempre reflete o estado real.
 
-**`saved_credit_items`** — itens vinculados
-| Coluna | Tipo | Obs |
-|--------|------|-----|
-| id | uuid PK | gen_random_uuid() |
-| saved_credit_id | uuid FK → saved_credits.id ON DELETE CASCADE | |
-| credit_control_id | uuid | referência ao registro em credit_control |
-| numero_nfe | text | |
-| cnpj_emitente | text | |
-| razao_social | text | |
-| credito | numeric | |
-| chave_acesso | text | |
-
-RLS: políticas públicas (mesmo padrão das demais tabelas do projeto).
-
-### 2. Alterações no `UtilizarCreditoDialog.tsx`
-
-- Adicionar botão **"Salvar Crédito Utilizado"** no DialogFooter (ao lado de "Fechar").
-- Ao clicar, abrir um mini-dialog/modal pedindo o **nome** do crédito.
-- Validar duplicidade de nome antes de salvar.
-- Ao confirmar, inserir em `saved_credits` + `saved_credit_items` (uma linha por NF-e selecionada).
-- Exibir toast de sucesso e fechar o dialog.
-- Receber callback `onCreditSaved` para atualizar a listagem na página pai.
-
-### 3. Alterações no `CreditControl.tsx`
-
-- Adicionar estado e fetch para carregar `saved_credits` (com contagem de itens).
-- Criar seção **"Créditos Salvos"** abaixo dos cards de resumo e acima da tabela, com:
-  - Lista em cards compactos: nome, valor total, data de criação.
-  - Botão **Visualizar** → abre dialog mostrando as NF-e vinculadas.
-  - Botão **Editar** → permite alterar nome; abre dialog com campo de nome editável.
-  - Botão **Excluir** → confirmação + delete cascade.
-- Passar callback `onCreditSaved` para o `UtilizarCreditoDialog`.
-
-### 4. Novo componente `SavedCreditsSection.tsx`
-
-Componente dedicado para a listagem dos créditos salvos, contendo:
-- Fetch de `saved_credits` com join em `saved_credit_items`.
-- Card por crédito salvo com nome, total e ações.
-- Dialog de detalhes (lista de NF-e ao clicar).
-- Dialog de edição de nome.
-- Confirmação de exclusão via `window.confirm` ou AlertDialog.
-
-### Fluxo do Usuário
-
-```text
-Seleciona NF-e → "Utilizar Crédito" → Dialog abre
-  → "Salvar Crédito Utilizado" → Informa nome → Confirma
-  → Crédito salvo aparece na seção "Créditos Salvos"
-  → Pode clicar para ver NF-e, editar nome ou excluir
-```
-
-### Arquivos Afetados
+### Alterações
 
 | Arquivo | Ação |
 |---------|------|
-| Migration SQL | Criar tabelas `saved_credits` e `saved_credit_items` |
-| `src/components/UtilizarCreditoDialog.tsx` | Adicionar botão + modal de nome |
-| `src/pages/CreditControl.tsx` | Integrar seção de créditos salvos |
-| `src/components/SavedCreditsSection.tsx` | Novo componente (listagem + CRUD) |
+| `src/pages/CreditControl.tsx` | Buscar mapa de `credit_control_id → nome do crédito salvo` e adicionar coluna na tabela |
+
+### Detalhes
+
+1. **Novo fetch** — Ao carregar registros (e quando `savedCreditsRefreshKey` mudar), buscar todos os `saved_credit_items` com join no `saved_credits`:
+   ```ts
+   const { data } = await supabase
+     .from("saved_credit_items")
+     .select("credit_control_id, saved_credit_id, saved_credits(name)");
+   ```
+   Montar um `Map<string, string>` de `credit_control_id → name`.
+
+2. **Nova coluna** — Inserir após a coluna ID:
+   ```ts
+   {
+     key: "creditoUtilizadoEm",
+     header: "Crédito Utilizado Em",
+     sortable: false,
+     render: (item) => {
+       const name = usedCreditMap.get(item.id);
+       return name
+         ? <Badge variant="secondary">{name}</Badge>
+         : <span className="text-muted-foreground text-xs">Não utilizado</span>;
+     },
+   }
+   ```
+
+3. **Refresh automático** — O mapa é recalculado sempre que `savedCreditsRefreshKey` incrementa (ou seja, quando o usuário salva um crédito), garantindo que a coluna atualiza imediatamente.
+
+### Resultado esperado
+- NF-e não vinculada: exibe "Não utilizado" em cinza
+- NF-e vinculada: exibe o nome do crédito salvo como badge
 
