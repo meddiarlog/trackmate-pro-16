@@ -286,6 +286,7 @@ const CreditControl = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
+  const [savedCreditsRefreshKey, setSavedCreditsRefreshKey] = useState(0);
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
