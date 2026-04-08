@@ -1110,7 +1110,7 @@ const CreditControl = () => {
       />
 
       {/* Créditos Salvos */}
-      <SavedCreditsSection refreshKey={savedCreditsRefreshKey} />
+      <SavedCreditsSection refreshKey={savedCreditsRefreshKey} onChanged={() => setSavedCreditsRefreshKey((k) => k + 1)} />
 
       {/* SCROLLABLE CONTENT - Tabela */}
       <div className="flex-1 overflow-y-auto mt-4">
