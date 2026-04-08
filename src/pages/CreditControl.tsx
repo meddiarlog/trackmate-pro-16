@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { useTableFilters } from "@/hooks/useTableFilters";
 import { UtilizarCreditoDialog } from "@/components/UtilizarCreditoDialog";
+import { SavedCreditsSection } from "@/components/SavedCreditsSection";
 
 type CreditRecord = {
   id: string;
