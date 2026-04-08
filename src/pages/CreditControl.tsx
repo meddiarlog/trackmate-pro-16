@@ -315,6 +315,28 @@ const CreditControl = () => {
     fetchRecords();
   }, []);
 
+  useEffect(() => {
+    fetchUsedCreditMap();
+  }, [savedCreditsRefreshKey]);
+
+  const fetchUsedCreditMap = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("saved_credit_items")
+        .select("credit_control_id, saved_credits(name)");
+      if (error) throw error;
+      const map = new Map<string, string>();
+      (data || []).forEach((item: any) => {
+        if (item.credit_control_id && item.saved_credits?.name) {
+          map.set(item.credit_control_id, item.saved_credits.name);
+        }
+      });
+      setUsedCreditMap(map);
+    } catch (error) {
+      console.error("Error fetching used credit map:", error);
+    }
+  };
+
   const fetchRecords = async () => {
     try {
       const { data, error } = await supabase
