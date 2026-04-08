@@ -287,6 +287,7 @@ const CreditControl = () => {
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [creditoSort, setCreditoSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [savedCreditsRefreshKey, setSavedCreditsRefreshKey] = useState(0);
+  const [usedCreditMap, setUsedCreditMap] = useState<Map<string, string>>(new Map());
 
   const handleCopyChave = async (chave: string, id: string) => {
     try {
@@ -313,6 +314,28 @@ const CreditControl = () => {
   useEffect(() => {
     fetchRecords();
   }, []);
+
+  useEffect(() => {
+    fetchUsedCreditMap();
+  }, [savedCreditsRefreshKey]);
+
+  const fetchUsedCreditMap = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("saved_credit_items")
+        .select("credit_control_id, saved_credits(name)");
+      if (error) throw error;
+      const map = new Map<string, string>();
+      (data || []).forEach((item: any) => {
+        if (item.credit_control_id && item.saved_credits?.name) {
+          map.set(item.credit_control_id, item.saved_credits.name);
+        }
+      });
+      setUsedCreditMap(map);
+    } catch (error) {
+      console.error("Error fetching used credit map:", error);
+    }
+  };
 
   const fetchRecords = async () => {
     try {
@@ -670,6 +693,17 @@ const CreditControl = () => {
           {sequentialIdMap.get(item.id)}
         </span>
       ),
+    },
+    {
+      key: "creditoUtilizadoEm",
+      header: "Crédito Utilizado Em",
+      filterable: false,
+      render: (item) => {
+        const name = usedCreditMap.get(item.id);
+        return name
+          ? <Badge variant="secondary">{name}</Badge>
+          : <span className="text-muted-foreground text-xs">Não utilizado</span>;
+      },
     },
     {
       key: "numero_nfe",
