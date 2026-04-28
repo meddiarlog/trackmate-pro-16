@@ -28,13 +28,29 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
     queryKey: ["collection_order_products_print", order?.id],
     enabled: !!order?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: items, error } = await supabase
         .from("collection_order_products")
-        .select("quantity, observation, position, products(name)")
+        .select("product_id, quantity, observation, position")
         .eq("collection_order_id", order.id)
         .order("position", { ascending: true });
       if (error) throw error;
-      return data || [];
+      const list = items || [];
+      const ids = Array.from(new Set(list.map((i: any) => i.product_id).filter(Boolean)));
+      let nameMap: Record<string, string> = {};
+      if (ids.length > 0) {
+        const { data: prods } = await supabase
+          .from("products")
+          .select("id, name")
+          .in("id", ids as string[]);
+        nameMap = (prods || []).reduce((acc: any, p: any) => {
+          acc[p.id] = p.name;
+          return acc;
+        }, {});
+      }
+      return list.map((i: any) => ({
+        ...i,
+        product_name: nameMap[i.product_id] || "-",
+      }));
     },
   });
 
@@ -42,7 +58,7 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
   const displayProducts: Array<{ name: string; quantity: number | string; observation: string }> =
     orderProducts.length > 0
       ? orderProducts.map((p: any) => ({
-          name: p.products?.name || "-",
+          name: p.product_name || "-",
           quantity: p.quantity ?? "-",
           observation: p.observation || "",
         }))

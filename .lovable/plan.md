@@ -1,39 +1,29 @@
-## Plano — Impressão de Múltiplos Produtos na Ordem de Coleta
+## Plano — Corrigir impressão para mostrar todos os produtos da Ordem de Coleta
 
-### Resumo
-Atualizar a tela de impressão (`CollectionOrderPrint.tsx`) para listar **todos os produtos** vinculados à ordem (tabela `collection_order_products`), em vez de apenas o produto legado único.
+### Problema identificado
 
-### Abordagem
+Verifiquei o banco e a ordem `20251200199` realmente possui 2 produtos vinculados (ARGAMASSA + CIMENTO) na tabela `collection_order_products`. Porém, na impressão aparece apenas o primeiro com layout antigo ("PRODUTO: ARGAMASSA — Qtd: 20").
 
-1. **Buscar produtos no print component** — Adicionar uma query no `CollectionOrderPrint.tsx` que carrega da tabela `collection_order_products` (com join em `products(name)`) usando o `order.id`, ordenado por `position`.
-   - Fallback: se não houver itens (ordem legada), usa `order.products?.name` com quantidade `order.weight_tons` ou 1.
+**Causa raiz**: No `CollectionOrderPrint.tsx`, a query usa o embed PostgREST `products(name)` em `collection_order_products`. Como essa tabela **não tem foreign key declarada** para `products` (confirmado no schema), o embed retorna `null` no campo `products`, fazendo `displayProducts` ficar vazio. Como fallback, o código cai na ramificação legada `order.products?.name`, exibindo apenas 1 produto.
 
-2. **Renderização na seção "DESCRIÇÃO DA ORDEM COLETADA"**:
-   - Substituir a célula atual `PRODUTO: {order.products?.name}` por uma listagem.
-   - **Se houver 1 produto**: mantém o layout atual (uma linha "PRODUTO: Nome — Qtd").
-   - **Se houver múltiplos produtos**: renderiza uma mini-tabela com colunas `Produto | Qtd | Obs`, ocupando a largura completa (col-span-2) acima da linha do TIPO.
+### Correção
 
-   Layout proposto quando >1 produto:
-   ```text
-   ┌─────────────────────────────────────────────┐
-   │ PRODUTOS:                                   │
-   │  • Nome A          2.5    Obs A             │
-   │  • Nome B          1.0    Obs B             │
-   │  • Nome C          3.0    -                 │
-   └─────────────────────────────────────────────┘
-   ```
+Substituir o embed por uma query manual em duas etapas no `CollectionOrderPrint.tsx`:
 
-3. **Compatibilidade de impressão**:
-   - Manter mesmo padrão visual (bordas, tipografia, `text-sm`).
-   - Garantir que quebras não estourem a página (lista compacta com `text-xs` se >3 produtos).
+1. Buscar itens em `collection_order_products` (sem join).
+2. Buscar nomes em `products` via `.in("id", productIds)`.
+3. Mapear `product_id → name` localmente.
 
-### Arquivo Afetado
+Com isso, `displayProducts` será populado corretamente e o renderizador (que já trata `length > 1` com mini-tabela Produto/Qtd/Obs) exibirá todos os produtos.
+
+### Arquivo afetado
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/CollectionOrderPrint.tsx` | Adicionar query a `collection_order_products` e renderizar lista de produtos |
+| `src/components/CollectionOrderPrint.tsx` | Trocar embed `products(name)` por lookup manual com `in()` |
 
-### Resultado Esperado
-- Ordens com 1 produto: impressão idêntica à atual.
-- Ordens com múltiplos produtos: cada produto aparece com nome, quantidade e observação na impressão.
-- Ordens legadas (sem itens em `collection_order_products`): continuam exibindo o produto único antigo.
+### Resultado esperado
+
+- Ordens com múltiplos produtos: tabela com todos os produtos (nome, qtd, observação) na impressão.
+- Ordens com 1 produto: mantém layout original.
+- Ordens legadas (sem itens em `collection_order_products`): continuam usando o produto antigo.
