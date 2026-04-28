@@ -1,70 +1,39 @@
-## Plano — Múltiplos Produtos por Ordem de Coleta
+## Plano — Impressão de Múltiplos Produtos na Ordem de Coleta
 
 ### Resumo
+Atualizar a tela de impressão (`CollectionOrderPrint.tsx`) para listar **todos os produtos** vinculados à ordem (tabela `collection_order_products`), em vez de apenas o produto legado único.
 
-Tornar a Ordem de Coleta capaz de conter vários produtos (relação 1:N), cada um com **produto**, **quantidade** e **observação opcional**. Adicionar/remover itens dinamicamente no formulário, com validação mínima de 1 item. Manter compatibilidade com ordens antigas que usam `product_id`.
+### Abordagem
 
-### 1. Banco de Dados — Nova tabela
+1. **Buscar produtos no print component** — Adicionar uma query no `CollectionOrderPrint.tsx` que carrega da tabela `collection_order_products` (com join em `products(name)`) usando o `order.id`, ordenado por `position`.
+   - Fallback: se não houver itens (ordem legada), usa `order.products?.name` com quantidade `order.weight_tons` ou 1.
 
-Criar `collection_order_products`:
+2. **Renderização na seção "DESCRIÇÃO DA ORDEM COLETADA"**:
+   - Substituir a célula atual `PRODUTO: {order.products?.name}` por uma listagem.
+   - **Se houver 1 produto**: mantém o layout atual (uma linha "PRODUTO: Nome — Qtd").
+   - **Se houver múltiplos produtos**: renderiza uma mini-tabela com colunas `Produto | Qtd | Obs`, ocupando a largura completa (col-span-2) acima da linha do TIPO.
 
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| `id` | uuid PK | gen_random_uuid() |
-| `collection_order_id` | uuid NOT NULL | referência à ordem |
-| `product_id` | uuid NOT NULL | referência ao produto |
-| `quantity` | numeric NOT NULL | quantidade (suporta decimal) |
-| `observation` | text NULL | observação opcional |
-| `position` | integer NOT NULL DEFAULT 0 | ordem de exibição |
-| `created_at` | timestamptz DEFAULT now() | |
+   Layout proposto quando >1 produto:
+   ```text
+   ┌─────────────────────────────────────────────┐
+   │ PRODUTOS:                                   │
+   │  • Nome A          2.5    Obs A             │
+   │  • Nome B          1.0    Obs B             │
+   │  • Nome C          3.0    -                 │
+   └─────────────────────────────────────────────┘
+   ```
 
-- Índice em `collection_order_id`
-- RLS pública (mesmo padrão das outras tabelas do projeto)
+3. **Compatibilidade de impressão**:
+   - Manter mesmo padrão visual (bordas, tipografia, `text-sm`).
+   - Garantir que quebras não estourem a página (lista compacta com `text-xs` se >3 produtos).
 
-A coluna `collection_orders.product_id` permanece (compatibilidade com ordens antigas), mas deixa de ser usada por novas ordens.
-
-### 2. Migração de dados existentes
-
-Para cada `collection_orders` com `product_id NOT NULL`, inserir uma linha em `collection_order_products` com `quantity = 1` e `observation = NULL`. Garante que ordens antigas apareçam com seu produto na nova UI.
-
-### 3. Frontend — `src/pages/CollectionOrders.tsx`
-
-**Tipo `FormData`**: substituir `product_id: string` por:
-```ts
-products: Array<{ product_id: string; quantity: number; observation: string }>
-```
-Inicial: `[{ product_id: "", quantity: 1, observation: "" }]`.
-
-**UI no diálogo** (substitui o bloco atual "Produto"):
-- Card "Produtos" com lista de linhas. Cada linha: `Select` de produto (com botão "+" de cadastro reaproveitado) + `Input` numérico de quantidade + `Input` de observação + botão lixeira para remover.
-- Botão "+ Adicionar Produto" abaixo da lista.
-- Lixeira desabilitada quando há apenas 1 item.
-
-**Validação** em `handleSubmit`: pelo menos um item com `product_id` preenchido e `quantity > 0`; senão `toast.error`.
-
-**Salvar (create/update)**:
-1. Insert/update na `collection_orders` (sem `product_id`).
-2. Em update: `delete from collection_order_products where collection_order_id = X`.
-3. `insert` em lote dos itens válidos do formulário com `position` = índice.
-
-**Edição**: ao abrir, buscar `collection_order_products` da ordem e popular `formData.products`. Se vier vazio mas `order.product_id` existir, popular com 1 item dessa ordem antiga (fallback de compatibilidade).
-
-**Listagem da tabela**: nenhuma mudança obrigatória. Opcionalmente exibir contagem de itens — fora do escopo desta entrega.
-
-### 4. Impressão
-
-`CollectionOrderPrint.tsx` não referencia produto atualmente, então **não precisa de alteração** nesta etapa.
-
-### Arquivos afetados
+### Arquivo Afetado
 
 | Arquivo | Ação |
 |---------|------|
-| Nova migration SQL | Criar tabela `collection_order_products` + migrar dados existentes |
-| `src/pages/CollectionOrders.tsx` | Refatorar formulário, mutations create/update, edição |
+| `src/components/CollectionOrderPrint.tsx` | Adicionar query a `collection_order_products` e renderizar lista de produtos |
 
-### Resultado esperado
-
-- Usuário pode adicionar N produtos a uma ordem, com quantidade e observação.
-- Botões claros de adicionar e remover.
-- Validação impede salvar sem produto.
-- Ordens antigas continuam funcionando (produto único migrado automaticamente).
+### Resultado Esperado
+- Ordens com 1 produto: impressão idêntica à atual.
+- Ordens com múltiplos produtos: cada produto aparece com nome, quantidade e observação na impressão.
+- Ordens legadas (sem itens em `collection_order_products`): continuam exibindo o produto único antigo.

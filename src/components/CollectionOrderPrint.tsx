@@ -24,6 +24,32 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
     },
   });
 
+  const { data: orderProducts = [] } = useQuery({
+    queryKey: ["collection_order_products_print", order?.id],
+    enabled: !!order?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("collection_order_products")
+        .select("quantity, observation, position, products(name)")
+        .eq("collection_order_id", order.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Build display list, with fallback to legacy single product
+  const displayProducts: Array<{ name: string; quantity: number | string; observation: string }> =
+    orderProducts.length > 0
+      ? orderProducts.map((p: any) => ({
+          name: p.products?.name || "-",
+          quantity: p.quantity ?? "-",
+          observation: p.observation || "",
+        }))
+      : order?.products?.name
+      ? [{ name: order.products.name, quantity: order.weight_tons ?? "-", observation: "" }]
+      : [];
+
   const handlePrint = () => {
     window.print();
   };
