@@ -553,7 +553,16 @@ export default function CollectionOrders() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      setFormData(prev => ({ ...prev, product_id: data.id }));
+      setFormData(prev => {
+        const products = [...prev.products];
+        const emptyIdx = products.findIndex(p => !p.product_id);
+        if (emptyIdx >= 0) {
+          products[emptyIdx] = { ...products[emptyIdx], product_id: data.id };
+        } else {
+          products.push({ product_id: data.id, quantity: 1, observation: "" });
+        }
+        return { ...prev, products };
+      });
       setNewProduct("");
       toast.success("Produto cadastrado!");
     },
