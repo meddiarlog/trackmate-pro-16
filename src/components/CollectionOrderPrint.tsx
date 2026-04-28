@@ -193,14 +193,49 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   <span className="font-semibold">DESCARREGAMENTO:</span> {order.unloading_city} - {order.unloading_state}
                 </div>
                 
-                <div className="grid grid-cols-2 border-b border-foreground">
-                  <div className="p-2 border-r border-foreground">
-                    <span className="font-semibold">PRODUTO:</span> {order.products?.name || "-"}
+                {displayProducts.length <= 1 ? (
+                  <div className="grid grid-cols-2 border-b border-foreground">
+                    <div className="p-2 border-r border-foreground">
+                      <span className="font-semibold">PRODUTO:</span>{" "}
+                      {displayProducts[0]?.name || "-"}
+                      {displayProducts[0]?.quantity !== undefined && displayProducts[0]?.quantity !== "" && (
+                        <> — <span className="font-semibold">Qtd:</span> {displayProducts[0]?.quantity}</>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <span className="font-semibold">TIPO:</span> {order.freight_types?.name || "-"}
+                    </div>
                   </div>
-                  <div className="p-2">
-                    <span className="font-semibold">TIPO:</span> {order.freight_types?.name || "-"}
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="border-b border-foreground">
+                      <div className="px-2 pt-2">
+                        <span className="font-semibold text-sm">PRODUTOS:</span>
+                      </div>
+                      <table className={`w-full ${displayProducts.length > 3 ? "text-[10px]" : "text-xs"}`}>
+                        <thead>
+                          <tr className="border-b border-foreground">
+                            <th className="text-left p-1 border-r border-foreground font-semibold">Produto</th>
+                            <th className="text-center p-1 border-r border-foreground font-semibold w-16">Qtd</th>
+                            <th className="text-left p-1 font-semibold">Obs</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {displayProducts.map((p, i) => (
+                            <tr key={i} className={i < displayProducts.length - 1 ? "border-b border-foreground" : ""}>
+                              <td className="p-1 border-r border-foreground">{p.name}</td>
+                              <td className="p-1 border-r border-foreground text-center">{p.quantity}</td>
+                              <td className="p-1">{p.observation || "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="p-2 border-b border-foreground">
+                      <span className="font-semibold">TIPO:</span> {order.freight_types?.name || "-"}
+                    </div>
+                  </>
+                )}
                 
                 <div className="p-2 border-b border-foreground">
                   <span className="font-semibold">
