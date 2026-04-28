@@ -483,7 +483,7 @@ export default function CollectionOrders() {
         recipient_name: data.recipient_name || "",
         unloading_city: data.unloading_city || "",
         unloading_state: data.unloading_state || "",
-        product_id: data.product_id || null,
+        product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
