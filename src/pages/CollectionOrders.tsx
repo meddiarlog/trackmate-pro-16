@@ -35,7 +35,7 @@ interface FormData {
   recipient_name: string;
   unloading_city: string;
   unloading_state: string;
-  product_id: string;
+  products: Array<{ product_id: string; quantity: number; observation: string }>;
   freight_type_id: string;
   order_number_type: string;
   order_request_number: string;
