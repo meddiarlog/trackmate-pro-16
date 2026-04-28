@@ -1,49 +1,70 @@
-
-
-## Plano — Coluna "Crédito Utilizado Em"
+## Plano — Múltiplos Produtos por Ordem de Coleta
 
 ### Resumo
 
-Adicionar uma coluna após o ID na tabela de Controle de Crédito que mostra em qual crédito salvo cada NF-e foi utilizada. O preenchimento é automático ao salvar um crédito utilizado.
+Tornar a Ordem de Coleta capaz de conter vários produtos (relação 1:N), cada um com **produto**, **quantidade** e **observação opcional**. Adicionar/remover itens dinamicamente no formulário, com validação mínima de 1 item. Manter compatibilidade com ordens antigas que usam `product_id`.
 
-### Abordagem
+### 1. Banco de Dados — Nova tabela
 
-Em vez de adicionar uma coluna no banco (redundância), buscar a informação via lookup: ao carregar a página, consultar `saved_credit_items` agrupando por `credit_control_id` e cruzar com `saved_credits.name`. Isso garante que a coluna sempre reflete o estado real.
+Criar `collection_order_products`:
 
-### Alterações
+| Coluna | Tipo | Descrição |
+|--------|------|-----------|
+| `id` | uuid PK | gen_random_uuid() |
+| `collection_order_id` | uuid NOT NULL | referência à ordem |
+| `product_id` | uuid NOT NULL | referência ao produto |
+| `quantity` | numeric NOT NULL | quantidade (suporta decimal) |
+| `observation` | text NULL | observação opcional |
+| `position` | integer NOT NULL DEFAULT 0 | ordem de exibição |
+| `created_at` | timestamptz DEFAULT now() | |
+
+- Índice em `collection_order_id`
+- RLS pública (mesmo padrão das outras tabelas do projeto)
+
+A coluna `collection_orders.product_id` permanece (compatibilidade com ordens antigas), mas deixa de ser usada por novas ordens.
+
+### 2. Migração de dados existentes
+
+Para cada `collection_orders` com `product_id NOT NULL`, inserir uma linha em `collection_order_products` com `quantity = 1` e `observation = NULL`. Garante que ordens antigas apareçam com seu produto na nova UI.
+
+### 3. Frontend — `src/pages/CollectionOrders.tsx`
+
+**Tipo `FormData`**: substituir `product_id: string` por:
+```ts
+products: Array<{ product_id: string; quantity: number; observation: string }>
+```
+Inicial: `[{ product_id: "", quantity: 1, observation: "" }]`.
+
+**UI no diálogo** (substitui o bloco atual "Produto"):
+- Card "Produtos" com lista de linhas. Cada linha: `Select` de produto (com botão "+" de cadastro reaproveitado) + `Input` numérico de quantidade + `Input` de observação + botão lixeira para remover.
+- Botão "+ Adicionar Produto" abaixo da lista.
+- Lixeira desabilitada quando há apenas 1 item.
+
+**Validação** em `handleSubmit`: pelo menos um item com `product_id` preenchido e `quantity > 0`; senão `toast.error`.
+
+**Salvar (create/update)**:
+1. Insert/update na `collection_orders` (sem `product_id`).
+2. Em update: `delete from collection_order_products where collection_order_id = X`.
+3. `insert` em lote dos itens válidos do formulário com `position` = índice.
+
+**Edição**: ao abrir, buscar `collection_order_products` da ordem e popular `formData.products`. Se vier vazio mas `order.product_id` existir, popular com 1 item dessa ordem antiga (fallback de compatibilidade).
+
+**Listagem da tabela**: nenhuma mudança obrigatória. Opcionalmente exibir contagem de itens — fora do escopo desta entrega.
+
+### 4. Impressão
+
+`CollectionOrderPrint.tsx` não referencia produto atualmente, então **não precisa de alteração** nesta etapa.
+
+### Arquivos afetados
 
 | Arquivo | Ação |
 |---------|------|
-| `src/pages/CreditControl.tsx` | Buscar mapa de `credit_control_id → nome do crédito salvo` e adicionar coluna na tabela |
-
-### Detalhes
-
-1. **Novo fetch** — Ao carregar registros (e quando `savedCreditsRefreshKey` mudar), buscar todos os `saved_credit_items` com join no `saved_credits`:
-   ```ts
-   const { data } = await supabase
-     .from("saved_credit_items")
-     .select("credit_control_id, saved_credit_id, saved_credits(name)");
-   ```
-   Montar um `Map<string, string>` de `credit_control_id → name`.
-
-2. **Nova coluna** — Inserir após a coluna ID:
-   ```ts
-   {
-     key: "creditoUtilizadoEm",
-     header: "Crédito Utilizado Em",
-     sortable: false,
-     render: (item) => {
-       const name = usedCreditMap.get(item.id);
-       return name
-         ? <Badge variant="secondary">{name}</Badge>
-         : <span className="text-muted-foreground text-xs">Não utilizado</span>;
-     },
-   }
-   ```
-
-3. **Refresh automático** — O mapa é recalculado sempre que `savedCreditsRefreshKey` incrementa (ou seja, quando o usuário salva um crédito), garantindo que a coluna atualiza imediatamente.
+| Nova migration SQL | Criar tabela `collection_order_products` + migrar dados existentes |
+| `src/pages/CollectionOrders.tsx` | Refatorar formulário, mutations create/update, edição |
 
 ### Resultado esperado
-- NF-e não vinculada: exibe "Não utilizado" em cinza
-- NF-e vinculada: exibe o nome do crédito salvo como badge
 
+- Usuário pode adicionar N produtos a uma ordem, com quantidade e observação.
+- Botões claros de adicionar e remover.
+- Validação impede salvar sem produto.
+- Ordens antigas continuam funcionando (produto único migrado automaticamente).
