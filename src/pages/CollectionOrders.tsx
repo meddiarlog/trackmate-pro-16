@@ -510,6 +510,27 @@ export default function CollectionOrders() {
         freight_mode: data.freight_mode || null,
       }).eq("id", data.id);
       if (error) throw error;
+
+      // Replace product items
+      const { error: delError } = await supabase
+        .from("collection_order_products")
+        .delete()
+        .eq("collection_order_id", data.id);
+      if (delError) throw delError;
+
+      const items = data.products
+        .filter(p => p.product_id)
+        .map((p, idx) => ({
+          collection_order_id: data.id!,
+          product_id: p.product_id,
+          quantity: p.quantity || 1,
+          observation: p.observation || null,
+          position: idx,
+        }));
+      if (items.length > 0) {
+        const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
+        if (itemsError) throw itemsError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
