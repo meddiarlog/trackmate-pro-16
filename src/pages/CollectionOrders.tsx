@@ -736,6 +736,11 @@ export default function CollectionOrders() {
       toast.error("Informe o peso");
       return;
     }
+    const validProducts = formData.products.filter(p => p.product_id && p.quantity > 0);
+    if (validProducts.length === 0) {
+      toast.error("Adicione pelo menos um produto com quantidade válida");
+      return;
+    }
     if (editingOrderId) {
       updateOrderMutation.mutate({ ...formData, id: editingOrderId });
     } else {
