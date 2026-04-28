@@ -974,22 +974,15 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Product with add option */}
-                  <div>
-                    <Label>Produto</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.product_id} onValueChange={(v) => setFormData(prev => ({ ...prev, product_id: v === "__none__" ? "" : v }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Nenhum</SelectItem>
-                          {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  {/* Products list (multi) */}
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Produtos</Label>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="icon"><Plus className="h-4 w-4" /></Button>
+                          <Button type="button" variant="outline" size="sm">
+                            <Plus className="h-4 w-4 mr-1" /> Cadastrar Produto
+                          </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
@@ -999,6 +992,81 @@ export default function CollectionOrders() {
                           </div>
                         </DialogContent>
                       </Dialog>
+                    </div>
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                      {formData.products.map((item, index) => (
+                        <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-5">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Produto</Label>}
+                            <Select
+                              value={item.product_id || "__none__"}
+                              onValueChange={(v) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], product_id: v === "__none__" ? "" : v };
+                                return { ...prev, products };
+                              })}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Nenhum</SelectItem>
+                                {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Qtd.</Label>}
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={item.quantity}
+                              onChange={(e) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], quantity: parseFloat(e.target.value) || 0 };
+                                return { ...prev, products };
+                              })}
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Observação</Label>}
+                            <Input
+                              value={item.observation}
+                              onChange={(e) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], observation: e.target.value };
+                                return { ...prev, products };
+                              })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={formData.products.length <= 1}
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                products: prev.products.filter((_, i) => i !== index),
+                              }))}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          products: [...prev.products, { product_id: "", quantity: 1, observation: "" }],
+                        }))}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar Produto
+                      </Button>
                     </div>
                   </div>
 
