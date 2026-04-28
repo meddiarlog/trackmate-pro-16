@@ -35,7 +35,7 @@ interface FormData {
   recipient_name: string;
   unloading_city: string;
   unloading_state: string;
-  product_id: string;
+  products: Array<{ product_id: string; quantity: number; observation: string }>;
   freight_type_id: string;
   order_number_type: string;
   order_request_number: string;
@@ -68,7 +68,7 @@ const initialFormData: FormData = {
   recipient_name: "",
   unloading_city: "",
   unloading_state: "",
-  product_id: "",
+  products: [{ product_id: "", quantity: 1, observation: "" }],
   freight_type_id: "",
   order_number_type: "pedido",
   order_request_number: "",
@@ -412,14 +412,14 @@ export default function CollectionOrders() {
         nextOrderNumber = Math.max(maxExisting + 1, startNumber);
       }
 
-      const { error } = await supabase.from("collection_orders").insert({
+      const { data: insertedOrder, error } = await supabase.from("collection_orders").insert({
         order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
         recipient_name: data.recipient_name || "",
         unloading_city: data.unloading_city || "",
         unloading_state: data.unloading_state || "",
-        product_id: data.product_id || null,
+        product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
@@ -444,8 +444,22 @@ export default function CollectionOrders() {
         issue_date: data.issue_date || null,
         collection_date: data.collection_date || null,
         freight_mode: data.freight_mode || null,
-      });
+      }).select("id").single();
       if (error) throw error;
+
+      const items = data.products
+        .filter(p => p.product_id)
+        .map((p, idx) => ({
+          collection_order_id: insertedOrder.id,
+          product_id: p.product_id,
+          quantity: p.quantity || 1,
+          observation: p.observation || null,
+          position: idx,
+        }));
+      if (items.length > 0) {
+        const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
+        if (itemsError) throw itemsError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
@@ -469,7 +483,7 @@ export default function CollectionOrders() {
         recipient_name: data.recipient_name || "",
         unloading_city: data.unloading_city || "",
         unloading_state: data.unloading_state || "",
-        product_id: data.product_id || null,
+        product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
@@ -496,6 +510,27 @@ export default function CollectionOrders() {
         freight_mode: data.freight_mode || null,
       }).eq("id", data.id);
       if (error) throw error;
+
+      // Replace product items
+      const { error: delError } = await supabase
+        .from("collection_order_products")
+        .delete()
+        .eq("collection_order_id", data.id);
+      if (delError) throw delError;
+
+      const items = data.products
+        .filter(p => p.product_id)
+        .map((p, idx) => ({
+          collection_order_id: data.id!,
+          product_id: p.product_id,
+          quantity: p.quantity || 1,
+          observation: p.observation || null,
+          position: idx,
+        }));
+      if (items.length > 0) {
+        const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
+        if (itemsError) throw itemsError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
@@ -518,7 +553,16 @@ export default function CollectionOrders() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
-      setFormData(prev => ({ ...prev, product_id: data.id }));
+      setFormData(prev => {
+        const products = [...prev.products];
+        const emptyIdx = products.findIndex(p => !p.product_id);
+        if (emptyIdx >= 0) {
+          products[emptyIdx] = { ...products[emptyIdx], product_id: data.id };
+        } else {
+          products.push({ product_id: data.id, quantity: 1, observation: "" });
+        }
+        return { ...prev, products };
+      });
       setNewProduct("");
       toast.success("Produto cadastrado!");
     },
@@ -692,6 +736,11 @@ export default function CollectionOrders() {
       toast.error("Informe o peso");
       return;
     }
+    const validProducts = formData.products.filter(p => p.product_id && p.quantity > 0);
+    if (validProducts.length === 0) {
+      toast.error("Adicione pelo menos um produto com quantidade válida");
+      return;
+    }
     if (editingOrderId) {
       updateOrderMutation.mutate({ ...formData, id: editingOrderId });
     } else {
@@ -699,10 +748,30 @@ export default function CollectionOrders() {
     }
   };
 
-  const handleEdit = (order: any) => {
+  const handleEdit = async (order: any) => {
     // Force refetch to get latest data before editing
     queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
-    
+
+    // Load product items for this order
+    const { data: itemsData } = await supabase
+      .from("collection_order_products")
+      .select("product_id, quantity, observation, position")
+      .eq("collection_order_id", order.id)
+      .order("position", { ascending: true });
+
+    let products = (itemsData || []).map((it: any) => ({
+      product_id: it.product_id,
+      quantity: Number(it.quantity) || 1,
+      observation: it.observation || "",
+    }));
+    // Fallback for legacy orders with only product_id
+    if (products.length === 0 && order.product_id) {
+      products = [{ product_id: order.product_id, quantity: 1, observation: "" }];
+    }
+    if (products.length === 0) {
+      products = [{ product_id: "", quantity: 1, observation: "" }];
+    }
+
     setEditingOrderId(order.id);
     setFormData({
       weight_tons: order.weight_tons || 0,
@@ -710,7 +779,7 @@ export default function CollectionOrders() {
       recipient_name: order.recipient_name || "",
       unloading_city: order.unloading_city || "",
       unloading_state: order.unloading_state || "",
-      product_id: order.product_id || "",
+      products,
       freight_type_id: order.freight_type_id || "",
       order_number_type: order.order_number_type || "pedido",
       order_request_number: order.order_request_number || "",
@@ -910,22 +979,15 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Product with add option */}
-                  <div>
-                    <Label>Produto</Label>
-                    <div className="flex gap-2">
-                      <Select value={formData.product_id} onValueChange={(v) => setFormData(prev => ({ ...prev, product_id: v === "__none__" ? "" : v }))}>
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Nenhum</SelectItem>
-                          {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  {/* Products list (multi) */}
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Produtos</Label>
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="icon"><Plus className="h-4 w-4" /></Button>
+                          <Button type="button" variant="outline" size="sm">
+                            <Plus className="h-4 w-4 mr-1" /> Cadastrar Produto
+                          </Button>
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
@@ -935,6 +997,81 @@ export default function CollectionOrders() {
                           </div>
                         </DialogContent>
                       </Dialog>
+                    </div>
+                    <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+                      {formData.products.map((item, index) => (
+                        <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                          <div className="col-span-5">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Produto</Label>}
+                            <Select
+                              value={item.product_id || "__none__"}
+                              onValueChange={(v) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], product_id: v === "__none__" ? "" : v };
+                                return { ...prev, products };
+                              })}
+                            >
+                              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">Nenhum</SelectItem>
+                                {products.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Qtd.</Label>}
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={item.quantity}
+                              onChange={(e) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], quantity: parseFloat(e.target.value) || 0 };
+                                return { ...prev, products };
+                              })}
+                            />
+                          </div>
+                          <div className="col-span-4">
+                            {index === 0 && <Label className="text-xs text-muted-foreground">Observação</Label>}
+                            <Input
+                              value={item.observation}
+                              onChange={(e) => setFormData(prev => {
+                                const products = [...prev.products];
+                                products[index] = { ...products[index], observation: e.target.value };
+                                return { ...prev, products };
+                              })}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div className="col-span-1 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={formData.products.length <= 1}
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                products: prev.products.filter((_, i) => i !== index),
+                              }))}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          products: [...prev.products, { product_id: "", quantity: 1, observation: "" }],
+                        }))}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar Produto
+                      </Button>
                     </div>
                   </div>
 

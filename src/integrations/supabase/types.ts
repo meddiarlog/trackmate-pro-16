@@ -432,6 +432,36 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_order_products: {
+        Row: {
+          collection_order_id: string
+          created_at: string
+          id: string
+          observation: string | null
+          position: number
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          collection_order_id: string
+          created_at?: string
+          id?: string
+          observation?: string | null
+          position?: number
+          product_id: string
+          quantity?: number
+        }
+        Update: {
+          collection_order_id?: string
+          created_at?: string
+          id?: string
+          observation?: string | null
+          position?: number
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: []
+      }
       collection_orders: {
         Row: {
           body_type_id: string | null
