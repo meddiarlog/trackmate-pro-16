@@ -412,14 +412,14 @@ export default function CollectionOrders() {
         nextOrderNumber = Math.max(maxExisting + 1, startNumber);
       }
 
-      const { error } = await supabase.from("collection_orders").insert({
+      const { data: insertedOrder, error } = await supabase.from("collection_orders").insert({
         order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
         recipient_name: data.recipient_name || "",
         unloading_city: data.unloading_city || "",
         unloading_state: data.unloading_state || "",
-        product_id: data.product_id || null,
+        product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
         order_request_number: data.order_request_number || null,
@@ -444,8 +444,22 @@ export default function CollectionOrders() {
         issue_date: data.issue_date || null,
         collection_date: data.collection_date || null,
         freight_mode: data.freight_mode || null,
-      });
+      }).select("id").single();
       if (error) throw error;
+
+      const items = data.products
+        .filter(p => p.product_id)
+        .map((p, idx) => ({
+          collection_order_id: insertedOrder.id,
+          product_id: p.product_id,
+          quantity: p.quantity || 1,
+          observation: p.observation || null,
+          position: idx,
+        }));
+      if (items.length > 0) {
+        const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
+        if (itemsError) throw itemsError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
