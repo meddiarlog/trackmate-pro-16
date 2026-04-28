@@ -743,10 +743,30 @@ export default function CollectionOrders() {
     }
   };
 
-  const handleEdit = (order: any) => {
+  const handleEdit = async (order: any) => {
     // Force refetch to get latest data before editing
     queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
-    
+
+    // Load product items for this order
+    const { data: itemsData } = await supabase
+      .from("collection_order_products")
+      .select("product_id, quantity, observation, position")
+      .eq("collection_order_id", order.id)
+      .order("position", { ascending: true });
+
+    let products = (itemsData || []).map((it: any) => ({
+      product_id: it.product_id,
+      quantity: Number(it.quantity) || 1,
+      observation: it.observation || "",
+    }));
+    // Fallback for legacy orders with only product_id
+    if (products.length === 0 && order.product_id) {
+      products = [{ product_id: order.product_id, quantity: 1, observation: "" }];
+    }
+    if (products.length === 0) {
+      products = [{ product_id: "", quantity: 1, observation: "" }];
+    }
+
     setEditingOrderId(order.id);
     setFormData({
       weight_tons: order.weight_tons || 0,
@@ -754,7 +774,7 @@ export default function CollectionOrders() {
       recipient_name: order.recipient_name || "",
       unloading_city: order.unloading_city || "",
       unloading_state: order.unloading_state || "",
-      product_id: order.product_id || "",
+      products,
       freight_type_id: order.freight_type_id || "",
       order_number_type: order.order_number_type || "pedido",
       order_request_number: order.order_request_number || "",
