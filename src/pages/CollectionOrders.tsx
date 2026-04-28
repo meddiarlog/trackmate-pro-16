@@ -68,7 +68,7 @@ const initialFormData: FormData = {
   recipient_name: "",
   unloading_city: "",
   unloading_state: "",
-  product_id: "",
+  products: [{ product_id: "", quantity: 1, observation: "" }],
   freight_type_id: "",
   order_number_type: "pedido",
   order_request_number: "",
