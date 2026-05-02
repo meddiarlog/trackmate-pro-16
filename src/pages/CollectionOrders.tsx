@@ -807,6 +807,27 @@ export default function CollectionOrders() {
       toast.error("Adicione pelo menos um produto com quantidade válida");
       return;
     }
+    // Validate recipients (at least 1 with name; each must have name, city and state)
+    const recipients = formData.recipients || [];
+    if (recipients.length === 0) {
+      toast.error("Adicione pelo menos um destinatário");
+      return;
+    }
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i];
+      if (!r.name || !r.name.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe o nome / razão social`);
+        return;
+      }
+      if (!r.city || !r.city.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe a cidade`);
+        return;
+      }
+      if (!r.state || !r.state.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe a UF`);
+        return;
+      }
+    }
     if (editingOrderId) {
       updateOrderMutation.mutate({ ...formData, id: editingOrderId });
     } else {
