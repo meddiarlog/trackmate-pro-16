@@ -1137,6 +1137,33 @@ export default function CollectionOrders() {
                           <AccordionContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                               <div className="md:col-span-2">
+                                <Label className="text-xs">Buscar em Clientes</Label>
+                                <CustomerSearchSelect
+                                  customers={customers as any}
+                                  value=""
+                                  onChange={(customerId) => {
+                                    const c = (customers as any[]).find(x => x.id === customerId);
+                                    if (!c) return;
+                                    setFormData(prev => {
+                                      const recipients = [...(prev.recipients || [])];
+                                      const fullAddress = [c.address, c.neighborhood].filter(Boolean).join(", ");
+                                      recipients[idx] = {
+                                        ...recipients[idx],
+                                        name: c.nome_fantasia || c.name || "",
+                                        cpf_cnpj: c.cpf_cnpj || "",
+                                        phone: c.phone || "",
+                                        address: fullAddress,
+                                        city: c.city || "",
+                                        state: c.state || "",
+                                        cep: c.cep || "",
+                                      };
+                                      return { ...prev, recipients };
+                                    });
+                                  }}
+                                  placeholder="Buscar por nome, CPF ou CNPJ..."
+                                />
+                              </div>
+                              <div className="md:col-span-2">
                                 <Label className="text-xs">Nome / Razão Social *</Label>
                                 <Input
                                   value={rec.name}
