@@ -462,6 +462,48 @@ export type Database = {
         }
         Relationships: []
       }
+      collection_order_recipients: {
+        Row: {
+          address: string | null
+          cep: string | null
+          city: string | null
+          collection_order_id: string
+          cpf_cnpj: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          position: number
+          state: string | null
+        }
+        Insert: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          collection_order_id: string
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          position?: number
+          state?: string | null
+        }
+        Update: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          collection_order_id?: string
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          position?: number
+          state?: string | null
+        }
+        Relationships: []
+      }
       collection_orders: {
         Row: {
           body_type_id: string | null

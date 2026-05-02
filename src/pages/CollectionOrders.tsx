@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useTableFilters } from "@/hooks/useTableFilters";
 
 const BRAZILIAN_STATES = [
@@ -35,6 +36,15 @@ interface FormData {
   recipient_name: string;
   unloading_city: string;
   unloading_state: string;
+  recipients: Array<{
+    name: string;
+    cpf_cnpj: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    cep: string;
+  }>;
   products: Array<{ product_id: string; quantity: number; observation: string }>;
   freight_type_id: string;
   order_number_type: string;
@@ -68,6 +78,7 @@ const initialFormData: FormData = {
   recipient_name: "",
   unloading_city: "",
   unloading_state: "",
+  recipients: [{ name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "" }],
   products: [{ product_id: "", quantity: 1, observation: "" }],
   freight_type_id: "",
   order_number_type: "pedido",
@@ -412,13 +423,19 @@ export default function CollectionOrders() {
         nextOrderNumber = Math.max(maxExisting + 1, startNumber);
       }
 
+      // Sync legacy fields with first recipient for backward compatibility
+      const firstRecipient = data.recipients?.[0];
+      const legacyRecipientName = firstRecipient?.name || data.recipient_name || "";
+      const legacyUnloadingCity = firstRecipient?.city || data.unloading_city || "";
+      const legacyUnloadingState = firstRecipient?.state || data.unloading_state || "";
+
       const { data: insertedOrder, error } = await supabase.from("collection_orders").insert({
         order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
-        recipient_name: data.recipient_name || "",
-        unloading_city: data.unloading_city || "",
-        unloading_state: data.unloading_state || "",
+        recipient_name: legacyRecipientName,
+        unloading_city: legacyUnloadingCity,
+        unloading_state: legacyUnloadingState,
         product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
@@ -460,6 +477,25 @@ export default function CollectionOrders() {
         const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
         if (itemsError) throw itemsError;
       }
+
+      // Insert recipients
+      const recipientRows = (data.recipients || [])
+        .filter(r => r.name && r.name.trim() !== "")
+        .map((r, idx) => ({
+          collection_order_id: insertedOrder.id,
+          position: idx,
+          name: r.name.trim(),
+          cpf_cnpj: r.cpf_cnpj || null,
+          phone: r.phone || null,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          cep: r.cep || null,
+        }));
+      if (recipientRows.length > 0) {
+        const { error: recError } = await supabase.from("collection_order_recipients").insert(recipientRows);
+        if (recError) throw recError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["collection-orders"] });
@@ -477,12 +513,18 @@ export default function CollectionOrders() {
   const updateOrderMutation = useMutation({
     mutationFn: async (data: FormData) => {
       if (!data.id) throw new Error("ID da ordem não encontrado");
+      // Sync legacy fields with first recipient
+      const firstRecipient = data.recipients?.[0];
+      const legacyRecipientName = firstRecipient?.name || data.recipient_name || "";
+      const legacyUnloadingCity = firstRecipient?.city || data.unloading_city || "";
+      const legacyUnloadingState = firstRecipient?.state || data.unloading_state || "";
+
       const { error } = await supabase.from("collection_orders").update({
         weight_tons: data.weight_tons,
         code: data.code || null,
-        recipient_name: data.recipient_name || "",
-        unloading_city: data.unloading_city || "",
-        unloading_state: data.unloading_state || "",
+        recipient_name: legacyRecipientName,
+        unloading_city: legacyUnloadingCity,
+        unloading_state: legacyUnloadingState,
         product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
@@ -530,6 +572,31 @@ export default function CollectionOrders() {
       if (items.length > 0) {
         const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
         if (itemsError) throw itemsError;
+      }
+
+      // Replace recipients
+      const { error: recDelError } = await supabase
+        .from("collection_order_recipients")
+        .delete()
+        .eq("collection_order_id", data.id);
+      if (recDelError) throw recDelError;
+
+      const recipientRows = (data.recipients || [])
+        .filter(r => r.name && r.name.trim() !== "")
+        .map((r, idx) => ({
+          collection_order_id: data.id!,
+          position: idx,
+          name: r.name.trim(),
+          cpf_cnpj: r.cpf_cnpj || null,
+          phone: r.phone || null,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          cep: r.cep || null,
+        }));
+      if (recipientRows.length > 0) {
+        const { error: recError } = await supabase.from("collection_order_recipients").insert(recipientRows);
+        if (recError) throw recError;
       }
     },
     onSuccess: () => {
@@ -741,6 +808,27 @@ export default function CollectionOrders() {
       toast.error("Adicione pelo menos um produto com quantidade válida");
       return;
     }
+    // Validate recipients (at least 1 with name; each must have name, city and state)
+    const recipients = formData.recipients || [];
+    if (recipients.length === 0) {
+      toast.error("Adicione pelo menos um destinatário");
+      return;
+    }
+    for (let i = 0; i < recipients.length; i++) {
+      const r = recipients[i];
+      if (!r.name || !r.name.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe o nome / razão social`);
+        return;
+      }
+      if (!r.city || !r.city.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe a cidade`);
+        return;
+      }
+      if (!r.state || !r.state.trim()) {
+        toast.error(`Destinatário #${i + 1}: informe a UF`);
+        return;
+      }
+    }
     if (editingOrderId) {
       updateOrderMutation.mutate({ ...formData, id: editingOrderId });
     } else {
@@ -772,6 +860,35 @@ export default function CollectionOrders() {
       products = [{ product_id: "", quantity: 1, observation: "" }];
     }
 
+    // Load recipients for this order
+    const { data: recipientsData } = await supabase
+      .from("collection_order_recipients")
+      .select("name, cpf_cnpj, phone, address, city, state, cep, position")
+      .eq("collection_order_id", order.id)
+      .order("position", { ascending: true });
+
+    let recipients = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+    // Fallback for legacy orders: build first recipient from legacy fields
+    if (recipients.length === 0) {
+      recipients = [{
+        name: order.recipient_name || "",
+        cpf_cnpj: "",
+        phone: "",
+        address: "",
+        city: order.unloading_city || "",
+        state: order.unloading_state || "",
+        cep: "",
+      }];
+    }
+
     setEditingOrderId(order.id);
     setFormData({
       weight_tons: order.weight_tons || 0,
@@ -779,6 +896,7 @@ export default function CollectionOrders() {
       recipient_name: order.recipient_name || "",
       unloading_city: order.unloading_city || "",
       unloading_state: order.unloading_state || "",
+      recipients,
       products,
       freight_type_id: order.freight_type_id || "",
       order_number_type: order.order_number_type || "pedido",
@@ -947,36 +1065,161 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Recipient - Not required */}
-                  <div>
-                    <Label>Destinatário</Label>
-                    <Input
-                      value={formData.recipient_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, recipient_name: e.target.value }))}
-                      placeholder="Nome do destinatário"
-                    />
-                  </div>
-
-                  {/* Unloading Location - Not required */}
-                  <div>
-                    <Label>Descarregamento</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={formData.unloading_city}
-                        onChange={(e) => setFormData(prev => ({ ...prev, unloading_city: e.target.value }))}
-                        placeholder="Cidade"
-                        className="flex-1"
-                      />
-                      <Select value={formData.unloading_state} onValueChange={(v) => setFormData(prev => ({ ...prev, unloading_state: v }))}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue placeholder="UF" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">-</SelectItem>
-                          {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  {/* Destinatários (multi) */}
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Destinatários *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          recipients: [
+                            ...(prev.recipients || []),
+                            { name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "" },
+                          ],
+                        }))}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar destinatário
+                      </Button>
                     </div>
+                    <Accordion
+                      type="multiple"
+                      defaultValue={["recipient-0"]}
+                      className="border rounded-md bg-muted/30 px-3"
+                    >
+                      {(formData.recipients || []).map((rec, idx) => (
+                        <AccordionItem key={idx} value={`recipient-${idx}`} className="border-b last:border-b-0">
+                          <div className="flex items-center gap-2">
+                            <AccordionTrigger className="flex-1 hover:no-underline">
+                              <span className="text-sm font-medium text-left">
+                                #{idx + 1} — {rec.name?.trim() || "Sem nome"}
+                                {(rec.city || rec.state) && (
+                                  <span className="text-muted-foreground font-normal">
+                                    {" "}({[rec.city, rec.state].filter(Boolean).join("/")})
+                                  </span>
+                                )}
+                              </span>
+                            </AccordionTrigger>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              disabled={(formData.recipients?.length || 0) <= 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormData(prev => ({
+                                  ...prev,
+                                  recipients: (prev.recipients || []).filter((_, i) => i !== idx),
+                                }));
+                              }}
+                              title="Remover destinatário"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <AccordionContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                              <div className="md:col-span-2">
+                                <Label className="text-xs">Nome / Razão Social *</Label>
+                                <Input
+                                  value={rec.name}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], name: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="Nome do destinatário"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">CPF / CNPJ</Label>
+                                <Input
+                                  value={rec.cpf_cnpj}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], cpf_cnpj: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="000.000.000-00 / 00.000.000/0000-00"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Telefone</Label>
+                                <Input
+                                  value={rec.phone}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], phone: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="(00) 00000-0000"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label className="text-xs">Endereço</Label>
+                                <Input
+                                  value={rec.address}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], address: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="Rua, número, bairro"
+                                />
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 md:col-span-2">
+                                <div className="col-span-2">
+                                  <Label className="text-xs">Cidade *</Label>
+                                  <Input
+                                    value={rec.city}
+                                    onChange={(e) => setFormData(prev => {
+                                      const recipients = [...(prev.recipients || [])];
+                                      recipients[idx] = { ...recipients[idx], city: e.target.value };
+                                      return { ...prev, recipients };
+                                    })}
+                                    placeholder="Cidade"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">UF *</Label>
+                                  <Select
+                                    value={rec.state || "__none__"}
+                                    onValueChange={(v) => setFormData(prev => {
+                                      const recipients = [...(prev.recipients || [])];
+                                      recipients[idx] = { ...recipients[idx], state: v === "__none__" ? "" : v };
+                                      return { ...prev, recipients };
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="UF" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__none__">-</SelectItem>
+                                      {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs">CEP</Label>
+                                <Input
+                                  value={rec.cep}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], cep: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="00000-000"
+                                />
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                   </div>
 
                   {/* Products list (multi) */}
