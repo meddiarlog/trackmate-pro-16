@@ -782,6 +782,35 @@ export default function CollectionOrders() {
       products = [{ product_id: "", quantity: 1, observation: "" }];
     }
 
+    // Load recipients for this order
+    const { data: recipientsData } = await supabase
+      .from("collection_order_recipients")
+      .select("name, cpf_cnpj, phone, address, city, state, cep, position")
+      .eq("collection_order_id", order.id)
+      .order("position", { ascending: true });
+
+    let recipients = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+    // Fallback for legacy orders: build first recipient from legacy fields
+    if (recipients.length === 0) {
+      recipients = [{
+        name: order.recipient_name || "",
+        cpf_cnpj: "",
+        phone: "",
+        address: "",
+        city: order.unloading_city || "",
+        state: order.unloading_state || "",
+        cep: "",
+      }];
+    }
+
     setEditingOrderId(order.id);
     setFormData({
       weight_tons: order.weight_tons || 0,
@@ -789,6 +818,7 @@ export default function CollectionOrders() {
       recipient_name: order.recipient_name || "",
       unloading_city: order.unloading_city || "",
       unloading_state: order.unloading_state || "",
+      recipients,
       products,
       freight_type_id: order.freight_type_id || "",
       order_number_type: order.order_number_type || "pedido",
