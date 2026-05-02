@@ -80,6 +80,31 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
       ? [{ name: order.products.name, quantity: order.weight_tons ?? "-", observation: "" }]
       : [];
 
+  // Build recipients list with fallback to legacy single recipient
+  const displayRecipients: Array<{
+    name: string; cpf_cnpj: string; phone: string;
+    address: string; city: string; state: string; cep: string;
+  }> =
+    orderRecipients.length > 0
+      ? (orderRecipients as any[]).map((r: any) => ({
+          name: r.name || "-",
+          cpf_cnpj: r.cpf_cnpj || "",
+          phone: r.phone || "",
+          address: r.address || "",
+          city: r.city || "",
+          state: r.state || "",
+          cep: r.cep || "",
+        }))
+      : [{
+          name: order?.recipient_name || "-",
+          cpf_cnpj: "",
+          phone: "",
+          address: "",
+          city: order?.unloading_city || "",
+          state: order?.unloading_state || "",
+          cep: "",
+        }];
+
   const handlePrint = () => {
     window.print();
   };
