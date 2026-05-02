@@ -422,13 +422,19 @@ export default function CollectionOrders() {
         nextOrderNumber = Math.max(maxExisting + 1, startNumber);
       }
 
+      // Sync legacy fields with first recipient for backward compatibility
+      const firstRecipient = data.recipients?.[0];
+      const legacyRecipientName = firstRecipient?.name || data.recipient_name || "";
+      const legacyUnloadingCity = firstRecipient?.city || data.unloading_city || "";
+      const legacyUnloadingState = firstRecipient?.state || data.unloading_state || "";
+
       const { data: insertedOrder, error } = await supabase.from("collection_orders").insert({
         order_number: nextOrderNumber,
         weight_tons: data.weight_tons,
         code: data.code || null,
-        recipient_name: data.recipient_name || "",
-        unloading_city: data.unloading_city || "",
-        unloading_state: data.unloading_state || "",
+        recipient_name: legacyRecipientName,
+        unloading_city: legacyUnloadingCity,
+        unloading_state: legacyUnloadingState,
         product_id: data.products[0]?.product_id || null,
         freight_type_id: data.freight_type_id || null,
         order_number_type: data.order_number_type || "pedido",
@@ -469,6 +475,25 @@ export default function CollectionOrders() {
       if (items.length > 0) {
         const { error: itemsError } = await supabase.from("collection_order_products").insert(items);
         if (itemsError) throw itemsError;
+      }
+
+      // Insert recipients
+      const recipientRows = (data.recipients || [])
+        .filter(r => r.name && r.name.trim() !== "")
+        .map((r, idx) => ({
+          collection_order_id: insertedOrder.id,
+          position: idx,
+          name: r.name.trim(),
+          cpf_cnpj: r.cpf_cnpj || null,
+          phone: r.phone || null,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          cep: r.cep || null,
+        }));
+      if (recipientRows.length > 0) {
+        const { error: recError } = await supabase.from("collection_order_recipients").insert(recipientRows);
+        if (recError) throw recError;
       }
     },
     onSuccess: () => {
