@@ -240,14 +240,67 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
                   </div>
                 </div>
                 
-                <div className="p-2 border-b border-foreground">
-                  <span className="font-semibold">DESTINATÁRIO:</span> {order.recipient_name}
-                </div>
-                
-                <div className="p-2 border-b border-foreground">
-                  <span className="font-semibold">DESCARREGAMENTO:</span> {order.unloading_city} - {order.unloading_state}
-                </div>
-                
+                {displayRecipients.length <= 1 ? (
+                  <>
+                    <div className="p-2 border-b border-foreground">
+                      <span className="font-semibold">DESTINATÁRIO:</span> {displayRecipients[0]?.name || "-"}
+                      {displayRecipients[0]?.cpf_cnpj && (
+                        <> — <span className="font-semibold">CPF/CNPJ:</span> {displayRecipients[0].cpf_cnpj}</>
+                      )}
+                      {displayRecipients[0]?.phone && (
+                        <> — <span className="font-semibold">Tel:</span> {formatPhone(displayRecipients[0].phone)}</>
+                      )}
+                    </div>
+                    {displayRecipients[0]?.address && (
+                      <div className="p-2 border-b border-foreground">
+                        <span className="font-semibold">ENDEREÇO:</span> {displayRecipients[0].address}
+                        {displayRecipients[0].cep && <> — CEP: {displayRecipients[0].cep}</>}
+                      </div>
+                    )}
+                    <div className="p-2 border-b border-foreground">
+                      <span className="font-semibold">DESCARREGAMENTO:</span>{" "}
+                      {displayRecipients[0]?.city || "-"}
+                      {displayRecipients[0]?.state && ` - ${displayRecipients[0].state}`}
+                    </div>
+                  </>
+                ) : (
+                  <div className="border-b border-foreground">
+                    <div className="px-2 pt-2">
+                      <span className="font-semibold text-sm">DESTINATÁRIOS ({displayRecipients.length}):</span>
+                    </div>
+                    <table className={`w-full ${displayRecipients.length > 3 ? "text-[9px]" : "text-[10px]"}`}>
+                      <thead>
+                        <tr className="border-b border-foreground">
+                          <th className="text-left p-1 border-r border-foreground font-semibold w-6">#</th>
+                          <th className="text-left p-1 border-r border-foreground font-semibold">Destinatário / CPF-CNPJ</th>
+                          <th className="text-left p-1 border-r border-foreground font-semibold">Endereço</th>
+                          <th className="text-left p-1 border-r border-foreground font-semibold">Cidade/UF</th>
+                          <th className="text-left p-1 font-semibold">Telefone</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayRecipients.map((r, i) => (
+                          <tr key={i} className={i < displayRecipients.length - 1 ? "border-b border-foreground" : ""}>
+                            <td className="p-1 border-r border-foreground text-center font-semibold">{i + 1}</td>
+                            <td className="p-1 border-r border-foreground">
+                              <div className="font-semibold">{r.name || "-"}</div>
+                              {r.cpf_cnpj && <div>{r.cpf_cnpj}</div>}
+                            </td>
+                            <td className="p-1 border-r border-foreground">
+                              {r.address || "-"}
+                              {r.cep && <div>CEP: {r.cep}</div>}
+                            </td>
+                            <td className="p-1 border-r border-foreground">
+                              {r.city || "-"}{r.state ? ` - ${r.state}` : ""}
+                            </td>
+                            <td className="p-1">{r.phone ? formatPhone(r.phone) : "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
                 {displayProducts.length <= 1 ? (
                   <div className="grid grid-cols-2 border-b border-foreground">
                     <div className="p-2 border-r border-foreground">
