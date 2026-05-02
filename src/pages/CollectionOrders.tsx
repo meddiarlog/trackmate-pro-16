@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import CollectionOrderPrint from "@/components/CollectionOrderPrint";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useTableFilters } from "@/hooks/useTableFilters";
 
 const BRAZILIAN_STATES = [
