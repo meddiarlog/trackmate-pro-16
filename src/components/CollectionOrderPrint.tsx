@@ -54,6 +54,20 @@ export default function CollectionOrderPrint({ order, onClose }: CollectionOrder
     },
   });
 
+  const { data: orderRecipients = [] } = useQuery({
+    queryKey: ["collection_order_recipients_print", order?.id],
+    enabled: !!order?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("collection_order_recipients")
+        .select("name, cpf_cnpj, phone, address, city, state, cep, position")
+        .eq("collection_order_id", order.id)
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Build display list, with fallback to legacy single product
   const displayProducts: Array<{ name: string; quantity: number | string; observation: string }> =
     orderProducts.length > 0
