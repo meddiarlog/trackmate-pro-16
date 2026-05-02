@@ -1064,36 +1064,161 @@ export default function CollectionOrders() {
                     </div>
                   </div>
 
-                  {/* Recipient - Not required */}
-                  <div>
-                    <Label>Destinatário</Label>
-                    <Input
-                      value={formData.recipient_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, recipient_name: e.target.value }))}
-                      placeholder="Nome do destinatário"
-                    />
-                  </div>
-
-                  {/* Unloading Location - Not required */}
-                  <div>
-                    <Label>Descarregamento</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        value={formData.unloading_city}
-                        onChange={(e) => setFormData(prev => ({ ...prev, unloading_city: e.target.value }))}
-                        placeholder="Cidade"
-                        className="flex-1"
-                      />
-                      <Select value={formData.unloading_state} onValueChange={(v) => setFormData(prev => ({ ...prev, unloading_state: v }))}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue placeholder="UF" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">-</SelectItem>
-                          {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  {/* Destinatários (multi) */}
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Destinatários *</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          recipients: [
+                            ...(prev.recipients || []),
+                            { name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "" },
+                          ],
+                        }))}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar destinatário
+                      </Button>
                     </div>
+                    <Accordion
+                      type="multiple"
+                      defaultValue={["recipient-0"]}
+                      className="border rounded-md bg-muted/30 px-3"
+                    >
+                      {(formData.recipients || []).map((rec, idx) => (
+                        <AccordionItem key={idx} value={`recipient-${idx}`} className="border-b last:border-b-0">
+                          <div className="flex items-center gap-2">
+                            <AccordionTrigger className="flex-1 hover:no-underline">
+                              <span className="text-sm font-medium text-left">
+                                #{idx + 1} — {rec.name?.trim() || "Sem nome"}
+                                {(rec.city || rec.state) && (
+                                  <span className="text-muted-foreground font-normal">
+                                    {" "}({[rec.city, rec.state].filter(Boolean).join("/")})
+                                  </span>
+                                )}
+                              </span>
+                            </AccordionTrigger>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              disabled={(formData.recipients?.length || 0) <= 1}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFormData(prev => ({
+                                  ...prev,
+                                  recipients: (prev.recipients || []).filter((_, i) => i !== idx),
+                                }));
+                              }}
+                              title="Remover destinatário"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <AccordionContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                              <div className="md:col-span-2">
+                                <Label className="text-xs">Nome / Razão Social *</Label>
+                                <Input
+                                  value={rec.name}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], name: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="Nome do destinatário"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">CPF / CNPJ</Label>
+                                <Input
+                                  value={rec.cpf_cnpj}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], cpf_cnpj: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="000.000.000-00 / 00.000.000/0000-00"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Telefone</Label>
+                                <Input
+                                  value={rec.phone}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], phone: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="(00) 00000-0000"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <Label className="text-xs">Endereço</Label>
+                                <Input
+                                  value={rec.address}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], address: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="Rua, número, bairro"
+                                />
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 md:col-span-2">
+                                <div className="col-span-2">
+                                  <Label className="text-xs">Cidade *</Label>
+                                  <Input
+                                    value={rec.city}
+                                    onChange={(e) => setFormData(prev => {
+                                      const recipients = [...(prev.recipients || [])];
+                                      recipients[idx] = { ...recipients[idx], city: e.target.value };
+                                      return { ...prev, recipients };
+                                    })}
+                                    placeholder="Cidade"
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs">UF *</Label>
+                                  <Select
+                                    value={rec.state || "__none__"}
+                                    onValueChange={(v) => setFormData(prev => {
+                                      const recipients = [...(prev.recipients || [])];
+                                      recipients[idx] = { ...recipients[idx], state: v === "__none__" ? "" : v };
+                                      return { ...prev, recipients };
+                                    })}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="UF" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="__none__">-</SelectItem>
+                                      {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div>
+                                <Label className="text-xs">CEP</Label>
+                                <Input
+                                  value={rec.cep}
+                                  onChange={(e) => setFormData(prev => {
+                                    const recipients = [...(prev.recipients || [])];
+                                    recipients[idx] = { ...recipients[idx], cep: e.target.value };
+                                    return { ...prev, recipients };
+                                  })}
+                                  placeholder="00000-000"
+                                />
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
                   </div>
 
                   {/* Products list (multi) */}
