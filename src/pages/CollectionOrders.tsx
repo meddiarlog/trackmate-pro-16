@@ -354,19 +354,6 @@ export default function CollectionOrders() {
     },
   });
 
-  // Fetch customers (for recipient lookup)
-  const { data: customers = [] } = useQuery({
-    queryKey: ["customers-recipient-lookup"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, name, nome_fantasia, cpf_cnpj, phone, address, neighborhood, city, state, cep")
-        .order("name");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
   // Fetch freight types
   const { data: freightTypes = [] } = useQuery({
     queryKey: ["freight-types"],
