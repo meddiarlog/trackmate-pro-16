@@ -19,7 +19,7 @@ import CollectionOrderPrint from "@/components/CollectionOrderPrint";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useTableFilters } from "@/hooks/useTableFilters";
-import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
+
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
@@ -351,19 +351,6 @@ export default function CollectionOrders() {
       const { data, error } = await supabase.from("products").select("*").order("name");
       if (error) throw error;
       return data;
-    },
-  });
-
-  // Fetch customers (for recipient lookup)
-  const { data: customers = [] } = useQuery({
-    queryKey: ["customers-recipient-lookup"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, name, nome_fantasia, cpf_cnpj, phone, address, neighborhood, city, state, cep")
-        .order("name");
-      if (error) throw error;
-      return data || [];
     },
   });
 
@@ -1136,33 +1123,6 @@ export default function CollectionOrders() {
                           </div>
                           <AccordionContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                              <div className="md:col-span-2">
-                                <Label className="text-xs">Buscar em Clientes</Label>
-                                <CustomerSearchSelect
-                                  customers={customers as any}
-                                  value=""
-                                  onChange={(customerId) => {
-                                    const c = (customers as any[]).find(x => x.id === customerId);
-                                    if (!c) return;
-                                    setFormData(prev => {
-                                      const recipients = [...(prev.recipients || [])];
-                                      const fullAddress = [c.address, c.neighborhood].filter(Boolean).join(", ");
-                                      recipients[idx] = {
-                                        ...recipients[idx],
-                                        name: c.nome_fantasia || c.name || "",
-                                        cpf_cnpj: c.cpf_cnpj || "",
-                                        phone: c.phone || "",
-                                        address: fullAddress,
-                                        city: c.city || "",
-                                        state: c.state || "",
-                                        cep: c.cep || "",
-                                      };
-                                      return { ...prev, recipients };
-                                    });
-                                  }}
-                                  placeholder="Buscar por nome, CPF ou CNPJ..."
-                                />
-                              </div>
                               <div className="md:col-span-2">
                                 <Label className="text-xs">Nome / Razão Social *</Label>
                                 <Input
