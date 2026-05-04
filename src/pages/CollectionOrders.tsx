@@ -19,7 +19,7 @@ import CollectionOrderPrint from "@/components/CollectionOrderPrint";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useTableFilters } from "@/hooks/useTableFilters";
-import { CustomerSearchSelect } from "@/components/CustomerSearchSelect";
+
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
