@@ -1,0 +1,1 @@
+ALTER TABLE public.collection_order_recipients ALTER COLUMN name DROP NOT NULL;

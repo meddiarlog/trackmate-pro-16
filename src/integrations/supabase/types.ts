@@ -471,7 +471,7 @@ export type Database = {
           cpf_cnpj: string | null
           created_at: string
           id: string
-          name: string
+          name: string | null
           phone: string | null
           position: number
           state: string | null
@@ -484,7 +484,7 @@ export type Database = {
           cpf_cnpj?: string | null
           created_at?: string
           id?: string
-          name: string
+          name?: string | null
           phone?: string | null
           position?: number
           state?: string | null
@@ -497,7 +497,7 @@ export type Database = {
           cpf_cnpj?: string | null
           created_at?: string
           id?: string
-          name?: string
+          name?: string | null
           phone?: string | null
           position?: number
           state?: string | null
