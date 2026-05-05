@@ -481,11 +481,11 @@ export default function CollectionOrders() {
 
       // Insert recipients
       const recipientRows = (data.recipients || [])
-        .filter(r => r.name && r.name.trim() !== "")
+        .filter(r => [r.name, r.cpf_cnpj, r.phone, r.address, r.city, r.state, r.cep].some(v => v && v.trim() !== ""))
         .map((r, idx) => ({
           collection_order_id: insertedOrder.id,
           position: idx,
-          name: r.name.trim(),
+          name: (r.name || "").trim(),
           cpf_cnpj: r.cpf_cnpj || null,
           phone: r.phone || null,
           address: r.address || null,
@@ -583,11 +583,11 @@ export default function CollectionOrders() {
       if (recDelError) throw recDelError;
 
       const recipientRows = (data.recipients || [])
-        .filter(r => r.name && r.name.trim() !== "")
+        .filter(r => [r.name, r.cpf_cnpj, r.phone, r.address, r.city, r.state, r.cep].some(v => v && v.trim() !== ""))
         .map((r, idx) => ({
           collection_order_id: data.id!,
           position: idx,
-          name: r.name.trim(),
+          name: (r.name || "").trim(),
           cpf_cnpj: r.cpf_cnpj || null,
           phone: r.phone || null,
           address: r.address || null,
@@ -809,7 +809,7 @@ export default function CollectionOrders() {
       toast.error("Adicione pelo menos um produto com quantidade válida");
       return;
     }
-    // Validate recipients (at least 1 with name; each must have name, city and state)
+    // Validate recipients (at least 1; each must have UF)
     const recipients = formData.recipients || [];
     if (recipients.length === 0) {
       toast.error("Adicione pelo menos um destinatário");
@@ -817,14 +817,6 @@ export default function CollectionOrders() {
     }
     for (let i = 0; i < recipients.length; i++) {
       const r = recipients[i];
-      if (!r.name || !r.name.trim()) {
-        toast.error(`Destinatário #${i + 1}: informe o nome / razão social`);
-        return;
-      }
-      if (!r.city || !r.city.trim()) {
-        toast.error(`Destinatário #${i + 1}: informe a cidade`);
-        return;
-      }
       if (!r.state || !r.state.trim()) {
         toast.error(`Destinatário #${i + 1}: informe a UF`);
         return;
@@ -1124,7 +1116,7 @@ export default function CollectionOrders() {
                           <AccordionContent>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                               <div className="md:col-span-2">
-                                <Label className="text-xs">Nome / Razão Social *</Label>
+                                <Label className="text-xs">Nome / Razão Social</Label>
                                 <Input
                                   value={rec.name}
                                   onChange={(e) => setFormData(prev => {
@@ -1173,7 +1165,7 @@ export default function CollectionOrders() {
                               </div>
                               <div className="grid grid-cols-3 gap-2 md:col-span-2">
                                 <div className="col-span-2">
-                                  <Label className="text-xs">Cidade *</Label>
+                                  <Label className="text-xs">Cidade</Label>
                                   <Input
                                     value={rec.city}
                                     onChange={(e) => setFormData(prev => {

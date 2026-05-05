@@ -1,32 +1,67 @@
-# Reverter destinatários para digitação livre
+# Ordem de Coleta — Destinatários: Nome e Cidade opcionais
 
-A integração anterior adicionou um `CustomerSearchSelect` em cada destinatário da Ordem de Coleta. Conforme o pedido, os destinatários voltam a ser de digitação livre — sem buscar nada na tabela de Clientes. Apenas o campo **UF** permanece como lista de seleção (já está assim hoje). A possibilidade de adicionar múltiplos destinatários é mantida.
+Tornar os campos **Nome / Razão Social** e **Cidade** dos destinatários opcionais, mantendo todos os demais comportamentos do módulo.
 
-## Mudanças
+## 1. Banco de dados
 
-### `src/pages/CollectionOrders.tsx`
+Criar migration para alterar a constraint `NOT NULL` da coluna `name` na tabela `collection_order_recipients`.
 
-1. **Remover o componente de busca**: apagar o bloco `<CustomerSearchSelect ... />` que aparece no topo de cada item do accordion de destinatários (linhas ~1141–1163), incluindo o label "Buscar em Clientes" e o `onChange` que auto-preenche os campos.
+```sql
+ALTER TABLE public.collection_order_recipients
+  ALTER COLUMN name DROP NOT NULL;
+```
 
-2. **Remover o import** de `CustomerSearchSelect` no topo do arquivo (linha 22).
+- `city` já é nullable (não precisa de alteração).
+- RLS policies permanecem inalteradas.
 
-3. **Remover a query** `customers-recipient-lookup` (linhas ~357–371) e a variável `customers` derivada — não é mais usada por este formulário.
+## 2. Frontend — UI
 
-4. **Manter intactos**:
-   - Os inputs de digitação livre: Nome / Razão Social, CPF/CNPJ, Telefone, Endereço, Cidade, CEP.
-   - O `Select` de UF com a lista de estados.
-   - Botão "Adicionar destinatário" e a remoção de destinatários.
-   - A sincronização com os campos legados (`recipient_name`, `unloading_city`, `unloading_state`) baseada no primeiro destinatário.
-   - A persistência em `collection_order_recipients` e a impressão (`CollectionOrderPrint.tsx`).
+Em `src/pages/CollectionOrders.tsx` (seção do accordion de destinatários):
 
-### Sem mudanças em banco
+- **Linha ~1127**: Alterar label de `Nome / Razão Social *` para `Nome / Razão Social`.
+- **Linha ~1176**: Alterar label de `Cidade *` para `Cidade`.
+- Manter `UF *` como está.
 
-A estrutura `collection_order_recipients` continua igual. Nenhuma migração necessária.
+## 3. Frontend — Validação do submit (`handleSubmit`)
 
-### Sem mudanças em impressão
+Na função `handleSubmit` (linhas ~818-832):
 
-Os mesmos campos continuam sendo gravados — a impressão não muda.
+- **Remover** o bloco que exige `name` preenchido:
+  ```typescript
+  if (!r.name || !r.name.trim()) {
+    toast.error(`Destinatário #${i + 1}: informe o nome / razão social`);
+    return;
+  }
+  ```
+- **Remover** o bloco que exige `city` preenchida:
+  ```typescript
+  if (!r.city || !r.city.trim()) {
+    toast.error(`Destinatário #${i + 1}: informe a cidade`);
+    return;
+  }
+  ```
+- Manter a validação de `state` (UF) obrigatório e a verificação de existência de pelo menos um destinatário.
+
+## 4. Frontend — Critério de persistência dos destinatários
+
+Atualmente o código filtra destinatários exigindo `name` preenchido. Como `name` passa a ser opcional, o critério deve mudar para: persistir o destinatário se **pelo menos um campo** estiver preenchido.
+
+Alterar em dois lugares:
+
+- **`createOrderMutation`** (linha ~484):
+  ```typescript
+  .filter(r => [r.name, r.cpf_cnpj, r.phone, r.address, r.city, r.state, r.cep]
+    .some(v => v && v.trim() !== ""))
+  ```
+
+- **`updateOrderMutation`** (linha ~586):
+  Aplicar o mesmo filtro acima.
+
+## 5. Tipos do Supabase
+
+O arquivo `src/integrations/supabase/types.ts` é gerado automaticamente e **não deve ser editado manualmente**. Após a migration ser aplicada, os tipos serão atualizados automaticamente.
 
 ## Arquivos afetados
 
-- `src/pages/CollectionOrders.tsx` — remover import, query de customers e o bloco `CustomerSearchSelect` de cada destinatário.
+- `supabase/migrations/` — nova migration com `ALTER TABLE`
+- `src/pages/CollectionOrders.tsx` — labels, validação e filtros de persistência
