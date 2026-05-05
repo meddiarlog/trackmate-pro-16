@@ -809,18 +809,11 @@ export default function CollectionOrders() {
       toast.error("Adicione pelo menos um produto com quantidade válida");
       return;
     }
-    // Validate recipients (at least 1; each must have UF)
+    // Validate recipients (at least 1)
     const recipients = formData.recipients || [];
     if (recipients.length === 0) {
       toast.error("Adicione pelo menos um destinatário");
       return;
-    }
-    for (let i = 0; i < recipients.length; i++) {
-      const r = recipients[i];
-      if (!r.state || !r.state.trim()) {
-        toast.error(`Destinatário #${i + 1}: informe a UF`);
-        return;
-      }
     }
     if (editingOrderId) {
       updateOrderMutation.mutate({ ...formData, id: editingOrderId });
@@ -1177,7 +1170,7 @@ export default function CollectionOrders() {
                                   />
                                 </div>
                                 <div>
-                                  <Label className="text-xs">UF *</Label>
+                                  <Label className="text-xs">UF</Label>
                                   <Select
                                     value={rec.state || "__none__"}
                                     onValueChange={(v) => setFormData(prev => {
