@@ -90,6 +90,7 @@ type Cobranca = {
   formattedDueDate?: string;
   typeLabel?: string;
   tratativaLabel?: string;
+  bankName?: string;
 };
 
 type CustomerGroup = {
