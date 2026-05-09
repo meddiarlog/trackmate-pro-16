@@ -245,6 +245,7 @@ export default function Customers() {
         ...customer,
         cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
         group_id: customer.group_id || null,
+        bank_id: customer.bank_id || null,
       };
       
       if (editingCustomer) {
@@ -326,6 +327,7 @@ export default function Customers() {
       prazo_dias: 30,
       observacoes: "",
       group_id: "",
+      bank_id: "",
     });
     setContacts([]);
     setEditingCustomer(null);
@@ -357,6 +359,7 @@ export default function Customers() {
       prazo_dias: customer.prazo_dias || 30,
       observacoes: customer.observacoes || "",
       group_id: customer.group_id || "",
+      bank_id: (customer as any).bank_id || "",
     });
     
     // Fetch contacts
