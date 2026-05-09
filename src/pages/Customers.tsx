@@ -26,6 +26,7 @@ interface Customer {
   prazo_dias?: number;
   observacoes?: string;
   group_id?: string;
+  bank_id?: string | null;
 }
 
 interface CustomerGroup {
@@ -64,6 +65,21 @@ export default function Customers() {
     prazo_dias: 30,
     observacoes: "",
     group_id: "",
+    bank_id: "",
+  });
+
+  // Fetch active banks for dropdown
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks-active"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; code: string | null }[];
+    },
   });
 
   // Fetch groups for dropdown
@@ -229,6 +245,7 @@ export default function Customers() {
         ...customer,
         cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
         group_id: customer.group_id || null,
+        bank_id: customer.bank_id || null,
       };
       
       if (editingCustomer) {
@@ -310,6 +327,7 @@ export default function Customers() {
       prazo_dias: 30,
       observacoes: "",
       group_id: "",
+      bank_id: "",
     });
     setContacts([]);
     setEditingCustomer(null);
@@ -341,6 +359,7 @@ export default function Customers() {
       prazo_dias: customer.prazo_dias || 30,
       observacoes: customer.observacoes || "",
       group_id: customer.group_id || "",
+      bank_id: (customer as any).bank_id || "",
     });
     
     // Fetch contacts
@@ -555,6 +574,26 @@ export default function Customers() {
                 />
               </div>
 
+              {/* Banco para Boleto */}
+              <div className="space-y-2">
+                <Label htmlFor="bank_id">Banco para geração de boleto</Label>
+                <Select
+                  value={formData.bank_id || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, bank_id: value === "__none__" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um banco (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {banks.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.code ? `${b.code} - ` : ""}{b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
