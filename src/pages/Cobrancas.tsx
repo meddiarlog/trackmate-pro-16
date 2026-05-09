@@ -1013,6 +1013,12 @@ Equipe de Cobrança`;
       render: (item) => getTratativaBadge(item.tratativa_status),
     },
     {
+      key: "bankName",
+      header: "Banco",
+      sortable: true,
+      render: (item) => item.bankName || "—",
+    },
+    {
       key: "cte_reference",
       header: "CTE",
       sortable: true,
