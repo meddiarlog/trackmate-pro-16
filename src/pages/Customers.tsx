@@ -26,6 +26,7 @@ interface Customer {
   prazo_dias?: number;
   observacoes?: string;
   group_id?: string;
+  bank_id?: string | null;
 }
 
 interface CustomerGroup {
@@ -64,6 +65,21 @@ export default function Customers() {
     prazo_dias: 30,
     observacoes: "",
     group_id: "",
+    bank_id: "",
+  });
+
+  // Fetch active banks for dropdown
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks-active"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; code: string | null }[];
+    },
   });
 
   // Fetch groups for dropdown
