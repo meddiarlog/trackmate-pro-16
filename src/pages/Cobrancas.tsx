@@ -124,6 +124,7 @@ type CustomerContact = {
 const Cobrancas = () => {
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
