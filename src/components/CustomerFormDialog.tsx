@@ -463,6 +463,27 @@ export function CustomerFormDialog({
             </Select>
           </div>
 
+          {/* Banco para Boleto */}
+          <div className="space-y-2">
+            <Label htmlFor="bank_id">Banco para geração de boleto</Label>
+            <Select
+              value={formData.bank_id || "__none__"}
+              onValueChange={(value) => setFormData({ ...formData, bank_id: value === "__none__" ? "" : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um banco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Nenhum</SelectItem>
+                {banks.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.code ? `${b.code} - ` : ""}{b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Observações */}
           <div className="space-y-2">
             <Label htmlFor="observacoes">Observações</Label>
