@@ -283,11 +283,13 @@ const Cobrancas = () => {
     const customer = customers.find(c => c.id === customerId);
     const prazoDias = customer?.prazo_dias || 30;
     const newDueDate = calculateDueDate(formData.issue_date, prazoDias);
-    
+
     setFormData({
       ...formData,
       customer_id: customerId,
       due_date: newDueDate,
+      // Auto-fill bank from customer; user can still change manually
+      bank_id: customer?.bank_id || formData.bank_id,
     });
   };
 
