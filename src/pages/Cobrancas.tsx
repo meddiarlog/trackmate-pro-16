@@ -90,6 +90,7 @@ type Cobranca = {
   formattedDueDate?: string;
   typeLabel?: string;
   tratativaLabel?: string;
+  bankName?: string;
 };
 
 type CustomerGroup = {
@@ -180,6 +181,8 @@ const Cobrancas = () => {
   // Transform cobrancas with computed fields for filtering
   const transformedCobrancas = cobrancas.map(cobranca => {
     const effectiveStatus = getEffectiveStatus(cobranca);
+    const bank = banks.find(b => b.id === (cobranca as any).bank_id);
+    const bankName = bank ? (bank.code ? `${bank.code} - ${bank.name}` : bank.name) : "";
     return {
       ...cobranca,
       customerName: cobranca.customer?.name || "",
@@ -191,6 +194,7 @@ const Cobrancas = () => {
       formattedDueDate: format(new Date(cobranca.due_date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }),
       typeLabel: getTypeLabel(cobranca.type),
       tratativaLabel: getTratativaLabel(cobranca.tratativa_status),
+      bankName,
     };
   });
 
@@ -207,7 +211,7 @@ const Cobrancas = () => {
     totalCount,
     filteredCount,
   } = useTableFilters(transformedCobrancas, [
-    'customerName', 'pagadorName', 'cte_reference', 'doc_number', 'typeLabel', 'effectiveStatus', 'formattedAmount'
+    'customerName', 'pagadorName', 'cte_reference', 'doc_number', 'typeLabel', 'effectiveStatus', 'formattedAmount', 'bankName'
   ]);
 
   useEffect(() => {
@@ -1008,6 +1012,12 @@ Equipe de Cobrança`;
       header: "Acordado",
       sortable: true,
       render: (item) => getTratativaBadge(item.tratativa_status),
+    },
+    {
+      key: "bankName",
+      header: "Banco",
+      sortable: true,
+      render: (item) => item.bankName || "—",
     },
     {
       key: "cte_reference",
