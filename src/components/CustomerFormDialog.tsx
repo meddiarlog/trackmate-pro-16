@@ -26,6 +26,7 @@ interface CustomerFormDialogProps {
     responsavel?: string;
     prazo_dias?: number;
     observacoes?: string;
+    bank_id?: string | null;
   } | null;
 }
 
