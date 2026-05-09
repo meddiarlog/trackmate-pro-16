@@ -574,6 +574,26 @@ export default function Customers() {
                 />
               </div>
 
+              {/* Banco para Boleto */}
+              <div className="space-y-2">
+                <Label htmlFor="bank_id">Banco para geração de boleto</Label>
+                <Select
+                  value={formData.bank_id || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, bank_id: value === "__none__" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um banco (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {banks.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.code ? `${b.code} - ` : ""}{b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
