@@ -759,6 +759,7 @@ const Cobrancas = () => {
       data_acerto: "",
       group_id: "",
       observacoes: "",
+      bank_id: "",
       file: null,
     });
     setEditingCobranca(null);
