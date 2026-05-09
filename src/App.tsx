@@ -98,8 +98,8 @@ const App = () => (
               <Route path="repository" element={<RepositoryFixed />} />
               
               {/* Settings */}
-              <Route path="settings/units" element={<SettingsUnits />} />
               <Route path="settings/company" element={<CompanySettings />} />
+              <Route path="settings/banks" element={<Banks />} />
               <Route path="settings/payment-methods" element={<PaymentMethods />} />
               
               {/* Account */}
