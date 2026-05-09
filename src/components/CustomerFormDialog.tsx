@@ -64,6 +64,20 @@ export function CustomerFormDialog({
     cobranca_responsavel: "",
     cobranca_contato: "",
     cobranca_email: "",
+    bank_id: "" as string,
+  });
+
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks-active"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; code: string | null }[];
+    },
   });
 
   // Load data when editing
