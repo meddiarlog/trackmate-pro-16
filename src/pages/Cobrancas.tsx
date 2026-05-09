@@ -214,7 +214,22 @@ const Cobrancas = () => {
     fetchCobrancas();
     fetchCustomers();
     fetchCustomerGroups();
+    fetchBanks();
   }, []);
+
+  const fetchBanks = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      setBanks((data || []) as Bank[]);
+    } catch (error) {
+      console.error("Erro ao carregar bancos:", error);
+    }
+  };
 
   const fetchCustomerGroups = async () => {
     try {
