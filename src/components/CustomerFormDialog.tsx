@@ -211,6 +211,7 @@ export function CustomerFormDialog({
       const customerData = {
         ...customer,
         cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
+        bank_id: customer.bank_id || null,
       };
       
       if (editingCustomer) {
