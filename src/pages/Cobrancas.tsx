@@ -181,7 +181,9 @@ const Cobrancas = () => {
   // Transform cobrancas with computed fields for filtering
   const transformedCobrancas = cobrancas.map(cobranca => {
     const effectiveStatus = getEffectiveStatus(cobranca);
-    const bank = banks.find(b => b.id === (cobranca as any).bank_id);
+    const customer = customers.find(c => c.id === cobranca.customer_id);
+    const effectiveBankId = (cobranca as any).bank_id || customer?.bank_id || null;
+    const bank = banks.find(b => b.id === effectiveBankId);
     const bankName = bank ? (bank.code ? `${bank.code} - ${bank.name}` : bank.name) : "";
     return {
       ...cobranca,
@@ -584,7 +586,7 @@ const Cobrancas = () => {
       data_acerto: cobranca.data_acerto || "",
       group_id: cobranca.group_id || "",
       observacoes: cobranca.observacoes || "",
-      bank_id: (cobranca as any).bank_id || "",
+      bank_id: (cobranca as any).bank_id || customers.find(c => c.id === cobranca.customer_id)?.bank_id || "",
       file: null,
     });
     setDialogOpen(true);
