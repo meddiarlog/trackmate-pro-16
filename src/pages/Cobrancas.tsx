@@ -156,6 +156,7 @@ const Cobrancas = () => {
     data_acerto: "",
     group_id: "",
     observacoes: "",
+    bank_id: "",
     file: null as File | null,
   });
 
