@@ -104,6 +104,13 @@ type Customer = {
   cpf_cnpj: string | null;
   phone: string | null;
   nome_fantasia: string | null;
+  bank_id: string | null;
+};
+
+type Bank = {
+  id: string;
+  name: string;
+  code: string | null;
 };
 
 type CustomerContact = {
