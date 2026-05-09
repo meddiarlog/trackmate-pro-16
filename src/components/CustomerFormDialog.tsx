@@ -283,6 +283,7 @@ export function CustomerFormDialog({
       cobranca_responsavel: "",
       cobranca_contato: "",
       cobranca_email: "",
+      bank_id: "",
     });
     setContacts([]);
   };
