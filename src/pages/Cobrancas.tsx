@@ -104,6 +104,13 @@ type Customer = {
   cpf_cnpj: string | null;
   phone: string | null;
   nome_fantasia: string | null;
+  bank_id: string | null;
+};
+
+type Bank = {
+  id: string;
+  name: string;
+  code: string | null;
 };
 
 type CustomerContact = {
@@ -117,6 +124,7 @@ type CustomerContact = {
 const Cobrancas = () => {
   const [cobrancas, setCobrancas] = useState<Cobranca[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -148,6 +156,7 @@ const Cobrancas = () => {
     data_acerto: "",
     group_id: "",
     observacoes: "",
+    bank_id: "",
     file: null as File | null,
   });
 
@@ -205,7 +214,22 @@ const Cobrancas = () => {
     fetchCobrancas();
     fetchCustomers();
     fetchCustomerGroups();
+    fetchBanks();
   }, []);
+
+  const fetchBanks = async () => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      setBanks((data || []) as Bank[]);
+    } catch (error) {
+      console.error("Erro ao carregar bancos:", error);
+    }
+  };
 
   const fetchCustomerGroups = async () => {
     try {
@@ -249,7 +273,7 @@ const Cobrancas = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, prazo_dias, cpf_cnpj, phone, nome_fantasia")
+        .select("id, name, prazo_dias, cpf_cnpj, phone, nome_fantasia, bank_id")
         .order("name");
 
       if (error) throw error;
@@ -274,11 +298,13 @@ const Cobrancas = () => {
     const customer = customers.find(c => c.id === customerId);
     const prazoDias = customer?.prazo_dias || 30;
     const newDueDate = calculateDueDate(formData.issue_date, prazoDias);
-    
+
     setFormData({
       ...formData,
       customer_id: customerId,
       due_date: newDueDate,
+      // Auto-fill bank from customer; user can still change manually
+      bank_id: customer?.bank_id || formData.bank_id,
     });
   };
 
@@ -455,6 +481,7 @@ const Cobrancas = () => {
         data_acerto: formData.data_acerto || null,
         group_id: formData.group_id || null,
         observacoes: formData.observacoes || null,
+        bank_id: formData.bank_id || null,
         status: editingCobranca?.status || "Em aberto",
       };
 
@@ -553,6 +580,7 @@ const Cobrancas = () => {
       data_acerto: cobranca.data_acerto || "",
       group_id: cobranca.group_id || "",
       observacoes: cobranca.observacoes || "",
+      bank_id: (cobranca as any).bank_id || "",
       file: null,
     });
     setDialogOpen(true);
@@ -749,6 +777,7 @@ const Cobrancas = () => {
       data_acerto: "",
       group_id: "",
       observacoes: "",
+      bank_id: "",
       file: null,
     });
     setEditingCobranca(null);
@@ -1140,6 +1169,26 @@ Equipe de Cobrança`;
                   allowNone
                   noneLabel="Nenhum (usar cliente)"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="bank_id">Banco</Label>
+                <Select
+                  value={formData.bank_id || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, bank_id: value === "__none__" ? "" : value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um banco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {banks.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.code ? `${b.code} - ` : ""}{b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

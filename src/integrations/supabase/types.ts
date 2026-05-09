@@ -231,6 +231,42 @@ export type Database = {
           },
         ]
       }
+      banks: {
+        Row: {
+          account: string | null
+          agency: string | null
+          code: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          wallet: string | null
+        }
+        Insert: {
+          account?: string | null
+          agency?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          wallet?: string | null
+        }
+        Update: {
+          account?: string | null
+          agency?: string | null
+          code?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          wallet?: string | null
+        }
+        Relationships: []
+      }
       body_types: {
         Row: {
           created_at: string
@@ -252,6 +288,7 @@ export type Database = {
       boletos: {
         Row: {
           amount: number | null
+          bank_id: string | null
           comprovante_name: string | null
           comprovante_url: string | null
           created_at: string
@@ -274,6 +311,7 @@ export type Database = {
         }
         Insert: {
           amount?: number | null
+          bank_id?: string | null
           comprovante_name?: string | null
           comprovante_url?: string | null
           created_at?: string
@@ -296,6 +334,7 @@ export type Database = {
         }
         Update: {
           amount?: number | null
+          bank_id?: string | null
           comprovante_name?: string | null
           comprovante_url?: string | null
           created_at?: string
@@ -1114,6 +1153,7 @@ export type Database = {
       customers: {
         Row: {
           address: string | null
+          bank_id: string | null
           cep: string | null
           city: string | null
           cobranca_contato: string | null
@@ -1139,6 +1179,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          bank_id?: string | null
           cep?: string | null
           city?: string | null
           cobranca_contato?: string | null
@@ -1164,6 +1205,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          bank_id?: string | null
           cep?: string | null
           city?: string | null
           cobranca_contato?: string | null

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ interface CustomerFormDialogProps {
     responsavel?: string;
     prazo_dias?: number;
     observacoes?: string;
+    bank_id?: string | null;
   } | null;
 }
 
@@ -63,6 +64,20 @@ export function CustomerFormDialog({
     cobranca_responsavel: "",
     cobranca_contato: "",
     cobranca_email: "",
+    bank_id: "" as string,
+  });
+
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks-active"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("banks")
+        .select("id, name, code")
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data || []) as { id: string; name: string; code: string | null }[];
+    },
   });
 
   // Load data when editing
@@ -83,6 +98,7 @@ export function CustomerFormDialog({
         cobranca_responsavel: (editingCustomer as any).cobranca_responsavel || "",
         cobranca_contato: (editingCustomer as any).cobranca_contato || "",
         cobranca_email: (editingCustomer as any).cobranca_email || "",
+        bank_id: (editingCustomer as any).bank_id || "",
       });
       // Fetch contacts
       fetchContactsForCustomer(editingCustomer.id);
@@ -195,6 +211,7 @@ export function CustomerFormDialog({
       const customerData = {
         ...customer,
         cpf_cnpj: customer.cpf_cnpj?.replace(/\D/g, "") || null,
+        bank_id: customer.bank_id || null,
       };
       
       if (editingCustomer) {
@@ -267,6 +284,7 @@ export function CustomerFormDialog({
       cobranca_responsavel: "",
       cobranca_contato: "",
       cobranca_email: "",
+      bank_id: "",
     });
     setContacts([]);
   };
@@ -439,6 +457,27 @@ export function CustomerFormDialog({
                 {prazoOptions.map((dia) => (
                   <SelectItem key={dia} value={String(dia)}>
                     {dia} {dia === 1 ? "dia" : "dias"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Banco para Boleto */}
+          <div className="space-y-2">
+            <Label htmlFor="bank_id">Banco para geração de boleto</Label>
+            <Select
+              value={formData.bank_id || "__none__"}
+              onValueChange={(value) => setFormData({ ...formData, bank_id: value === "__none__" ? "" : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione um banco" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Nenhum</SelectItem>
+                {banks.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.code ? `${b.code} - ` : ""}{b.name}
                   </SelectItem>
                 ))}
               </SelectContent>
