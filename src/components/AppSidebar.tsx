@@ -106,12 +106,12 @@ const menuItems = [
     icon: Settings,
     items: [
       { title: "Dados da Empresa", url: "/settings/company", icon: Building2 },
-      { title: "Unidades", url: "/settings/units", icon: Building2 },
       {
-        title: "Banco",
+        title: "Conf. Financeiro",
         icon: Wallet,
         items: [
-          { title: "Forma de Pagamento", url: "/settings/payment-methods", icon: CreditCard },
+          { title: "Bancos", url: "/settings/banks", icon: Landmark },
+          { title: "Forma de Pgto.", url: "/settings/payment-methods", icon: CreditCard },
         ],
       },
     ],
