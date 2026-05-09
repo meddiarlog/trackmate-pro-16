@@ -98,6 +98,7 @@ export function CustomerFormDialog({
         cobranca_responsavel: (editingCustomer as any).cobranca_responsavel || "",
         cobranca_contato: (editingCustomer as any).cobranca_contato || "",
         cobranca_email: (editingCustomer as any).cobranca_email || "",
+        bank_id: (editingCustomer as any).bank_id || "",
       });
       // Fetch contacts
       fetchContactsForCustomer(editingCustomer.id);
