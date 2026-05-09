@@ -481,6 +481,7 @@ const Cobrancas = () => {
         data_acerto: formData.data_acerto || null,
         group_id: formData.group_id || null,
         observacoes: formData.observacoes || null,
+        bank_id: formData.bank_id || null,
         status: editingCobranca?.status || "Em aberto",
       };
 
