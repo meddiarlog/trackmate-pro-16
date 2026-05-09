@@ -30,7 +30,7 @@ import AccountsReceivable from "./pages/AccountsReceivable";
 import CashBoxes from "./pages/CashBoxes";
 import Reports from "./pages/Reports";
 import RepositoryFixed from "./pages/RepositoryFixed";
-import SettingsUnits from "./pages/SettingsUnits";
+import Banks from "./pages/Banks";
 import CompanySettings from "./pages/CompanySettings";
 import Account from "./pages/Account";
 import AccessUsers from "./pages/AccessUsers";
