@@ -256,7 +256,7 @@ const Cobrancas = () => {
     try {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, prazo_dias, cpf_cnpj, phone, nome_fantasia")
+        .select("id, name, prazo_dias, cpf_cnpj, phone, nome_fantasia, bank_id")
         .order("name");
 
       if (error) throw error;
