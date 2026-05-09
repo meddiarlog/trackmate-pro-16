@@ -210,7 +210,7 @@ const Cobrancas = () => {
     totalCount,
     filteredCount,
   } = useTableFilters(transformedCobrancas, [
-    'customerName', 'pagadorName', 'cte_reference', 'doc_number', 'typeLabel', 'effectiveStatus', 'formattedAmount'
+    'customerName', 'pagadorName', 'cte_reference', 'doc_number', 'typeLabel', 'effectiveStatus', 'formattedAmount', 'bankName'
   ]);
 
   useEffect(() => {
