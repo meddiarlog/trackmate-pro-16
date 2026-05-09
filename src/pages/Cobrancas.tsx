@@ -586,7 +586,7 @@ const Cobrancas = () => {
       data_acerto: cobranca.data_acerto || "",
       group_id: cobranca.group_id || "",
       observacoes: cobranca.observacoes || "",
-      bank_id: (cobranca as any).bank_id || "",
+      bank_id: (cobranca as any).bank_id || customers.find(c => c.id === cobranca.customer_id)?.bank_id || "",
       file: null,
     });
     setDialogOpen(true);
