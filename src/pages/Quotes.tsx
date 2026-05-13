@@ -374,6 +374,10 @@ export default function Quotes() {
         descarga_responsavel: data.descarga_responsavel || null,
         vehicle_type_id: data.vehicle_type_id || null,
         body_type_id: data.body_type_id || null,
+        freight_mode: data.service_transporte ? (data.freight_mode || null) : null,
+        weight_kg: data.service_transporte && data.freight_mode === "per_ton"
+          ? (parseFloat(data.weight_kg) || 0)
+          : null,
         delivery_days: parseInt(data.delivery_days) || 0,
         quote_validity_days: parseInt(data.quote_validity_days) || 15,
         payment_term_days: parseInt(data.payment_term_days) || 30,
