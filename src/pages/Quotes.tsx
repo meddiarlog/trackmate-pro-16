@@ -78,6 +78,8 @@ interface Quote {
   descarga_responsavel?: string | null;
   vehicle_type_id: string | null;
   body_type_id?: string | null;
+  freight_mode?: string | null;
+  weight_kg?: number | null;
   delivery_days: number;
   quote_validity_days?: number;
   payment_term_days?: number;
@@ -168,6 +170,8 @@ export default function Quotes() {
     descarga_responsavel: "",
     vehicle_type_id: "",
     body_type_id: "",
+    freight_mode: "",
+    weight_kg: "",
     delivery_days: "0",
     quote_validity_days: "15",
     payment_term_days: "30",
@@ -185,10 +189,20 @@ export default function Quotes() {
     return services.join(", ") || "transporte";
   };
 
+  // Compute the transport value (handles per-ton vs closed)
+  const computeTransportValue = () => {
+    const freight = parseFloat(formData.freight_value) || 0;
+    if (formData.freight_mode === "per_ton") {
+      const weightKg = parseFloat(formData.weight_kg) || 0;
+      return Math.round(((weightKg / 1000) * freight) * 100) / 100;
+    }
+    return freight;
+  };
+
   // Calculate total value
   const calculateTotal = () => {
     let total = 0;
-    if (formData.service_transporte) total += parseFloat(formData.freight_value) || 0;
+    if (formData.service_transporte) total += computeTransportValue();
     if (formData.service_munck) total += parseFloat(formData.munck_value) || 0;
     if (formData.service_carregamento) total += parseFloat(formData.carregamento_value) || 0;
     if (formData.service_descarga) total += parseFloat(formData.descarga_value) || 0;
@@ -197,7 +211,10 @@ export default function Quotes() {
 
   // Helper to get total from a quote record
   const getQuoteTotal = (quote: Quote) => {
-    return (quote.freight_value || 0) + (quote.munck_value || 0) + (quote.carregamento_value || 0) + (quote.descarga_value || 0);
+    const transport = quote.freight_mode === "per_ton"
+      ? Math.round((((quote.weight_kg || 0) / 1000) * (quote.freight_value || 0)) * 100) / 100
+      : (quote.freight_value || 0);
+    return transport + (quote.munck_value || 0) + (quote.carregamento_value || 0) + (quote.descarga_value || 0);
   };
 
   // Helper to get service display string from a quote
@@ -357,6 +374,10 @@ export default function Quotes() {
         descarga_responsavel: data.descarga_responsavel || null,
         vehicle_type_id: data.vehicle_type_id || null,
         body_type_id: data.body_type_id || null,
+        freight_mode: data.service_transporte ? (data.freight_mode || null) : null,
+        weight_kg: data.service_transporte && data.freight_mode === "per_ton"
+          ? (parseFloat(data.weight_kg) || 0)
+          : null,
         delivery_days: parseInt(data.delivery_days) || 0,
         quote_validity_days: parseInt(data.quote_validity_days) || 15,
         payment_term_days: parseInt(data.payment_term_days) || 30,
@@ -498,6 +519,8 @@ export default function Quotes() {
       descarga_responsavel: "",
       vehicle_type_id: "",
       body_type_id: "",
+      freight_mode: "",
+      weight_kg: "",
       delivery_days: "0",
       quote_validity_days: "15",
       payment_term_days: "30",
@@ -519,6 +542,14 @@ export default function Quotes() {
     if (formData.service_transporte) {
       if (!formData.origin_city || !formData.destination_city) {
         toast.error("Origem e Destino são obrigatórios para Transporte");
+        return;
+      }
+      if (!formData.freight_mode) {
+        toast.error("Selecione o tipo de frete: P/Ton ou Fechado");
+        return;
+      }
+      if (formData.freight_mode === "per_ton" && (!formData.weight_kg || parseFloat(formData.weight_kg) <= 0)) {
+        toast.error("Informe o Peso (KG) para frete P/Ton");
         return;
       }
     }
@@ -549,6 +580,8 @@ export default function Quotes() {
       descarga_responsavel: quote.descarga_responsavel || "",
       vehicle_type_id: quote.vehicle_type_id || "",
       body_type_id: quote.body_type_id || "",
+      freight_mode: quote.freight_mode || "",
+      weight_kg: quote.weight_kg != null ? quote.weight_kg.toString() : "",
       delivery_days: quote.delivery_days?.toString() || "0",
       quote_validity_days: quote.quote_validity_days?.toString() || "15",
       payment_term_days: quote.payment_term_days?.toString() || "30",
@@ -778,7 +811,37 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Origem e Destino */}
+              {/* Modalidade de Frete (somente Transporte) */}
+              {formData.service_transporte && (
+                <div className="space-y-3">
+                  <Label>Modalidade de Frete <span className="text-destructive">*</span></Label>
+                  <RadioGroup
+                    value={formData.freight_mode}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        freight_mode: value,
+                        weight_kg: value === "per_ton" ? formData.weight_kg : "",
+                      })
+                    }
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="per_ton" id="freight_per_ton" />
+                      <Label htmlFor="freight_per_ton" className="font-normal cursor-pointer">
+                        Frete P/Ton
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="closed" id="freight_closed" />
+                      <Label htmlFor="freight_closed" className="font-normal cursor-pointer">
+                        Frete Fechado
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>
@@ -879,14 +942,32 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Valores - Dynamic based on selected services */}
+              {/* Peso (KG) - somente quando Frete P/Ton */}
+              {formData.service_transporte && formData.freight_mode === "per_ton" && (
+                <div className="space-y-2">
+                  <Label htmlFor="weight_kg">Peso (KG) <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="weight_kg"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.weight_kg}
+                    onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
+                    placeholder="0,00"
+                    required
+                  />
+                </div>
+              )}
+
               {hasAnyService && (
                 <div className="space-y-4">
                   <Label className="text-base font-semibold">Valores</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {formData.service_transporte && (
                       <div className="space-y-2">
-                        <Label htmlFor="freight_value">Valor de Frete (R$)</Label>
+                        <Label htmlFor="freight_value">
+                          {formData.freight_mode === "per_ton" ? "Valor de Frete (R$/Ton)" : "Valor de Frete (R$)"}
+                        </Label>
                         <Input
                           id="freight_value"
                           type="number"
@@ -898,6 +979,11 @@ export default function Quotes() {
                           }
                           placeholder="0,00"
                         />
+                        {formData.freight_mode === "per_ton" && (
+                          <p className="text-xs text-muted-foreground">
+                            Subtotal Transporte: {formatCurrency(computeTransportValue())}
+                          </p>
+                        )}
                       </div>
                     )}
                     {formData.service_munck && (
