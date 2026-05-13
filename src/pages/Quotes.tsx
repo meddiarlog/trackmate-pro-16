@@ -211,7 +211,10 @@ export default function Quotes() {
 
   // Helper to get total from a quote record
   const getQuoteTotal = (quote: Quote) => {
-    return (quote.freight_value || 0) + (quote.munck_value || 0) + (quote.carregamento_value || 0) + (quote.descarga_value || 0);
+    const transport = quote.freight_mode === "per_ton"
+      ? Math.round((((quote.weight_kg || 0) / 1000) * (quote.freight_value || 0)) * 100) / 100
+      : (quote.freight_value || 0);
+    return transport + (quote.munck_value || 0) + (quote.carregamento_value || 0) + (quote.descarga_value || 0);
   };
 
   // Helper to get service display string from a quote
