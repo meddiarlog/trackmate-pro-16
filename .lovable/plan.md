@@ -1,18 +1,20 @@
-## Máscara no campo Peso (KG) — Cotação
+## Máscara de moeda nos campos de Valores — Cotação
 
 ### Objetivo
-Aplicar máscara de número brasileiro no campo **Peso (KG)** do formulário de Cotação. Ao digitar `2000`, exibir `2.000,00` (separador de milhar `.` e decimal `,`).
+Aplicar a mesma máscara pt-BR (digitar `2500` → exibir `2.500,00`) nos quatro campos da seção **Valores** do formulário de Cotação:
+- Valor de Frete (R$ ou R$/Ton)
+- Valor de Serviço de Munck (R$)
+- Valor de Carregamento (R$)
+- Valor de Descarga (R$)
 
 ### Alteração
 
 **Arquivo: `src/pages/Quotes.tsx`**
-- Trocar o `<Input type="number">` do campo `weight_kg` por um `<Input type="text" inputMode="decimal">` com formatação dinâmica:
-  - Enquanto o usuário digita, manter apenas dígitos.
-  - Ao perder o foco (`onBlur`), formatar como `valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
-  - Internamente, armazenar em `formData.weight_kg` o número como string com ponto decimal (ex.: `"2000.00"`) para manter o `parseFloat` na validação e no payload de salvamento funcionando como hoje.
-- Na hora de exibir o valor no input (inclusive ao editar uma cotação existente), aplicar a mesma formatação BR.
+- Trocar os quatro `<Input type="number">` por `<Input type="text" inputMode="decimal">` usando o mesmo padrão já aplicado em **Peso (KG)**:
+  - `value` exibido via `parseFloat(formData.<campo>).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
+  - `onChange` extrai apenas dígitos, divide por 100 e armazena como string com ponto decimal (ex.: `"2500.00"`), mantendo `parseFloat` no payload de salvamento e nos cálculos.
+- Criar um pequeno helper local (`formatCurrencyInput` / `parseCurrencyInput`) dentro do arquivo para evitar repetição de código nos quatro inputs.
 
 ### Sem mudanças
-- Banco de dados: campo `weight_kg` continua `numeric`.
-- Cálculo do subtotal de transporte e validações permanecem iguais.
-- Outros campos numéricos do formulário não são alterados (escopo restrito ao Peso).
+- Banco de dados, validações, cálculo de subtotal de transporte e total geral permanecem iguais — apenas a UX dos inputs muda.
+- Outros formulários do sistema não são tocados.
