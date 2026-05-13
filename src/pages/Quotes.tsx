@@ -209,7 +209,19 @@ export default function Quotes() {
     return total;
   };
 
-  // Helper to get total from a quote record
+  // Currency input helpers (mask: digit input → "1.234,56", stored as "1234.56")
+  const formatBR = (value: string) =>
+    value === ""
+      ? ""
+      : (parseFloat(value) || 0).toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+  const handleCurrencyChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "");
+    const numeric = digits ? (parseInt(digits, 10) / 100).toFixed(2) : "";
+    setFormData((prev) => ({ ...prev, [field]: numeric }));
+  };
   const getQuoteTotal = (quote: Quote) => {
     const transport = quote.freight_mode === "per_ton"
       ? Math.round((((quote.weight_kg || 0) / 1000) * (quote.freight_value || 0)) * 100) / 100
@@ -984,13 +996,10 @@ export default function Quotes() {
                         </Label>
                         <Input
                           id="freight_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.freight_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, freight_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.freight_value)}
+                          onChange={handleCurrencyChange("freight_value")}
                           placeholder="0,00"
                         />
                         {formData.freight_mode === "per_ton" && (
@@ -1005,13 +1014,10 @@ export default function Quotes() {
                         <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
                         <Input
                           id="munck_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.munck_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, munck_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.munck_value)}
+                          onChange={handleCurrencyChange("munck_value")}
                           placeholder="0,00"
                         />
                       </div>
@@ -1021,13 +1027,10 @@ export default function Quotes() {
                         <Label htmlFor="carregamento_value">Valor de Carregamento (R$)</Label>
                         <Input
                           id="carregamento_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.carregamento_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, carregamento_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.carregamento_value)}
+                          onChange={handleCurrencyChange("carregamento_value")}
                           placeholder="0,00"
                         />
                       </div>
@@ -1037,13 +1040,10 @@ export default function Quotes() {
                         <Label htmlFor="descarga_value">Valor de Descarga (R$)</Label>
                         <Input
                           id="descarga_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.descarga_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, descarga_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.descarga_value)}
+                          onChange={handleCurrencyChange("descarga_value")}
                           placeholder="0,00"
                         />
                       </div>
