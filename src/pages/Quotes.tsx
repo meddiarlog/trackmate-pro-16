@@ -811,7 +811,37 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Origem e Destino */}
+              {/* Modalidade de Frete (somente Transporte) */}
+              {formData.service_transporte && (
+                <div className="space-y-3">
+                  <Label>Modalidade de Frete <span className="text-destructive">*</span></Label>
+                  <RadioGroup
+                    value={formData.freight_mode}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        freight_mode: value,
+                        weight_kg: value === "per_ton" ? formData.weight_kg : "",
+                      })
+                    }
+                    className="flex gap-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="per_ton" id="freight_per_ton" />
+                      <Label htmlFor="freight_per_ton" className="font-normal cursor-pointer">
+                        Frete P/Ton
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="closed" id="freight_closed" />
+                      <Label htmlFor="freight_closed" className="font-normal cursor-pointer">
+                        Frete Fechado
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>
