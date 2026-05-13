@@ -626,8 +626,6 @@ export default function Quotes() {
     );
   };
 
-  const deliveryDaysOptions = Array.from({ length: 51 }, (_, i) => i);
-
   const hasAnyService = formData.service_transporte || formData.service_munck || formData.service_carregamento || formData.service_descarga;
 
   return (
