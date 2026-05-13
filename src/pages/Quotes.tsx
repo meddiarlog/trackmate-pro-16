@@ -1119,23 +1119,16 @@ export default function Quotes() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Prazo de Entrega (dias)</Label>
-                  <Select
+                  <Input
+                    type="number"
+                    min="0"
+                    max="365"
                     value={formData.delivery_days}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, delivery_days: value })
+                    onChange={(e) =>
+                      setFormData({ ...formData, delivery_days: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {deliveryDaysOptions.map((day) => (
-                        <SelectItem key={day} value={day.toString()}>
-                          {day} {day === 1 ? "dia" : "dias"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="0"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Validade da Proposta (dias)</Label>

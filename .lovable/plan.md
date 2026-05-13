@@ -1,21 +1,17 @@
-## Fallback do banco do cliente nas Cobranças
+## Melhoria em Cotação — Prazo de Entrega
 
-### Diagnóstico
+### Objetivo
+1. Tornar o campo **Prazo de Entrega** um input numérico digitável (igual a Validade da Proposta), em vez de dropdown com opções fixas de 0 a 50.
+2. Incluir o **Prazo de Entrega** na impressão da proposta.
 
-O auto-preenchimento do banco só acontece em `handleCustomerChange`, ou seja, quando o cliente é selecionado/alterado dentro do diálogo. Cobranças criadas antes do recurso (ou cujo cliente teve o banco vinculado depois) ficaram com `boletos.bank_id = null`. Por isso, ao editar a cobrança da Granphos a tela mostra "Nenhum" e a coluna **Banco** na listagem aparece vazia, mesmo o cliente já tendo o banco Cora cadastrado.
+### Alterações
 
-### Correção (somente frontend, sem migrar dados)
+**Arquivo: `src/pages/Quotes.tsx`**
+- Substituir o componente `<Select>` do campo **Prazo de Entrega** por um `<Input type="number" min="0" max="365">`, com o mesmo padrão dos campos *Validade da Proposta* e *Prazo de Pagamento*.
+- Remover a constante `deliveryDaysOptions` que alimentava o dropdown (não será mais necessária).
 
-Tratar o `bank_id` do cliente como **fallback** sempre que a cobrança não tiver banco próprio.
+**Arquivo: `src/components/QuotePrintView.tsx`**
+- Adicionar o campo **Prazo de Entrega** na seção "Condições da Proposta", exibindo `{quote.delivery_days || 0} dias`.
 
-Alterações em `src/pages/Cobrancas.tsx`:
-
-1. **Listagem (coluna Banco)** — ao montar `transformedCobrancas`, resolver o banco assim:
-   - usar `cobranca.bank_id`; se vazio, buscar o cliente em `customers` pelo `customer_id` e usar `customer.bank_id`;
-   - exibir o nome (com código quando existir), ou `—`.
-2. **Diálogo Editar Cobrança (`handleEdit`)** — ao preencher `formData.bank_id`:
-   - se `cobranca.bank_id` existir, usar;
-   - caso contrário, usar `customer.bank_id` do cliente vinculado (fallback), mantendo o campo editável.
-3. **Persistência** — sem mudança: ao salvar a cobrança, o `bank_id` (vindo do fallback ou alterado pelo usuário) é gravado normalmente em `boletos.bank_id`, então cobranças antigas passam a "herdar" o banco do cliente da próxima vez que forem salvas.
-
-Sem mudanças no banco de dados.
+### Sem mudanças no banco de dados
+O campo `delivery_days` já existe como inteiro na tabela `quotes`; apenas a UI do formulário e o layout de impressão serão ajustados.

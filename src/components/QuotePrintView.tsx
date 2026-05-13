@@ -310,6 +310,10 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
           CONDIÇÕES DA PROPOSTA
         </div>
         <div className="field flex mb-2">
+          <span className="field-label font-bold w-48 text-sm">Prazo de Entrega:</span>
+          <span className="field-value flex-1 text-sm">{quote.delivery_days || 0} dias</span>
+        </div>
+        <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Validade da Proposta:</span>
           <span className="field-value flex-1 text-sm">{quote.quote_validity_days || 15} dias</span>
         </div>
