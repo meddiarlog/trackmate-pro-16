@@ -78,6 +78,8 @@ interface Quote {
   descarga_responsavel?: string | null;
   vehicle_type_id: string | null;
   body_type_id?: string | null;
+  freight_mode?: string | null;
+  weight_kg?: number | null;
   delivery_days: number;
   quote_validity_days?: number;
   payment_term_days?: number;
