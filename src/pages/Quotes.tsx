@@ -555,6 +555,8 @@ export default function Quotes() {
       descarga_responsavel: quote.descarga_responsavel || "",
       vehicle_type_id: quote.vehicle_type_id || "",
       body_type_id: quote.body_type_id || "",
+      freight_mode: quote.freight_mode || "",
+      weight_kg: quote.weight_kg != null ? quote.weight_kg.toString() : "",
       delivery_days: quote.delivery_days?.toString() || "0",
       quote_validity_days: quote.quote_validity_days?.toString() || "15",
       payment_term_days: quote.payment_term_days?.toString() || "30",
