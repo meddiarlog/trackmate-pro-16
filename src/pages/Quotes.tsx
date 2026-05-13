@@ -942,7 +942,23 @@ export default function Quotes() {
                 </div>
               </div>
 
-              {/* Valores - Dynamic based on selected services */}
+              {/* Peso (KG) - somente quando Frete P/Ton */}
+              {formData.service_transporte && formData.freight_mode === "per_ton" && (
+                <div className="space-y-2">
+                  <Label htmlFor="weight_kg">Peso (KG) <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="weight_kg"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.weight_kg}
+                    onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
+                    placeholder="0,00"
+                    required
+                  />
+                </div>
+              )}
+
               {hasAnyService && (
                 <div className="space-y-4">
                   <Label className="text-base font-semibold">Valores</Label>
