@@ -1027,13 +1027,10 @@ export default function Quotes() {
                         <Label htmlFor="carregamento_value">Valor de Carregamento (R$)</Label>
                         <Input
                           id="carregamento_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.carregamento_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, carregamento_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.carregamento_value)}
+                          onChange={handleCurrencyChange("carregamento_value")}
                           placeholder="0,00"
                         />
                       </div>
@@ -1043,13 +1040,10 @@ export default function Quotes() {
                         <Label htmlFor="descarga_value">Valor de Descarga (R$)</Label>
                         <Input
                           id="descarga_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.descarga_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, descarga_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.descarga_value)}
+                          onChange={handleCurrencyChange("descarga_value")}
                           placeholder="0,00"
                         />
                       </div>
