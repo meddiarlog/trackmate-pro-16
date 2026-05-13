@@ -1014,13 +1014,10 @@ export default function Quotes() {
                         <Label htmlFor="munck_value">Valor de Serviço de Munck (R$)</Label>
                         <Input
                           id="munck_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.munck_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, munck_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.munck_value)}
+                          onChange={handleCurrencyChange("munck_value")}
                           placeholder="0,00"
                         />
                       </div>
