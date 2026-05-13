@@ -1,17 +1,18 @@
-## Melhoria em Cotação — Prazo de Entrega
+## Máscara no campo Peso (KG) — Cotação
 
 ### Objetivo
-1. Tornar o campo **Prazo de Entrega** um input numérico digitável (igual a Validade da Proposta), em vez de dropdown com opções fixas de 0 a 50.
-2. Incluir o **Prazo de Entrega** na impressão da proposta.
+Aplicar máscara de número brasileiro no campo **Peso (KG)** do formulário de Cotação. Ao digitar `2000`, exibir `2.000,00` (separador de milhar `.` e decimal `,`).
 
-### Alterações
+### Alteração
 
 **Arquivo: `src/pages/Quotes.tsx`**
-- Substituir o componente `<Select>` do campo **Prazo de Entrega** por um `<Input type="number" min="0" max="365">`, com o mesmo padrão dos campos *Validade da Proposta* e *Prazo de Pagamento*.
-- Remover a constante `deliveryDaysOptions` que alimentava o dropdown (não será mais necessária).
+- Trocar o `<Input type="number">` do campo `weight_kg` por um `<Input type="text" inputMode="decimal">` com formatação dinâmica:
+  - Enquanto o usuário digita, manter apenas dígitos.
+  - Ao perder o foco (`onBlur`), formatar como `valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
+  - Internamente, armazenar em `formData.weight_kg` o número como string com ponto decimal (ex.: `"2000.00"`) para manter o `parseFloat` na validação e no payload de salvamento funcionando como hoje.
+- Na hora de exibir o valor no input (inclusive ao editar uma cotação existente), aplicar a mesma formatação BR.
 
-**Arquivo: `src/components/QuotePrintView.tsx`**
-- Adicionar o campo **Prazo de Entrega** na seção "Condições da Proposta", exibindo `{quote.delivery_days || 0} dias`.
-
-### Sem mudanças no banco de dados
-O campo `delivery_days` já existe como inteiro na tabela `quotes`; apenas a UI do formulário e o layout de impressão serão ajustados.
+### Sem mudanças
+- Banco de dados: campo `weight_kg` continua `numeric`.
+- Cálculo do subtotal de transporte e validações permanecem iguais.
+- Outros campos numéricos do formulário não são alterados (escopo restrito ao Peso).
