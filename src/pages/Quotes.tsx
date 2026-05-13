@@ -209,7 +209,19 @@ export default function Quotes() {
     return total;
   };
 
-  // Helper to get total from a quote record
+  // Currency input helpers (mask: digit input → "1.234,56", stored as "1234.56")
+  const formatBR = (value: string) =>
+    value === ""
+      ? ""
+      : (parseFloat(value) || 0).toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+  const handleCurrencyChange = (field: keyof typeof formData) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "");
+    const numeric = digits ? (parseInt(digits, 10) / 100).toFixed(2) : "";
+    setFormData((prev) => ({ ...prev, [field]: numeric }));
+  };
   const getQuoteTotal = (quote: Quote) => {
     const transport = quote.freight_mode === "per_ton"
       ? Math.round((((quote.weight_kg || 0) / 1000) * (quote.freight_value || 0)) * 100) / 100
