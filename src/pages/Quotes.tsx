@@ -948,11 +948,25 @@ export default function Quotes() {
                   <Label htmlFor="weight_kg">Peso (KG) <span className="text-destructive">*</span></Label>
                   <Input
                     id="weight_kg"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.weight_kg}
-                    onChange={(e) => setFormData({ ...formData, weight_kg: e.target.value })}
+                    type="text"
+                    inputMode="decimal"
+                    value={
+                      formData.weight_kg === ""
+                        ? ""
+                        : (parseFloat(formData.weight_kg) || 0).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                    }
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      if (!digits) {
+                        setFormData({ ...formData, weight_kg: "" });
+                        return;
+                      }
+                      const numeric = (parseInt(digits, 10) / 100).toFixed(2);
+                      setFormData({ ...formData, weight_kg: numeric });
+                    }}
                     placeholder="0,00"
                     required
                   />
