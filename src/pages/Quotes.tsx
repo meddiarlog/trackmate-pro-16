@@ -189,10 +189,20 @@ export default function Quotes() {
     return services.join(", ") || "transporte";
   };
 
+  // Compute the transport value (handles per-ton vs closed)
+  const computeTransportValue = () => {
+    const freight = parseFloat(formData.freight_value) || 0;
+    if (formData.freight_mode === "per_ton") {
+      const weightKg = parseFloat(formData.weight_kg) || 0;
+      return Math.round(((weightKg / 1000) * freight) * 100) / 100;
+    }
+    return freight;
+  };
+
   // Calculate total value
   const calculateTotal = () => {
     let total = 0;
-    if (formData.service_transporte) total += parseFloat(formData.freight_value) || 0;
+    if (formData.service_transporte) total += computeTransportValue();
     if (formData.service_munck) total += parseFloat(formData.munck_value) || 0;
     if (formData.service_carregamento) total += parseFloat(formData.carregamento_value) || 0;
     if (formData.service_descarga) total += parseFloat(formData.descarga_value) || 0;
