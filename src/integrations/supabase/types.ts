@@ -1457,6 +1457,7 @@ export type Database = {
           descarga_value: number | null
           destination_city: string | null
           destination_state: string | null
+          freight_mode: string | null
           freight_value: number | null
           id: string
           munck_value: number | null
@@ -1477,6 +1478,7 @@ export type Database = {
           status: string | null
           updated_at: string
           vehicle_type_id: string | null
+          weight_kg: number | null
         }
         Insert: {
           body_type_id?: string | null
@@ -1490,6 +1492,7 @@ export type Database = {
           descarga_value?: number | null
           destination_city?: string | null
           destination_state?: string | null
+          freight_mode?: string | null
           freight_value?: number | null
           id?: string
           munck_value?: number | null
@@ -1510,6 +1513,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
           vehicle_type_id?: string | null
+          weight_kg?: number | null
         }
         Update: {
           body_type_id?: string | null
@@ -1523,6 +1527,7 @@ export type Database = {
           descarga_value?: number | null
           destination_city?: string | null
           destination_state?: string | null
+          freight_mode?: string | null
           freight_value?: number | null
           id?: string
           munck_value?: number | null
@@ -1543,6 +1548,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
           vehicle_type_id?: string | null
+          weight_kg?: number | null
         }
         Relationships: [
           {
