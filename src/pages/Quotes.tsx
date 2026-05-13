@@ -965,7 +965,9 @@ export default function Quotes() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {formData.service_transporte && (
                       <div className="space-y-2">
-                        <Label htmlFor="freight_value">Valor de Frete (R$)</Label>
+                        <Label htmlFor="freight_value">
+                          {formData.freight_mode === "per_ton" ? "Valor de Frete (R$/Ton)" : "Valor de Frete (R$)"}
+                        </Label>
                         <Input
                           id="freight_value"
                           type="number"
@@ -977,6 +979,11 @@ export default function Quotes() {
                           }
                           placeholder="0,00"
                         />
+                        {formData.freight_mode === "per_ton" && (
+                          <p className="text-xs text-muted-foreground">
+                            Subtotal Transporte: {formatCurrency(computeTransportValue())}
+                          </p>
+                        )}
                       </div>
                     )}
                     {formData.service_munck && (
