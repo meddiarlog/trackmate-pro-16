@@ -502,6 +502,8 @@ export default function Quotes() {
       descarga_responsavel: "",
       vehicle_type_id: "",
       body_type_id: "",
+      freight_mode: "",
+      weight_kg: "",
       delivery_days: "0",
       quote_validity_days: "15",
       payment_term_days: "30",
