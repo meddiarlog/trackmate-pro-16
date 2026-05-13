@@ -996,13 +996,10 @@ export default function Quotes() {
                         </Label>
                         <Input
                           id="freight_value"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.freight_value}
-                          onChange={(e) =>
-                            setFormData({ ...formData, freight_value: e.target.value })
-                          }
+                          type="text"
+                          inputMode="decimal"
+                          value={formatBR(formData.freight_value)}
+                          onChange={handleCurrencyChange("freight_value")}
                           placeholder="0,00"
                         />
                         {formData.freight_mode === "per_ton" && (
