@@ -544,6 +544,14 @@ export default function Quotes() {
         toast.error("Origem e Destino são obrigatórios para Transporte");
         return;
       }
+      if (!formData.freight_mode) {
+        toast.error("Selecione o tipo de frete: P/Ton ou Fechado");
+        return;
+      }
+      if (formData.freight_mode === "per_ton" && (!formData.weight_kg || parseFloat(formData.weight_kg) <= 0)) {
+        toast.error("Informe o Peso (KG) para frete P/Ton");
+        return;
+      }
     }
 
     saveQuoteMutation.mutate(formData);
