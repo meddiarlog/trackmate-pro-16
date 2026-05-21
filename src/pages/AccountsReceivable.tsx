@@ -437,9 +437,10 @@ export default function AccountsReceivable() {
     const matchesMonth = 
       accountDate.getMonth() === selectedMonth.getMonth() &&
       accountDate.getFullYear() === selectedMonth.getFullYear();
-    const matchesSearch = getCustomerName(account.customer_id)
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      getCustomerName(account.customer_id).toLowerCase().includes(term) ||
+      (account.invoice_number || "").toLowerCase().includes(term);
     const matchesStatus = filterStatus === "all" || account.status === filterStatus;
     return matchesMonth && matchesSearch && matchesStatus;
   });
