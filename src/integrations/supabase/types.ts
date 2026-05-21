@@ -155,6 +155,7 @@ export type Database = {
           id: string
           installment_number: number
           installments: number
+          invoice_number: string | null
           is_fixed_income: boolean
           observations: string | null
           parent_id: string | null
@@ -176,6 +177,7 @@ export type Database = {
           id?: string
           installment_number?: number
           installments?: number
+          invoice_number?: string | null
           is_fixed_income?: boolean
           observations?: string | null
           parent_id?: string | null
@@ -197,6 +199,7 @@ export type Database = {
           id?: string
           installment_number?: number
           installments?: number
+          invoice_number?: string | null
           is_fixed_income?: boolean
           observations?: string | null
           parent_id?: string | null
@@ -2093,6 +2096,7 @@ export type Database = {
     }
     Functions: {
       cleanup_expired_tokens: { Args: never; Returns: undefined }
+      generate_invoice_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

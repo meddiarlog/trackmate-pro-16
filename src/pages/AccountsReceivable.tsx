@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Paperclip } from "lucide-react";
+import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Paperclip, FileText, Printer } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { InvoicePrintView } from "@/components/InvoicePrintView";
 
 interface AccountReceivable {
   id: string;
@@ -35,6 +36,7 @@ interface AccountReceivable {
   observations: string | null;
   status: string;
   created_at: string;
+  invoice_number?: string | null;
 }
 
 interface Attachment {
@@ -49,6 +51,13 @@ interface Customer {
   name: string;
   cpf_cnpj: string | null;
   nome_fantasia: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  cep?: string | null;
+  phone?: string | null;
+  email?: string | null;
 }
 
 export default function AccountsReceivable() {
@@ -100,7 +109,7 @@ export default function AccountsReceivable() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("id, name, cpf_cnpj, nome_fantasia")
+        .select("id, name, cpf_cnpj, nome_fantasia, address, neighborhood, city, state, cep, phone, email")
         .order("name");
       if (error) throw error;
       return data as Customer[];
@@ -119,6 +128,77 @@ export default function AccountsReceivable() {
       return data;
     },
   });
+
+  const { data: companySettings } = useQuery({
+    queryKey: ["company_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Invoice print state
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceAccount, setInvoiceAccount] = useState<AccountReceivable | null>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const handleGenerateInvoice = async (account: AccountReceivable) => {
+    let acc = account;
+    if (!account.invoice_number) {
+      try {
+        const { data, error } = await supabase.rpc("generate_invoice_number");
+        if (error) throw error;
+        const number = data as unknown as string;
+        const { error: updErr } = await supabase
+          .from("accounts_receivable")
+          .update({ invoice_number: number })
+          .eq("id", account.id);
+        if (updErr) throw updErr;
+        acc = { ...account, invoice_number: number };
+        queryClient.invalidateQueries({ queryKey: ["accounts_receivable"] });
+        toast.success(`Fatura ${number} gerada!`);
+      } catch (e: any) {
+        toast.error("Erro ao gerar número da fatura");
+        return;
+      }
+    }
+    setInvoiceAccount(acc);
+    setInvoiceDialogOpen(true);
+  };
+
+  const handlePrintInvoice = () => {
+    if (!printRef.current) return;
+    const content = printRef.current.innerHTML;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Fatura ${invoiceAccount?.invoice_number || ""}</title>
+      <style>
+        @page { margin: 15mm; size: A4; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #000; }
+        .print-container { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; border-bottom: 2px solid #000; padding-bottom: 16px; }
+        .logo { max-width: 150px; max-height: 80px; object-fit: contain; }
+        .company-name { font-size: 18px; font-weight: bold; }
+        .company-details { font-size: 12px; color: #555; margin-top: 4px; }
+        .title { font-size: 22px; font-weight: bold; }
+        .section { margin-bottom: 18px; }
+        .section-title { font-weight: bold; font-size: 13px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        .field { display: flex; margin-bottom: 6px; }
+        .field-label { font-weight: bold; width: 180px; font-size: 13px; }
+        .field-value { flex: 1; font-size: 13px; }
+        .signature { margin-top: 60px; text-align: center; }
+        .signature-line { border-top: 1px solid #000; width: 300px; margin: 0 auto 8px; }
+        .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; }
+      </style></head><body>${content}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 250);
+  };
 
   // Mutations
   const saveAccountMutation = useMutation({
@@ -357,9 +437,10 @@ export default function AccountsReceivable() {
     const matchesMonth = 
       accountDate.getMonth() === selectedMonth.getMonth() &&
       accountDate.getFullYear() === selectedMonth.getFullYear();
-    const matchesSearch = getCustomerName(account.customer_id)
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      getCustomerName(account.customer_id).toLowerCase().includes(term) ||
+      (account.invoice_number || "").toLowerCase().includes(term);
     const matchesStatus = filterStatus === "all" || account.status === filterStatus;
     return matchesMonth && matchesSearch && matchesStatus;
   });
@@ -658,6 +739,7 @@ export default function AccountsReceivable() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nº Fatura</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Vencimento</TableHead>
@@ -670,6 +752,9 @@ export default function AccountsReceivable() {
               <TableBody>
                 {filteredAccounts.map((account) => (
                   <TableRow key={account.id}>
+                    <TableCell className="font-mono text-xs">
+                      {account.invoice_number || "—"}
+                    </TableCell>
                     <TableCell className="font-medium">{getCustomerName(account.customer_id)}</TableCell>
                     <TableCell>
                       {account.installment_number}/{account.installments}
@@ -696,6 +781,14 @@ export default function AccountsReceivable() {
                             <Check className="h-4 w-4 text-green-600" />
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleGenerateInvoice(account)}
+                          title={account.invoice_number ? "Reimprimir fatura" : "Gerar fatura"}
+                        >
+                          <FileText className="h-4 w-4 text-blue-600" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -715,6 +808,30 @@ export default function AccountsReceivable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invoice Print Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between pr-8">
+              <span>Fatura {invoiceAccount?.invoice_number || ""}</span>
+              <Button onClick={handlePrintInvoice} className="gap-2" size="sm">
+                <Printer className="h-4 w-4" />
+                Imprimir / Salvar PDF
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div ref={printRef}>
+            {invoiceAccount && (
+              <InvoicePrintView
+                account={invoiceAccount}
+                customer={customers.find((c) => c.id === invoiceAccount.customer_id)}
+                companySettings={companySettings as any}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
