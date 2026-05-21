@@ -739,6 +739,7 @@ export default function AccountsReceivable() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Nº Fatura</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Vencimento</TableHead>
@@ -751,6 +752,9 @@ export default function AccountsReceivable() {
               <TableBody>
                 {filteredAccounts.map((account) => (
                   <TableRow key={account.id}>
+                    <TableCell className="font-mono text-xs">
+                      {account.invoice_number || "—"}
+                    </TableCell>
                     <TableCell className="font-medium">{getCustomerName(account.customer_id)}</TableCell>
                     <TableCell>
                       {account.installment_number}/{account.installments}
@@ -777,6 +781,14 @@ export default function AccountsReceivable() {
                             <Check className="h-4 w-4 text-green-600" />
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleGenerateInvoice(account)}
+                          title={account.invoice_number ? "Reimprimir fatura" : "Gerar fatura"}
+                        >
+                          <FileText className="h-4 w-4 text-blue-600" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => handleEdit(account)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -796,6 +808,30 @@ export default function AccountsReceivable() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invoice Print Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between pr-8">
+              <span>Fatura {invoiceAccount?.invoice_number || ""}</span>
+              <Button onClick={handlePrintInvoice} className="gap-2" size="sm">
+                <Printer className="h-4 w-4" />
+                Imprimir / Salvar PDF
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div ref={printRef}>
+            {invoiceAccount && (
+              <InvoicePrintView
+                account={invoiceAccount}
+                customer={customers.find((c) => c.id === invoiceAccount.customer_id)}
+                companySettings={companySettings as any}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
