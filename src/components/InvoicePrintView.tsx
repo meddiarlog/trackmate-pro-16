@@ -2,7 +2,7 @@ import { format } from "date-fns";
 
 interface InvoiceAccount {
   id: string;
-  invoice_number: string | null;
+  invoice_number?: string | null;
   customer_id: string;
   document_number: string | null;
   installments: number;
