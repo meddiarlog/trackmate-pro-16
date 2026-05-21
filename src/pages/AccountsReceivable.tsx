@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Paperclip } from "lucide-react";
+import { Plus, Search, Check, Pencil, Trash2, UserPlus, ChevronLeft, ChevronRight, X, Eye, Upload, Paperclip, FileText, Printer } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { InvoicePrintView } from "@/components/InvoicePrintView";
 
 interface AccountReceivable {
   id: string;
