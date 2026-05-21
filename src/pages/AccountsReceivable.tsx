@@ -36,6 +36,7 @@ interface AccountReceivable {
   observations: string | null;
   status: string;
   created_at: string;
+  invoice_number?: string | null;
 }
 
 interface Attachment {
@@ -50,6 +51,13 @@ interface Customer {
   name: string;
   cpf_cnpj: string | null;
   nome_fantasia: string | null;
+  address?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  cep?: string | null;
+  phone?: string | null;
+  email?: string | null;
 }
 
 export default function AccountsReceivable() {
