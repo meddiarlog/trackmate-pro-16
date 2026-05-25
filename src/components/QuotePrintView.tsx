@@ -236,12 +236,88 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
             <span className="field-value flex-1 text-sm">{quote.origin_city}/{quote.origin_state}</span>
           </div>
         )}
-        {quote.destination_city && (
-          <div className="field flex mb-2">
-            <span className="field-label font-bold w-48 text-sm">Destino:</span>
-            <span className="field-value flex-1 text-sm">{quote.destination_city}/{quote.destination_state}</span>
+      </div>
+
+      {/* Destinatários Section */}
+      {(() => {
+        const recipients = (quote.recipients && quote.recipients.length > 0)
+          ? quote.recipients
+          : (quote.destination_city
+              ? [{
+                  name: "",
+                  cpf_cnpj: "",
+                  phone: "",
+                  address: "",
+                  city: quote.destination_city || "",
+                  state: quote.destination_state || "",
+                  cep: "",
+                }]
+              : []);
+
+        if (recipients.length === 0) return null;
+
+        return (
+          <div className="section mb-6">
+            <div className="section-title font-bold text-sm mb-3 border-b pb-2">
+              {recipients.length > 1 ? "DESTINATÁRIOS" : "DESTINATÁRIO"}
+            </div>
+            {recipients.map((r, idx) => (
+              <div key={idx} className={idx > 0 ? "mt-3 pt-3 border-t" : ""}>
+                {recipients.length > 1 && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">#{idx + 1}</span>
+                    <span className="field-value flex-1 text-sm font-bold">
+                      {r.name || "-"}
+                    </span>
+                  </div>
+                )}
+                {recipients.length === 1 && r.name && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">Nome:</span>
+                    <span className="field-value flex-1 text-sm">{r.name}</span>
+                  </div>
+                )}
+                {r.cpf_cnpj && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">CPF/CNPJ:</span>
+                    <span className="field-value flex-1 text-sm">{formatCnpj(r.cpf_cnpj) || r.cpf_cnpj}</span>
+                  </div>
+                )}
+                {r.address && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">Endereço:</span>
+                    <span className="field-value flex-1 text-sm">{r.address}</span>
+                  </div>
+                )}
+                {(r.city || r.state) && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">Cidade/UF:</span>
+                    <span className="field-value flex-1 text-sm">
+                      {[r.city, r.state].filter(Boolean).join("/")}
+                    </span>
+                  </div>
+                )}
+                {r.cep && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">CEP:</span>
+                    <span className="field-value flex-1 text-sm">{r.cep}</span>
+                  </div>
+                )}
+                {r.phone && (
+                  <div className="field flex mb-2">
+                    <span className="field-label font-bold w-48 text-sm">Telefone:</span>
+                    <span className="field-value flex-1 text-sm">{formatPhone(r.phone) || r.phone}</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-        )}
+        );
+      })()}
+
+      {/* Serviço (continuação) */}
+      <div className="section mb-6">
+
         <div className="field flex mb-2">
           <span className="field-label font-bold w-48 text-sm">Produto:</span>
           <span className="field-value flex-1 text-sm">{quote.product?.name || "-"}</span>
