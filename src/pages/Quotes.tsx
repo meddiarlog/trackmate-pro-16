@@ -623,9 +623,21 @@ export default function Quotes() {
       return;
     }
 
+    // Validate recipients: at least one with a name
+    const validRecipients = (formData.recipients || []).filter(r => r.name?.trim());
+    if (validRecipients.length === 0) {
+      toast.error("Informe pelo menos um destinatário com nome");
+      return;
+    }
+
     if (formData.service_transporte) {
-      if (!formData.origin_city || !formData.destination_city) {
-        toast.error("Origem e Destino são obrigatórios para Transporte");
+      if (!formData.origin_city) {
+        toast.error("Origem é obrigatória para Transporte");
+        return;
+      }
+      const firstCity = formData.recipients?.[0]?.city?.trim();
+      if (!firstCity) {
+        toast.error("Informe a cidade do primeiro destinatário para Transporte");
         return;
       }
       if (!formData.freight_mode) {
@@ -637,6 +649,7 @@ export default function Quotes() {
         return;
       }
     }
+
 
     saveQuoteMutation.mutate(formData);
   };
