@@ -38,6 +38,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "sonner";
 import {
   Plus,
@@ -53,6 +59,26 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { QuotePrintView } from "@/components/QuotePrintView";
 import { CustomerFormDialog } from "@/components/CustomerFormDialog";
+
+const BRAZILIAN_STATES = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+];
+
+type QuoteRecipient = {
+  name: string;
+  cpf_cnpj: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  cep: string;
+};
+
+const emptyRecipient = (): QuoteRecipient => ({
+  name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "",
+});
+
 
 interface Quote {
   id: string;
