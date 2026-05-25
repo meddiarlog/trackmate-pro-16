@@ -205,7 +205,9 @@ export default function Quotes() {
     payment_term_days: "30",
     observations: "",
     payment_method: "",
+    recipients: [emptyRecipient()] as QuoteRecipient[],
   });
+
 
   // Helper to build service_type string for backward compatibility
   const buildServiceTypeString = () => {
