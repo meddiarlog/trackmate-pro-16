@@ -394,6 +394,11 @@ export default function Quotes() {
 
   const saveQuoteMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      // First recipient drives legacy destination_city/state for backward compatibility
+      const firstRecipient = data.recipients?.[0];
+      const legacyDestCity = firstRecipient?.city?.trim() || data.destination_city || "";
+      const legacyDestState = firstRecipient?.state?.trim() || data.destination_state || "";
+
       const payload: any = {
         customer_id: data.customer_id || null,
         responsavel: data.responsavel || null,
@@ -405,8 +410,8 @@ export default function Quotes() {
         service_type: buildServiceTypeString(),
         origin_city: data.origin_city || null,
         origin_state: data.origin_state || null,
-        destination_city: data.destination_city || null,
-        destination_state: data.destination_state || null,
+        destination_city: legacyDestCity || null,
+        destination_state: legacyDestState || null,
         product_id: data.product_id || null,
         freight_value: data.service_transporte ? parseFloat(data.freight_value) || 0 : 0,
         munck_value: data.service_munck ? parseFloat(data.munck_value) || 0 : 0,
@@ -428,15 +433,49 @@ export default function Quotes() {
         status: "active",
       };
 
+      let quoteId: string;
       if (editingQuote) {
         const { error } = await supabase
           .from("quotes")
           .update(payload)
           .eq("id", editingQuote.id);
         if (error) throw error;
+        quoteId = editingQuote.id;
       } else {
-        const { error } = await supabase.from("quotes").insert([payload]);
+        const { data: inserted, error } = await supabase
+          .from("quotes")
+          .insert([payload])
+          .select("id")
+          .single();
         if (error) throw error;
+        quoteId = inserted.id;
+      }
+
+      // Replace recipients: delete existing then insert new
+      await (supabase as any)
+        .from("quote_recipients")
+        .delete()
+        .eq("quote_id", quoteId);
+
+      const recipientRows = (data.recipients || [])
+        .filter(r => (r.name || r.cpf_cnpj || r.address || r.city || r.state || r.cep || r.phone).toString().trim() !== "")
+        .map((r, idx) => ({
+          quote_id: quoteId,
+          position: idx,
+          name: r.name || null,
+          cpf_cnpj: r.cpf_cnpj || null,
+          phone: r.phone || null,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          cep: r.cep || null,
+        }));
+
+      if (recipientRows.length > 0) {
+        const { error: recError } = await (supabase as any)
+          .from("quote_recipients")
+          .insert(recipientRows);
+        if (recError) throw recError;
       }
     },
     onSuccess: () => {
@@ -450,6 +489,7 @@ export default function Quotes() {
       toast.error("Erro ao salvar proposta");
     },
   });
+
 
   const deleteQuoteMutation = useMutation({
     mutationFn: async (id: string) => {
