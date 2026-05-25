@@ -568,9 +568,11 @@ export default function Quotes() {
       payment_term_days: "30",
       observations: "",
       payment_method: "",
+      recipients: [emptyRecipient()],
     });
     setEditingQuote(null);
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
