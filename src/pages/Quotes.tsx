@@ -601,8 +601,35 @@ export default function Quotes() {
     saveQuoteMutation.mutate(formData);
   };
 
-  const handleEdit = (quote: Quote) => {
+  const handleEdit = async (quote: Quote) => {
     setEditingQuote(quote);
+
+    // Load recipients for this quote
+    const { data: recipientsData } = await (supabase as any)
+      .from("quote_recipients")
+      .select("*")
+      .eq("quote_id", quote.id)
+      .order("position", { ascending: true });
+
+    let recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+
+    // Fallback for legacy quotes: build first recipient from legacy destination fields
+    if (recipients.length === 0) {
+      recipients = [{
+        ...emptyRecipient(),
+        city: quote.destination_city || "",
+        state: quote.destination_state || "",
+      }];
+    }
+
     setFormData({
       customer_id: quote.customer_id || "",
       responsavel: quote.responsavel || "",
@@ -631,14 +658,34 @@ export default function Quotes() {
       payment_term_days: quote.payment_term_days?.toString() || "30",
       observations: quote.observations || "",
       payment_method: quote.payment_method || "",
+      recipients,
     });
     setIsDialogOpen(true);
   };
 
-  const handleView = (quote: Quote) => {
-    setViewingQuote(quote);
+  const handleView = async (quote: Quote) => {
+    // Load recipients for printing
+    const { data: recipientsData } = await (supabase as any)
+      .from("quote_recipients")
+      .select("*")
+      .eq("quote_id", quote.id)
+      .order("position", { ascending: true });
+
+    const recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+
+    setViewingQuote({ ...quote, recipients });
     setIsPrintDialogOpen(true);
   };
+
+
 
   const handlePrint = () => {
     if (printRef.current) {
