@@ -19,6 +19,7 @@ import CollectionOrderPrint from "@/components/CollectionOrderPrint";
 import { FilterableTable, FilterableColumn } from "@/components/ui/filterable-table";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { useTableFilters } from "@/hooks/useTableFilters";
+import { formatCpfCnpj, formatPhone, formatCep } from "@/lib/formatters";
 
 
 const BRAZILIAN_STATES = [
@@ -1126,7 +1127,7 @@ export default function CollectionOrders() {
                                   value={rec.cpf_cnpj}
                                   onChange={(e) => setFormData(prev => {
                                     const recipients = [...(prev.recipients || [])];
-                                    recipients[idx] = { ...recipients[idx], cpf_cnpj: e.target.value };
+                                    recipients[idx] = { ...recipients[idx], cpf_cnpj: formatCpfCnpj(e.target.value) };
                                     return { ...prev, recipients };
                                   })}
                                   placeholder="000.000.000-00 / 00.000.000/0000-00"
@@ -1138,7 +1139,7 @@ export default function CollectionOrders() {
                                   value={rec.phone}
                                   onChange={(e) => setFormData(prev => {
                                     const recipients = [...(prev.recipients || [])];
-                                    recipients[idx] = { ...recipients[idx], phone: e.target.value };
+                                    recipients[idx] = { ...recipients[idx], phone: formatPhone(e.target.value) };
                                     return { ...prev, recipients };
                                   })}
                                   placeholder="(00) 00000-0000"
@@ -1195,7 +1196,7 @@ export default function CollectionOrders() {
                                   value={rec.cep}
                                   onChange={(e) => setFormData(prev => {
                                     const recipients = [...(prev.recipients || [])];
-                                    recipients[idx] = { ...recipients[idx], cep: e.target.value };
+                                    recipients[idx] = { ...recipients[idx], cep: formatCep(e.target.value) };
                                     return { ...prev, recipients };
                                   })}
                                   placeholder="00000-000"

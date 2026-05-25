@@ -1,59 +1,29 @@
-# Cotação — Múltiplos Destinatários
+## Adicionar máscaras de formatação nos campos dos destinatários
 
-Replicar em **Cotação** o comportamento de destinatários múltiplos já existente em **Ordem de Coleta**, reaproveitando o mesmo layout (Accordion com botões Adicionar / Remover) e estrutura em lista.
+Aplicar máscaras automáticas (enquanto o usuário digita) nos campos **CPF/CNPJ**, **Telefone** e **CEP** dentro da seção de destinatários, tanto em **Ordem de Coleta** quanto em **Cotação**.
 
-## 1. Banco de Dados
+### Máscaras
 
-Nova tabela `quote_recipients` (espelho de `collection_order_recipients`):
+- **CPF/CNPJ** (alterna conforme o tamanho dos dígitos):
+  - até 11 dígitos: `000.000.000-00`
+  - 12+ dígitos: `00.000.000/0000-00`
+- **Telefone** (alterna conforme o tamanho):
+  - 10 dígitos: `(00) 0000-0000`
+  - 11 dígitos: `(00) 00000-0000`
+- **CEP**: `00000-000`
 
-- `quote_id` (FK lógica para `quotes.id`, ON DELETE CASCADE)
-- `position` (ordem do destinatário)
-- `name`, `cpf_cnpj`, `phone`, `address`, `city`, `state`, `cep`
-- campos padrão (`id`, `created_at`)
-- RLS pública (mesmo padrão das demais tabelas do projeto)
-- Índice por `quote_id`
+Em todos os casos: remover não-dígitos, limitar ao tamanho máximo (14 para doc, 11 para telefone, 8 para CEP) e formatar progressivamente.
 
-Não removeremos `destination_city` / `destination_state` da tabela `quotes` — eles continuarão sendo preenchidos automaticamente com a cidade/UF do **primeiro destinatário** para manter compatibilidade com:
-- listagens, filtros e relatórios existentes
-- exibição "Origem → Destino" na tabela de cotações
-- registros antigos (cotações já criadas)
+### Arquivos
 
-## 2. Página `src/pages/Quotes.tsx`
+1. **`src/lib/formatters.ts`** (novo) — utilitário central exportando `formatCpfCnpj`, `formatPhone`, `formatCep`. Reaproveitável e padroniza o código (hoje as funções estão duplicadas em vários arquivos).
 
-- Adicionar `recipients: Array<{ name, cpf_cnpj, phone, address, city, state, cep }>` ao `formData` (inicial com 1 item vazio).
-- Substituir o bloco atual do campo **Destino** (cidade/UF únicos) por uma seção **Destinatários** com:
-  - botão **Adicionar Destinatário** (`Plus`)
-  - `Accordion` com um item por destinatário
-  - botão de remover (`Trash2`) desabilitado quando há apenas 1
-  - mesmos campos e mesmo visual usados em `CollectionOrders.tsx` (linhas ~1054–1209)
-- Validação: pelo menos 1 destinatário com `name` preenchido; se transporte estiver marcado, exigir `city` no primeiro.
-- **Salvar (create/update)**: após gravar a cotação, deletar e reinserir as linhas em `quote_recipients` (mesmo padrão de Ordem de Coleta). Atualizar `destination_city/state` com os dados do primeiro destinatário.
-- **Editar**: ao abrir uma cotação existente, carregar `quote_recipients` ordenados por `position`. Se não houver nenhuma linha (cotação antiga), criar fallback com 1 destinatário usando `destination_city/state` da própria cotação.
-- **Listagem**: a coluna existente continua mostrando `destination_city/UF` (= primeiro destinatário), sem mudança visual.
+2. **`src/pages/CollectionOrders.tsx`** — na seção de destinatários (Accordion, ~linhas 1066–1209), envolver os `onChange` dos inputs `cpf_cnpj`, `phone` e `cep` com a respectiva função de formatação importada de `@/lib/formatters`.
 
-## 3. Impressão / PDF — `src/components/QuotePrintView.tsx`
+3. **`src/pages/Quotes.tsx`** — mesma aplicação no bloco de destinatários adicionado anteriormente (campos `cpf_cnpj`, `phone`, `cep` de cada item de `formData.recipients`).
 
-- Aceitar `recipients` no tipo `Quote`.
-- Substituir a linha única **"Destino: cidade/UF"** por um bloco **DESTINATÁRIOS** listando cada um (nome, CPF/CNPJ, endereço, cidade/UF, CEP, telefone), no mesmo estilo das demais seções.
-- Fallback: se `recipients` vier vazio, usar `destination_city/state` (cotações antigas).
+### Regras adicionais
 
-## 4. Compatibilidade
-
-- Cotações antigas continuam abrindo (fallback para `destination_city/state`).
-- Filtros, ordenações e listagens existentes seguem funcionando.
-- Nenhuma alteração em outros módulos.
-
-## Detalhes Técnicos
-
-```text
-quotes (existing)
-   └── quote_recipients (new, 1:N)
-         position, name, cpf_cnpj, phone, address, city, state, cep
-```
-
-Padrão de gravação (igual a `collection_order_recipients`):
-1. upsert em `quotes`
-2. `delete from quote_recipients where quote_id = :id`
-3. `insert` em lote das linhas atuais
-
-A primeira migration cria a tabela + RLS. Em seguida, alteramos `Quotes.tsx` e `QuotePrintView.tsx`.
+- Aplicar apenas nos campos dos destinatários — não alterar outros formulários neste passo (evita regressão).
+- Preservar o valor já formatado vindo do banco ao editar (a função é idempotente: reaplica a máscara sobre dígitos extraídos).
+- Sem mudanças de schema, sem mudanças visuais além da máscara.
