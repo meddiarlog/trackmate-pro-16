@@ -38,6 +38,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "sonner";
 import {
   Plus,
@@ -53,6 +59,26 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { QuotePrintView } from "@/components/QuotePrintView";
 import { CustomerFormDialog } from "@/components/CustomerFormDialog";
+
+const BRAZILIAN_STATES = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+];
+
+type QuoteRecipient = {
+  name: string;
+  cpf_cnpj: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  cep: string;
+};
+
+const emptyRecipient = (): QuoteRecipient => ({
+  name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "",
+});
+
 
 interface Quote {
   id: string;
@@ -91,7 +117,9 @@ interface Quote {
   product?: { name: string } | null;
   vehicle_type?: { name: string } | null;
   body_type?: { name: string } | null;
+  recipients?: QuoteRecipient[];
 }
+
 
 interface BodyType {
   id: string;
@@ -177,7 +205,9 @@ export default function Quotes() {
     payment_term_days: "30",
     observations: "",
     payment_method: "",
+    recipients: [emptyRecipient()] as QuoteRecipient[],
   });
+
 
   // Helper to build service_type string for backward compatibility
   const buildServiceTypeString = () => {
@@ -364,6 +394,11 @@ export default function Quotes() {
 
   const saveQuoteMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      // First recipient drives legacy destination_city/state for backward compatibility
+      const firstRecipient = data.recipients?.[0];
+      const legacyDestCity = firstRecipient?.city?.trim() || data.destination_city || "";
+      const legacyDestState = firstRecipient?.state?.trim() || data.destination_state || "";
+
       const payload: any = {
         customer_id: data.customer_id || null,
         responsavel: data.responsavel || null,
@@ -375,8 +410,8 @@ export default function Quotes() {
         service_type: buildServiceTypeString(),
         origin_city: data.origin_city || null,
         origin_state: data.origin_state || null,
-        destination_city: data.destination_city || null,
-        destination_state: data.destination_state || null,
+        destination_city: legacyDestCity || null,
+        destination_state: legacyDestState || null,
         product_id: data.product_id || null,
         freight_value: data.service_transporte ? parseFloat(data.freight_value) || 0 : 0,
         munck_value: data.service_munck ? parseFloat(data.munck_value) || 0 : 0,
@@ -398,15 +433,49 @@ export default function Quotes() {
         status: "active",
       };
 
+      let quoteId: string;
       if (editingQuote) {
         const { error } = await supabase
           .from("quotes")
           .update(payload)
           .eq("id", editingQuote.id);
         if (error) throw error;
+        quoteId = editingQuote.id;
       } else {
-        const { error } = await supabase.from("quotes").insert([payload]);
+        const { data: inserted, error } = await supabase
+          .from("quotes")
+          .insert([payload])
+          .select("id")
+          .single();
         if (error) throw error;
+        quoteId = inserted.id;
+      }
+
+      // Replace recipients: delete existing then insert new
+      await (supabase as any)
+        .from("quote_recipients")
+        .delete()
+        .eq("quote_id", quoteId);
+
+      const recipientRows = (data.recipients || [])
+        .filter(r => (r.name || r.cpf_cnpj || r.address || r.city || r.state || r.cep || r.phone).toString().trim() !== "")
+        .map((r, idx) => ({
+          quote_id: quoteId,
+          position: idx,
+          name: r.name || null,
+          cpf_cnpj: r.cpf_cnpj || null,
+          phone: r.phone || null,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          cep: r.cep || null,
+        }));
+
+      if (recipientRows.length > 0) {
+        const { error: recError } = await (supabase as any)
+          .from("quote_recipients")
+          .insert(recipientRows);
+        if (recError) throw recError;
       }
     },
     onSuccess: () => {
@@ -420,6 +489,7 @@ export default function Quotes() {
       toast.error("Erro ao salvar proposta");
     },
   });
+
 
   const deleteQuoteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -538,9 +608,11 @@ export default function Quotes() {
       payment_term_days: "30",
       observations: "",
       payment_method: "",
+      recipients: [emptyRecipient()],
     });
     setEditingQuote(null);
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -551,9 +623,21 @@ export default function Quotes() {
       return;
     }
 
+    // Validate recipients: at least one with a name
+    const validRecipients = (formData.recipients || []).filter(r => r.name?.trim());
+    if (validRecipients.length === 0) {
+      toast.error("Informe pelo menos um destinatário com nome");
+      return;
+    }
+
     if (formData.service_transporte) {
-      if (!formData.origin_city || !formData.destination_city) {
-        toast.error("Origem e Destino são obrigatórios para Transporte");
+      if (!formData.origin_city) {
+        toast.error("Origem é obrigatória para Transporte");
+        return;
+      }
+      const firstCity = formData.recipients?.[0]?.city?.trim();
+      if (!firstCity) {
+        toast.error("Informe a cidade do primeiro destinatário para Transporte");
         return;
       }
       if (!formData.freight_mode) {
@@ -566,11 +650,39 @@ export default function Quotes() {
       }
     }
 
+
     saveQuoteMutation.mutate(formData);
   };
 
-  const handleEdit = (quote: Quote) => {
+  const handleEdit = async (quote: Quote) => {
     setEditingQuote(quote);
+
+    // Load recipients for this quote
+    const { data: recipientsData } = await (supabase as any)
+      .from("quote_recipients")
+      .select("*")
+      .eq("quote_id", quote.id)
+      .order("position", { ascending: true });
+
+    let recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+
+    // Fallback for legacy quotes: build first recipient from legacy destination fields
+    if (recipients.length === 0) {
+      recipients = [{
+        ...emptyRecipient(),
+        city: quote.destination_city || "",
+        state: quote.destination_state || "",
+      }];
+    }
+
     setFormData({
       customer_id: quote.customer_id || "",
       responsavel: quote.responsavel || "",
@@ -599,14 +711,34 @@ export default function Quotes() {
       payment_term_days: quote.payment_term_days?.toString() || "30",
       observations: quote.observations || "",
       payment_method: quote.payment_method || "",
+      recipients,
     });
     setIsDialogOpen(true);
   };
 
-  const handleView = (quote: Quote) => {
-    setViewingQuote(quote);
+  const handleView = async (quote: Quote) => {
+    // Load recipients for printing
+    const { data: recipientsData } = await (supabase as any)
+      .from("quote_recipients")
+      .select("*")
+      .eq("quote_id", quote.id)
+      .order("position", { ascending: true });
+
+    const recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
+      name: r.name || "",
+      cpf_cnpj: r.cpf_cnpj || "",
+      phone: r.phone || "",
+      address: r.address || "",
+      city: r.city || "",
+      state: r.state || "",
+      cep: r.cep || "",
+    }));
+
+    setViewingQuote({ ...quote, recipients });
     setIsPrintDialogOpen(true);
   };
+
+
 
   const handlePrint = () => {
     if (printRef.current) {
@@ -854,71 +986,195 @@ export default function Quotes() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>
-                    Origem{" "}
-                    {formData.service_transporte && (
-                      <span className="text-destructive">*</span>
-                    )}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={formData.origin_city}
-                      onChange={(e) =>
-                        setFormData({ ...formData, origin_city: e.target.value })
-                      }
-                      placeholder="Cidade"
-                      className="flex-1"
-                    />
-                    <Input
-                      value={formData.origin_state}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          origin_state: e.target.value.toUpperCase(),
-                        })
-                      }
-                      placeholder="UF"
-                      maxLength={2}
-                      className="w-16"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>
-                    Destino{" "}
-                    {formData.service_transporte && (
-                      <span className="text-destructive">*</span>
-                    )}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={formData.destination_city}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          destination_city: e.target.value,
-                        })
-                      }
-                      placeholder="Cidade"
-                      className="flex-1"
-                    />
-                    <Input
-                      value={formData.destination_state}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          destination_state: e.target.value.toUpperCase(),
-                        })
-                      }
-                      placeholder="UF"
-                      maxLength={2}
-                      className="w-16"
-                    />
-                  </div>
+              <div className="space-y-2">
+                <Label>
+                  Origem{" "}
+                  {formData.service_transporte && (
+                    <span className="text-destructive">*</span>
+                  )}
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.origin_city}
+                    onChange={(e) =>
+                      setFormData({ ...formData, origin_city: e.target.value })
+                    }
+                    placeholder="Cidade"
+                    className="flex-1"
+                  />
+                  <Input
+                    value={formData.origin_state}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        origin_state: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="UF"
+                    maxLength={2}
+                    className="w-16"
+                  />
                 </div>
               </div>
+
+              {/* Destinatários (multi) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>
+                    Destinatários <span className="text-destructive">*</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      recipients: [...(prev.recipients || []), emptyRecipient()],
+                    }))}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar destinatário
+                  </Button>
+                </div>
+                <Accordion
+                  type="multiple"
+                  defaultValue={["recipient-0"]}
+                  className="border rounded-md bg-muted/30 px-3"
+                >
+                  {(formData.recipients || []).map((rec, idx) => (
+                    <AccordionItem key={idx} value={`recipient-${idx}`} className="border-b last:border-b-0">
+                      <div className="flex items-center gap-2">
+                        <AccordionTrigger className="flex-1 hover:no-underline">
+                          <span className="text-sm font-medium text-left">
+                            #{idx + 1} — {rec.name?.trim() || "Sem nome"}
+                            {(rec.city || rec.state) && (
+                              <span className="text-muted-foreground font-normal">
+                                {" "}({[rec.city, rec.state].filter(Boolean).join("/")})
+                              </span>
+                            )}
+                          </span>
+                        </AccordionTrigger>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive"
+                          disabled={(formData.recipients?.length || 0) <= 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData(prev => ({
+                              ...prev,
+                              recipients: (prev.recipients || []).filter((_, i) => i !== idx),
+                            }));
+                          }}
+                          title="Remover destinatário"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <AccordionContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Nome / Razão Social</Label>
+                            <Input
+                              value={rec.name}
+                              onChange={(e) => setFormData(prev => {
+                                const recipients = [...(prev.recipients || [])];
+                                recipients[idx] = { ...recipients[idx], name: e.target.value };
+                                return { ...prev, recipients };
+                              })}
+                              placeholder="Nome do destinatário"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">CPF / CNPJ</Label>
+                            <Input
+                              value={rec.cpf_cnpj}
+                              onChange={(e) => setFormData(prev => {
+                                const recipients = [...(prev.recipients || [])];
+                                recipients[idx] = { ...recipients[idx], cpf_cnpj: e.target.value };
+                                return { ...prev, recipients };
+                              })}
+                              placeholder="000.000.000-00 / 00.000.000/0000-00"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Telefone</Label>
+                            <Input
+                              value={rec.phone}
+                              onChange={(e) => setFormData(prev => {
+                                const recipients = [...(prev.recipients || [])];
+                                recipients[idx] = { ...recipients[idx], phone: e.target.value };
+                                return { ...prev, recipients };
+                              })}
+                              placeholder="(00) 00000-0000"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label className="text-xs">Endereço</Label>
+                            <Input
+                              value={rec.address}
+                              onChange={(e) => setFormData(prev => {
+                                const recipients = [...(prev.recipients || [])];
+                                recipients[idx] = { ...recipients[idx], address: e.target.value };
+                                return { ...prev, recipients };
+                              })}
+                              placeholder="Rua, número, bairro"
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 md:col-span-2">
+                            <div className="col-span-2">
+                              <Label className="text-xs">
+                                Cidade {idx === 0 && formData.service_transporte && (<span className="text-destructive">*</span>)}
+                              </Label>
+                              <Input
+                                value={rec.city}
+                                onChange={(e) => setFormData(prev => {
+                                  const recipients = [...(prev.recipients || [])];
+                                  recipients[idx] = { ...recipients[idx], city: e.target.value };
+                                  return { ...prev, recipients };
+                                })}
+                                placeholder="Cidade"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">UF</Label>
+                              <Select
+                                value={rec.state || "__none__"}
+                                onValueChange={(v) => setFormData(prev => {
+                                  const recipients = [...(prev.recipients || [])];
+                                  recipients[idx] = { ...recipients[idx], state: v === "__none__" ? "" : v };
+                                  return { ...prev, recipients };
+                                })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="UF" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__">-</SelectItem>
+                                  {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">CEP</Label>
+                            <Input
+                              value={rec.cep}
+                              onChange={(e) => setFormData(prev => {
+                                const recipients = [...(prev.recipients || [])];
+                                recipients[idx] = { ...recipients[idx], cep: e.target.value };
+                                return { ...prev, recipients };
+                              })}
+                              placeholder="00000-000"
+                            />
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+
 
               {/* Produto */}
               <div className="space-y-2">

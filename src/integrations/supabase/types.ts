@@ -1447,6 +1447,48 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_recipients: {
+        Row: {
+          address: string | null
+          cep: string | null
+          city: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          id: string
+          name: string | null
+          phone: string | null
+          position: number
+          quote_id: string
+          state: string | null
+        }
+        Insert: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+          position?: number
+          quote_id: string
+          state?: string | null
+        }
+        Update: {
+          address?: string | null
+          cep?: string | null
+          city?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+          position?: number
+          quote_id?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           body_type_id: string | null
