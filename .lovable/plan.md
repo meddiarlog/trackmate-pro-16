@@ -1,80 +1,59 @@
-## Geração de Faturas — Contas a Receber
+# Cotação — Múltiplos Destinatários
 
-### Objetivo
-Adicionar emissão de fatura (visualizar / imprimir / salvar em PDF) para cada lançamento de Contas a Receber, com número único no formato `MMYYYY#####` que reinicia a cada mês.
+Replicar em **Cotação** o comportamento de destinatários múltiplos já existente em **Ordem de Coleta**, reaproveitando o mesmo layout (Accordion com botões Adicionar / Remover) e estrutura em lista.
 
----
+## 1. Banco de Dados
 
-### 1. Banco de dados
+Nova tabela `quote_recipients` (espelho de `collection_order_recipients`):
 
-**Nova coluna em `accounts_receivable`:**
-- `invoice_number text` (único quando preenchido) — gravado na 1ª geração e reaproveitado nas reimpressões.
+- `quote_id` (FK lógica para `quotes.id`, ON DELETE CASCADE)
+- `position` (ordem do destinatário)
+- `name`, `cpf_cnpj`, `phone`, `address`, `city`, `state`, `cep`
+- campos padrão (`id`, `created_at`)
+- RLS pública (mesmo padrão das demais tabelas do projeto)
+- Índice por `quote_id`
 
-**Nova função SQL `generate_invoice_number()`:**
-- Lê o mês/ano atual.
-- Busca o maior sequencial entre `invoice_number` que começam com `MMYYYY` no mês corrente.
-- Retorna `MM` (2 dígitos) + `YYYY` (4 dígitos) + sequencial (5 dígitos), ex.: `05202600001`.
-- Executada via `supabase.rpc('generate_invoice_number')` no momento do clique em "Gerar Fatura".
-- Garantia de unicidade: índice único parcial em `invoice_number` + retry em caso de colisão.
+Não removeremos `destination_city` / `destination_state` da tabela `quotes` — eles continuarão sendo preenchidos automaticamente com a cidade/UF do **primeiro destinatário** para manter compatibilidade com:
+- listagens, filtros e relatórios existentes
+- exibição "Origem → Destino" na tabela de cotações
+- registros antigos (cotações já criadas)
 
-Obs.: como solicitado, não criamos tabela separada `invoices` — o lançamento de Contas a Receber **é** a fatura (1:1). O campo `invoice_number` na própria linha já entrega histórico, reimpressão e download a qualquer momento, sem duplicar dados de pagador/valor.
+## 2. Página `src/pages/Quotes.tsx`
 
----
+- Adicionar `recipients: Array<{ name, cpf_cnpj, phone, address, city, state, cep }>` ao `formData` (inicial com 1 item vazio).
+- Substituir o bloco atual do campo **Destino** (cidade/UF únicos) por uma seção **Destinatários** com:
+  - botão **Adicionar Destinatário** (`Plus`)
+  - `Accordion` com um item por destinatário
+  - botão de remover (`Trash2`) desabilitado quando há apenas 1
+  - mesmos campos e mesmo visual usados em `CollectionOrders.tsx` (linhas ~1054–1209)
+- Validação: pelo menos 1 destinatário com `name` preenchido; se transporte estiver marcado, exigir `city` no primeiro.
+- **Salvar (create/update)**: após gravar a cotação, deletar e reinserir as linhas em `quote_recipients` (mesmo padrão de Ordem de Coleta). Atualizar `destination_city/state` com os dados do primeiro destinatário.
+- **Editar**: ao abrir uma cotação existente, carregar `quote_recipients` ordenados por `position`. Se não houver nenhuma linha (cotação antiga), criar fallback com 1 destinatário usando `destination_city/state` da própria cotação.
+- **Listagem**: a coluna existente continua mostrando `destination_city/UF` (= primeiro destinatário), sem mudança visual.
 
-### 2. UI — `src/pages/AccountsReceivable.tsx`
+## 3. Impressão / PDF — `src/components/QuotePrintView.tsx`
 
-**Coluna nova na tabela de lançamentos:** `Nº Fatura` (mostra o número, ou `—`).
+- Aceitar `recipients` no tipo `Quote`.
+- Substituir a linha única **"Destino: cidade/UF"** por um bloco **DESTINATÁRIOS** listando cada um (nome, CPF/CNPJ, endereço, cidade/UF, CEP, telefone), no mesmo estilo das demais seções.
+- Fallback: se `recipients` vier vazio, usar `destination_city/state` (cotações antigas).
 
-**Botão "Gerar Fatura"** no menu de ações de cada linha:
-- Se ainda não tem `invoice_number`: chama a RPC, salva o número na linha e abre a visualização.
-- Se já tem: abre direto a visualização (reimpressão).
+## 4. Compatibilidade
 
-**Filtro:** adicionar busca por `invoice_number` na busca global.
+- Cotações antigas continuam abrindo (fallback para `destination_city/state`).
+- Filtros, ordenações e listagens existentes seguem funcionando.
+- Nenhuma alteração em outros módulos.
 
----
+## Detalhes Técnicos
 
-### 3. Componente de impressão
+```text
+quotes (existing)
+   └── quote_recipients (new, 1:N)
+         position, name, cpf_cnpj, phone, address, city, state, cep
+```
 
-**Novo: `src/components/InvoicePrintView.tsx`** (mesmo padrão do `QuotePrintView.tsx`):
-- Layout A4, limpo, responsivo, com `@media print`.
-- Botões **Imprimir** (`window.print()`) e **Salvar PDF** (usa o "Salvar como PDF" do diálogo de impressão do navegador — mesma abordagem já usada em Quotes/Contracts).
+Padrão de gravação (igual a `collection_order_recipients`):
+1. upsert em `quotes`
+2. `delete from quote_recipients where quote_id = :id`
+3. `insert` em lote das linhas atuais
 
-**Conteúdo da fatura:**
-- **Cabeçalho — Dados da Empresa** (de `company_settings`): logo (`logo_url`), razão social, nome fantasia, CNPJ, IE, endereço completo, telefone, e-mail.
-- **Bloco do Pagador** (de `customers` via `customer_id`): nome/razão social, nome fantasia, CPF/CNPJ, endereço, telefone, e-mail.
-- **Bloco Financeiro:**
-  - Nº Fatura (`invoice_number`)
-  - Data de emissão (data atual da geração, ou `created_at` na reimpressão)
-  - Data de vencimento (`due_date`)
-  - Forma de pagamento (`payment_method`)
-  - Parcela (`installment_number/installments`) quando > 1
-  - Descrição: `document_number` + observações
-  - Valor, desconto, juros/multa, **Total**
-- **Rodapé:** observações + linha de assinatura/empresa.
-
-Formatação pt-BR: `toLocaleString('pt-BR')` para moeda, `dd/MM/yyyy` para datas (com correção de timezone `T00:00:00`, conforme padrão do projeto).
-
----
-
-### 4. Histórico / Reimpressão
-
-Como o número fica gravado na própria linha de Contas a Receber:
-- Lista atual já é o histórico (filtrável por mês/cliente/status).
-- "Gerar Fatura" em linha que já tem número = reimpressão / novo download de PDF.
-
----
-
-### Seção técnica resumida
-
-**Arquivos novos:**
-- `src/components/InvoicePrintView.tsx`
-
-**Arquivos alterados:**
-- `src/pages/AccountsReceivable.tsx` — coluna `Nº Fatura`, botão "Gerar Fatura", estado do diálogo de impressão, chamada da RPC e update da linha.
-
-**Migration:**
-- `ALTER TABLE accounts_receivable ADD COLUMN invoice_number text;`
-- `CREATE UNIQUE INDEX ... ON accounts_receivable (invoice_number) WHERE invoice_number IS NOT NULL;`
-- `CREATE FUNCTION public.generate_invoice_number() RETURNS text ...` (SECURITY DEFINER, search_path = public).
-
-**Sem mudanças** em outros módulos, em cálculos financeiros existentes ou em RLS.
+A primeira migration cria a tabela + RLS. Em seguida, alteramos `Quotes.tsx` e `QuotePrintView.tsx`.
