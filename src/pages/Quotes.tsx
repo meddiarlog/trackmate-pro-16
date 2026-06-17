@@ -111,7 +111,8 @@ interface Quote {
   product?: { name: string } | null;
   vehicle_type?: { name: string } | null;
   body_type?: { name: string } | null;
-  recipients?: QuoteRecipient[];
+  recipients?: QuoteLocation[];
+  origins?: QuoteLocation[];
 }
 
 
