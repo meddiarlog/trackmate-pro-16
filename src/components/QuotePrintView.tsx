@@ -230,28 +230,35 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
             {serviceNames.join(", ") || "-"}
           </span>
         </div>
-        {quote.origin_city && (
-          <div className="field flex mb-2">
-            <span className="field-label font-bold w-48 text-sm">Origem:</span>
-            <span className="field-value flex-1 text-sm">{quote.origin_city}/{quote.origin_state}</span>
-          </div>
-        )}
+        {(() => {
+          const origins = (quote.origins && quote.origins.length > 0)
+            ? quote.origins
+            : (quote.origin_city || quote.origin_state
+                ? [{ city: quote.origin_city || "", state: quote.origin_state || "" }]
+                : []);
+          if (origins.length === 0) return null;
+          return (
+            <div className="field flex mb-2">
+              <span className="field-label font-bold w-48 text-sm">
+                {origins.length > 1 ? "Origens:" : "Origem:"}
+              </span>
+              <span className="field-value flex-1 text-sm">
+                {origins
+                  .map(o => [o.city, o.state].filter(Boolean).join("/"))
+                  .filter(Boolean)
+                  .join(" | ")}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Destinatários Section */}
       {(() => {
         const recipients = (quote.recipients && quote.recipients.length > 0)
           ? quote.recipients
-          : (quote.destination_city
-              ? [{
-                  name: "",
-                  cpf_cnpj: "",
-                  phone: "",
-                  address: "",
-                  city: quote.destination_city || "",
-                  state: quote.destination_state || "",
-                  cep: "",
-                }]
+          : (quote.destination_city || quote.destination_state
+              ? [{ city: quote.destination_city || "", state: quote.destination_state || "" }]
               : []);
 
         if (recipients.length === 0) return null;
@@ -262,58 +269,19 @@ export function QuotePrintView({ quote, companySettings }: QuotePrintViewProps) 
               {recipients.length > 1 ? "DESTINATÁRIOS" : "DESTINATÁRIO"}
             </div>
             {recipients.map((r, idx) => (
-              <div key={idx} className={idx > 0 ? "mt-3 pt-3 border-t" : ""}>
-                {recipients.length > 1 && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">#{idx + 1}</span>
-                    <span className="field-value flex-1 text-sm font-bold">
-                      {r.name || "-"}
-                    </span>
-                  </div>
-                )}
-                {recipients.length === 1 && r.name && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">Nome:</span>
-                    <span className="field-value flex-1 text-sm">{r.name}</span>
-                  </div>
-                )}
-                {r.cpf_cnpj && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">CPF/CNPJ:</span>
-                    <span className="field-value flex-1 text-sm">{formatCnpj(r.cpf_cnpj) || r.cpf_cnpj}</span>
-                  </div>
-                )}
-                {r.address && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">Endereço:</span>
-                    <span className="field-value flex-1 text-sm">{r.address}</span>
-                  </div>
-                )}
-                {(r.city || r.state) && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">Cidade/UF:</span>
-                    <span className="field-value flex-1 text-sm">
-                      {[r.city, r.state].filter(Boolean).join("/")}
-                    </span>
-                  </div>
-                )}
-                {r.cep && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">CEP:</span>
-                    <span className="field-value flex-1 text-sm">{r.cep}</span>
-                  </div>
-                )}
-                {r.phone && (
-                  <div className="field flex mb-2">
-                    <span className="field-label font-bold w-48 text-sm">Telefone:</span>
-                    <span className="field-value flex-1 text-sm">{formatPhone(r.phone) || r.phone}</span>
-                  </div>
-                )}
+              <div key={idx} className="field flex mb-2">
+                <span className="field-label font-bold w-48 text-sm">
+                  {recipients.length > 1 ? `#${idx + 1}` : "Cidade/UF:"}
+                </span>
+                <span className="field-value flex-1 text-sm">
+                  {[r.city, r.state].filter(Boolean).join("/") || "-"}
+                </span>
               </div>
             ))}
           </div>
         );
       })()}
+
 
       {/* Serviço (continuação) */}
       <div className="section mb-6">
