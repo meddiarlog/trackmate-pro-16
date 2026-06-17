@@ -51,6 +51,8 @@ export default function Customers() {
   const [cnpjSearching, setCnpjSearching] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -235,7 +237,7 @@ export default function Customers() {
           
           if (existing && existing.length > 0) {
             if (!editingCustomer || (existing.length > 1 || existing[0].id !== editingCustomer.id)) {
-              throw new Error("Já existe um cliente cadastrado com este CPF/CNPJ.");
+              throw new Error("Cliente já possui cadastro!");
             }
           }
         }
@@ -465,22 +467,36 @@ export default function Customers() {
               {/* Grupo */}
               <div className="space-y-2">
                 <Label htmlFor="group_id">Grupo</Label>
-                <Select
-                  value={formData.group_id}
-                  onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um grupo (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.group_id}
+                    onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um grupo (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setNewGroupName("");
+                      setIsGroupDialogOpen(true);
+                    }}
+                    title="Cadastrar novo grupo"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Endereço Completo */}
@@ -606,7 +622,60 @@ export default function Customers() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Quick-add Group Dialog */}
+        <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Cadastrar Novo Grupo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new_group_name">Nome do Grupo *</Label>
+                <Input
+                  id="new_group_name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Ex: Clientes Premium"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const name = newGroupName.trim();
+                    if (!name) {
+                      toast.error("Informe o nome do grupo");
+                      return;
+                    }
+                    const { data, error } = await supabase
+                      .from("customer_groups")
+                      .insert([{ name }])
+                      .select("id, name")
+                      .single();
+                    if (error) {
+                      toast.error("Erro ao cadastrar grupo");
+                      return;
+                    }
+                    await queryClient.invalidateQueries({ queryKey: ["customer_groups"] });
+                    setFormData((prev) => ({ ...prev, group_id: data.id }));
+                    toast.success("Grupo cadastrado!");
+                    setIsGroupDialogOpen(false);
+                    setNewGroupName("");
+                  }}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
+
 
       {/* Search */}
       <Card className="mb-6 border-0 shadow-md">
