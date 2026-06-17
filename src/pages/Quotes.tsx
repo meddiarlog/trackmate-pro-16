@@ -602,10 +602,6 @@ export default function Quotes() {
       service_munck: false,
       service_carregamento: false,
       service_descarga: false,
-      origin_city: "",
-      origin_state: "",
-      destination_city: "",
-      destination_state: "",
       product_id: "",
       freight_value: "",
       munck_value: "",
@@ -622,7 +618,8 @@ export default function Quotes() {
       payment_term_days: "30",
       observations: "",
       payment_method: "",
-      recipients: [emptyRecipient()],
+      origins: [emptyLocation()],
+      recipients: [emptyLocation()],
     });
     setEditingQuote(null);
   };
@@ -637,23 +634,21 @@ export default function Quotes() {
       return;
     }
 
-    // Validate recipients: at least one with a name
-    const validRecipients = (formData.recipients || []).filter(r => r.name?.trim());
-    if (validRecipients.length === 0) {
-      toast.error("Informe pelo menos um destinatário com nome");
+    // Validate origins: every entry must have city and state
+    const origins = formData.origins || [];
+    if (origins.length === 0 || origins.some(o => !o.city?.trim() || !o.state?.trim())) {
+      toast.error("Informe Cidade e UF em todas as origens");
+      return;
+    }
+
+    // Validate recipients: every entry must have city and state
+    const recipients = formData.recipients || [];
+    if (recipients.length === 0 || recipients.some(r => !r.city?.trim() || !r.state?.trim())) {
+      toast.error("Informe Cidade e UF em todos os destinatários");
       return;
     }
 
     if (formData.service_transporte) {
-      if (!formData.origin_city) {
-        toast.error("Origem é obrigatória para Transporte");
-        return;
-      }
-      const firstCity = formData.recipients?.[0]?.city?.trim();
-      if (!firstCity) {
-        toast.error("Informe a cidade do primeiro destinatário para Transporte");
-        return;
-      }
       if (!formData.freight_mode) {
         toast.error("Selecione o tipo de frete: P/Ton ou Fechado");
         return;
@@ -668,34 +663,44 @@ export default function Quotes() {
     saveQuoteMutation.mutate(formData);
   };
 
-  const handleEdit = async (quote: Quote) => {
-    setEditingQuote(quote);
+  const loadQuoteLocations = async (quoteId: string, quote: Quote) => {
+    const [{ data: originsData }, { data: recipientsData }] = await Promise.all([
+      (supabase as any)
+        .from("quote_origins")
+        .select("*")
+        .eq("quote_id", quoteId)
+        .order("position", { ascending: true }),
+      (supabase as any)
+        .from("quote_recipients")
+        .select("*")
+        .eq("quote_id", quoteId)
+        .order("position", { ascending: true }),
+    ]);
 
-    // Load recipients for this quote
-    const { data: recipientsData } = await (supabase as any)
-      .from("quote_recipients")
-      .select("*")
-      .eq("quote_id", quote.id)
-      .order("position", { ascending: true });
+    let origins: QuoteLocation[] = (originsData || []).map((o: any) => ({
+      city: o.city || "",
+      state: o.state || "",
+    }));
+    if (origins.length === 0 && (quote.origin_city || quote.origin_state)) {
+      origins = [{ city: quote.origin_city || "", state: quote.origin_state || "" }];
+    }
+    if (origins.length === 0) origins = [emptyLocation()];
 
-    let recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
-      name: r.name || "",
-      cpf_cnpj: r.cpf_cnpj || "",
-      phone: r.phone || "",
-      address: r.address || "",
+    let recipients: QuoteLocation[] = (recipientsData || []).map((r: any) => ({
       city: r.city || "",
       state: r.state || "",
-      cep: r.cep || "",
     }));
-
-    // Fallback for legacy quotes: build first recipient from legacy destination fields
-    if (recipients.length === 0) {
-      recipients = [{
-        ...emptyRecipient(),
-        city: quote.destination_city || "",
-        state: quote.destination_state || "",
-      }];
+    if (recipients.length === 0 && (quote.destination_city || quote.destination_state)) {
+      recipients = [{ city: quote.destination_city || "", state: quote.destination_state || "" }];
     }
+    if (recipients.length === 0) recipients = [emptyLocation()];
+
+    return { origins, recipients };
+  };
+
+  const handleEdit = async (quote: Quote) => {
+    setEditingQuote(quote);
+    const { origins, recipients } = await loadQuoteLocations(quote.id, quote);
 
     setFormData({
       customer_id: quote.customer_id || "",
@@ -705,10 +710,6 @@ export default function Quotes() {
       service_munck: quote.service_munck ?? (quote.service_type === "munck"),
       service_carregamento: quote.service_carregamento ?? false,
       service_descarga: quote.service_descarga ?? false,
-      origin_city: quote.origin_city || "",
-      origin_state: quote.origin_state || "",
-      destination_city: quote.destination_city || "",
-      destination_state: quote.destination_state || "",
       product_id: quote.product_id || "",
       freight_value: quote.freight_value?.toString() || "",
       munck_value: quote.munck_value?.toString() || "",
@@ -725,32 +726,18 @@ export default function Quotes() {
       payment_term_days: quote.payment_term_days?.toString() || "30",
       observations: quote.observations || "",
       payment_method: quote.payment_method || "",
+      origins,
       recipients,
     });
     setIsDialogOpen(true);
   };
 
   const handleView = async (quote: Quote) => {
-    // Load recipients for printing
-    const { data: recipientsData } = await (supabase as any)
-      .from("quote_recipients")
-      .select("*")
-      .eq("quote_id", quote.id)
-      .order("position", { ascending: true });
-
-    const recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
-      name: r.name || "",
-      cpf_cnpj: r.cpf_cnpj || "",
-      phone: r.phone || "",
-      address: r.address || "",
-      city: r.city || "",
-      state: r.state || "",
-      cep: r.cep || "",
-    }));
-
-    setViewingQuote({ ...quote, recipients });
+    const { origins, recipients } = await loadQuoteLocations(quote.id, quote);
+    setViewingQuote({ ...quote, origins, recipients });
     setIsPrintDialogOpen(true);
   };
+
 
 
 
