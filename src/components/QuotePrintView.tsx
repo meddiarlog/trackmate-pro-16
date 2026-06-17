@@ -37,14 +37,14 @@ interface Quote {
   vehicle_type?: { name: string } | null;
   body_type?: { name: string } | null;
   recipients?: Array<{
-    name: string;
-    cpf_cnpj: string;
-    phone: string;
-    address: string;
     city: string;
     state: string;
-    cep: string;
   }>;
+  origins?: Array<{
+    city: string;
+    state: string;
+  }>;
+
 }
 
 
