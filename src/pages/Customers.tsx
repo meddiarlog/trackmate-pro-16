@@ -235,7 +235,7 @@ export default function Customers() {
           
           if (existing && existing.length > 0) {
             if (!editingCustomer || (existing.length > 1 || existing[0].id !== editingCustomer.id)) {
-              throw new Error("Já existe um cliente cadastrado com este CPF/CNPJ.");
+              throw new Error("Cliente já possui cadastro!");
             }
           }
         }
