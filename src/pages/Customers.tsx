@@ -622,7 +622,60 @@ export default function Customers() {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Quick-add Group Dialog */}
+        <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+          <DialogContent className="sm:max-w-[420px]">
+            <DialogHeader>
+              <DialogTitle>Cadastrar Novo Grupo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new_group_name">Nome do Grupo *</Label>
+                <Input
+                  id="new_group_name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Ex: Clientes Premium"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const name = newGroupName.trim();
+                    if (!name) {
+                      toast.error("Informe o nome do grupo");
+                      return;
+                    }
+                    const { data, error } = await supabase
+                      .from("customer_groups")
+                      .insert([{ name }])
+                      .select("id, name")
+                      .single();
+                    if (error) {
+                      toast.error("Erro ao cadastrar grupo");
+                      return;
+                    }
+                    await queryClient.invalidateQueries({ queryKey: ["customer_groups"] });
+                    setFormData((prev) => ({ ...prev, group_id: data.id }));
+                    toast.success("Grupo cadastrado!");
+                    setIsGroupDialogOpen(false);
+                    setNewGroupName("");
+                  }}
+                >
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
+
 
       {/* Search */}
       <Card className="mb-6 border-0 shadow-md">
