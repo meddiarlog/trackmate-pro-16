@@ -467,22 +467,36 @@ export default function Customers() {
               {/* Grupo */}
               <div className="space-y-2">
                 <Label htmlFor="group_id">Grupo</Label>
-                <Select
-                  value={formData.group_id}
-                  onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um grupo (opcional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {groups.map((group) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.group_id}
+                    onValueChange={(value) => setFormData({ ...formData, group_id: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um grupo (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {groups.map((group) => (
+                        <SelectItem key={group.id} value={group.id}>
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setNewGroupName("");
+                      setIsGroupDialogOpen(true);
+                    }}
+                    title="Cadastrar novo grupo"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Endereço Completo */}
