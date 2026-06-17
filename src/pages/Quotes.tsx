@@ -387,10 +387,13 @@ export default function Quotes() {
 
   const saveQuoteMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      // First recipient drives legacy destination_city/state for backward compatibility
+      // First origin / recipient drive legacy fields for backward compatibility
+      const firstOrigin = data.origins?.[0];
       const firstRecipient = data.recipients?.[0];
-      const legacyDestCity = firstRecipient?.city?.trim() || data.destination_city || "";
-      const legacyDestState = firstRecipient?.state?.trim() || data.destination_state || "";
+      const legacyOriginCity = firstOrigin?.city?.trim() || "";
+      const legacyOriginState = firstOrigin?.state?.trim() || "";
+      const legacyDestCity = firstRecipient?.city?.trim() || "";
+      const legacyDestState = firstRecipient?.state?.trim() || "";
 
       const payload: any = {
         customer_id: data.customer_id || null,
@@ -401,8 +404,8 @@ export default function Quotes() {
         service_carregamento: data.service_carregamento,
         service_descarga: data.service_descarga,
         service_type: buildServiceTypeString(),
-        origin_city: data.origin_city || null,
-        origin_state: data.origin_state || null,
+        origin_city: legacyOriginCity || null,
+        origin_state: legacyOriginState || null,
         destination_city: legacyDestCity || null,
         destination_state: legacyDestState || null,
         product_id: data.product_id || null,
@@ -444,30 +447,48 @@ export default function Quotes() {
         quoteId = inserted.id;
       }
 
-      // Replace recipients: delete existing then insert new
+      // Replace origins
+      await (supabase as any)
+        .from("quote_origins")
+        .delete()
+        .eq("quote_id", quoteId);
+
+      const originRows = (data.origins || [])
+        .filter(o => (o.city?.trim() || o.state?.trim()))
+        .map((o, idx) => ({
+          quote_id: quoteId,
+          position: idx,
+          city: o.city || null,
+          state: o.state || null,
+        }));
+
+      if (originRows.length > 0) {
+        const { error: oErr } = await (supabase as any)
+          .from("quote_origins")
+          .insert(originRows);
+        if (oErr) throw oErr;
+      }
+
+      // Replace recipients
       await (supabase as any)
         .from("quote_recipients")
         .delete()
         .eq("quote_id", quoteId);
 
       const recipientRows = (data.recipients || [])
-        .filter(r => (r.name || r.cpf_cnpj || r.address || r.city || r.state || r.cep || r.phone).toString().trim() !== "")
+        .filter(r => (r.city?.trim() || r.state?.trim()))
         .map((r, idx) => ({
           quote_id: quoteId,
           position: idx,
-          name: r.name || null,
-          cpf_cnpj: r.cpf_cnpj || null,
-          phone: r.phone || null,
-          address: r.address || null,
           city: r.city || null,
           state: r.state || null,
-          cep: r.cep || null,
         }));
 
       if (recipientRows.length > 0) {
         const { error: recError } = await (supabase as any)
           .from("quote_recipients")
           .insert(recipientRows);
+
         if (recError) throw recError;
       }
     },
