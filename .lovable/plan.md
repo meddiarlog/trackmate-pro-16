@@ -1,22 +1,19 @@
-## Melhorias no Cadastro de Clientes
+## Problema Identificado
+A validação de CNPJ duplicado já existe no código (linha 240) e lança a mensagem **"Cliente já possui cadastro!"**, porém o handler `onError` da mutation (linha 298-301) não exibe essa mensagem ao usuário — mostra apenas um texto genérico fixo **"Erro ao salvar cliente"**.
 
-### 1. Botão "Novo Grupo" no cadastro de cliente
-No dialog de cadastro/edição de cliente (`src/pages/Customers.tsx`), ao lado do campo **Grupo**:
+## Correção Proposta
+Ajustar o handler `onError` em `src/pages/Customers.tsx` para exibir a mensagem específica do erro lançado:
 
-- Adicionar botão **`+`** (ícone Plus) próximo ao Select de Grupo.
-- Ao clicar, abre um sub-dialog simples com:
-  - Input "Nome do Grupo"
-  - Botões "Cancelar" e "Salvar"
-- Ao salvar: insere em `customer_groups`, invalida a query `["customer_groups"]`, e seleciona automaticamente o novo grupo no campo `group_id` do formulário do cliente.
-- Mantém o mesmo padrão visual de "Quick Add" já usado em outros módulos do sistema.
+- Se o erro contiver a mensagem "Cliente já possui cadastro!", exibir essa mensagem no `toast.error()`.
+- Caso contrário, manter ou melhorar a mensagem genérica.
 
-### 2. Mensagem de duplicidade de CNPJ/CPF
-Em `src/pages/Customers.tsx` (linha ~238), trocar:
+## Arquivo Alvo
+- `src/pages/Customers.tsx` — linhas 298-301 (handler `onError` da `saveCustomerMutation`)
 
-- De: `"Já existe um cliente cadastrado com este CPF/CNPJ."`
-- Para: `"Cliente já possui cadastro!"`
+## Não Será Alterado
+- A lógica de validação de duplicidade (já está correta).
+- Qualquer outra funcionalidade do módulo de clientes.
 
-### Escopo
-- Apenas o módulo **Clientes** (`src/pages/Customers.tsx`).
-- Sem alterações em schema do banco — `customer_groups` já existe.
-- Sem mudanças no `CustomerFormDialog.tsx` (componente separado, não usado nesta tela).
+---
+
+**Resumo técnico:** O `toast.error()` atual recebe string fixa. Deve ser alterado para extrair `error.message` e mostrá-la ao usuário.

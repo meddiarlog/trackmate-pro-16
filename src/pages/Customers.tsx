@@ -295,9 +295,9 @@ export default function Customers() {
       setIsDialogOpen(false);
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error(error);
-      toast.error("Erro ao salvar cliente");
+      toast.error(error?.message || "Erro ao salvar cliente");
     },
   });
 
