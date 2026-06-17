@@ -27,16 +27,50 @@ serve(async (req) => {
 
     console.log('Fetching CNPJ data for:', cleanCnpj);
 
-    // Try BrasilAPI first (more reliable and free)
-    const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
-    
-    if (!response.ok) {
-      throw new Error('CNPJ não encontrado na base de dados');
+    // Try BrasilAPI first
+    let data: any = null;
+    try {
+      const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCnpj}`);
+      if (response.ok) {
+        data = await response.json();
+      } else {
+        console.log('BrasilAPI miss, trying ReceitaWS...');
+      }
+    } catch (e) {
+      console.log('BrasilAPI error, trying ReceitaWS...', e);
     }
 
-    const data = await response.json();
+    // Fallback: ReceitaWS
+    if (!data) {
+      const rwsResp = await fetch(`https://receitaws.com.br/v1/cnpj/${cleanCnpj}`);
+      if (rwsResp.ok) {
+        const rws = await rwsResp.json();
+        if (rws && rws.status !== 'ERROR' && (rws.nome || rws.razao_social)) {
+          data = {
+            razao_social: rws.nome,
+            nome_fantasia: rws.fantasia,
+            cnpj: rws.cnpj,
+            email: rws.email,
+            ddd_telefone_1: rws.telefone,
+            logradouro: rws.logradouro,
+            numero: rws.numero,
+            bairro: rws.bairro,
+            municipio: rws.municipio,
+            uf: rws.uf,
+            cep: rws.cep,
+          };
+        }
+      }
+    }
 
-    // Map BrasilAPI response to our format with separate fields
+    if (!data) {
+      return new Response(
+        JSON.stringify({ error: 'CNPJ não encontrado. Verifique o número ou preencha manualmente.' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Map response to our format with separate fields
     const companyData = {
       name: data.razao_social || data.nome_fantasia,
       cnpj: data.cnpj,
