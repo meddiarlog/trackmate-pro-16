@@ -180,10 +180,6 @@ export default function Quotes() {
     service_munck: false,
     service_carregamento: false,
     service_descarga: false,
-    origin_city: "",
-    origin_state: "",
-    destination_city: "",
-    destination_state: "",
     product_id: "",
     freight_value: "",
     munck_value: "",
@@ -200,8 +196,10 @@ export default function Quotes() {
     payment_term_days: "30",
     observations: "",
     payment_method: "",
-    recipients: [emptyRecipient()] as QuoteRecipient[],
+    origins: [emptyLocation()] as QuoteLocation[],
+    recipients: [emptyLocation()] as QuoteLocation[],
   });
+
 
 
   // Helper to build service_type string for backward compatibility
