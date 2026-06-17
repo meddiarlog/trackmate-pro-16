@@ -1447,6 +1447,41 @@ export type Database = {
         }
         Relationships: []
       }
+      quote_origins: {
+        Row: {
+          city: string | null
+          created_at: string
+          id: string
+          position: number
+          quote_id: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          quote_id: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          quote_id?: string
+          state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_origins_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_recipients: {
         Row: {
           address: string | null

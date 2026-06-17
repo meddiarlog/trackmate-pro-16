@@ -1,29 +1,28 @@
-## Adicionar máscaras de formatação nos campos dos destinatários
+## Simplificar Origens e Destinatários no módulo Cotação
 
-Aplicar máscaras automáticas (enquanto o usuário digita) nos campos **CPF/CNPJ**, **Telefone** e **CEP** dentro da seção de destinatários, tanto em **Ordem de Coleta** quanto em **Cotação**.
+Reduzir os blocos de origem e destinatário no módulo **Cotação** para conter apenas **Cidade** e **UF**, permitindo múltiplos itens em cada bloco.
 
-### Máscaras
+### Mudanças
 
-- **CPF/CNPJ** (alterna conforme o tamanho dos dígitos):
-  - até 11 dígitos: `000.000.000-00`
-  - 12+ dígitos: `00.000.000/0000-00`
-- **Telefone** (alterna conforme o tamanho):
-  - 10 dígitos: `(00) 0000-0000`
-  - 11 dígitos: `(00) 00000-0000`
-- **CEP**: `00000-000`
+**1. Banco de dados (migration)**
+- Criar tabela `quote_origins` (id, quote_id FK, city, state, position, created_at) com RLS + GRANTs equivalentes a `quote_recipients`.
+- Manter `quote_recipients` mas usar apenas `city` e `state` no app (demais colunas ficam no banco para compatibilidade com cotações antigas; não removo colunas para não quebrar histórico).
+- Manter `origin_city/origin_state` e `destination_city/destination_state` em `quotes` apenas como espelho do primeiro item (legado / relatórios).
 
-Em todos os casos: remover não-dígitos, limitar ao tamanho máximo (14 para doc, 11 para telefone, 8 para CEP) e formatar progressivamente.
+**2. `src/pages/Quotes.tsx`**
+- `formData`: substituir `origin_city/origin_state` por `origins: [{ city, state }]` e reduzir `recipients` para `[{ city, state }]`.
+- UI: dois Accordions lado a lado (ou empilhados) — **Origens** e **Destinatários** — com botões "Adicionar Origem" / "Adicionar Destinatário" e remover por item. Manter padrão visual do Accordion atual.
+- Remover da tela os campos: nome, CPF/CNPJ, telefone, endereço, CEP do destinatário (e quaisquer campos extras de origem que existirem).
+- Validação no submit: cada origem e cada destinatário deve ter `city` e `state` preenchidos; pelo menos 1 de cada.
+- Save: sincronizar `quote_origins` e `quote_recipients` por delete+insert (mesmo padrão atual). Gravar primeiro item também em `origin_city/origin_state` e `destination_city/destination_state` para compatibilidade.
+- Edit/View: carregar `quote_origins` e `quote_recipients`. Fallback para legado: se não houver linhas, usar `origin_city/origin_state` e `destination_city/destination_state` da própria cotação.
 
-### Arquivos
+**3. `src/components/QuotePrintView.tsx`**
+- Substituir seção "DADOS DO SERVIÇO > Origem" por seção **ORIGEM/ORIGENS** listando todas as origens (Cidade/UF).
+- Seção **DESTINATÁRIO(S)** já existente: simplificar para listar apenas Cidade/UF (remover linhas de nome, CNPJ, endereço, CEP, telefone).
+- Fallback legado: usar `origin_city/state` e `destination_city/state` quando não houver listas.
 
-1. **`src/lib/formatters.ts`** (novo) — utilitário central exportando `formatCpfCnpj`, `formatPhone`, `formatCep`. Reaproveitável e padroniza o código (hoje as funções estão duplicadas em vários arquivos).
-
-2. **`src/pages/CollectionOrders.tsx`** — na seção de destinatários (Accordion, ~linhas 1066–1209), envolver os `onChange` dos inputs `cpf_cnpj`, `phone` e `cep` com a respectiva função de formatação importada de `@/lib/formatters`.
-
-3. **`src/pages/Quotes.tsx`** — mesma aplicação no bloco de destinatários adicionado anteriormente (campos `cpf_cnpj`, `phone`, `cep` de cada item de `formData.recipients`).
-
-### Regras adicionais
-
-- Aplicar apenas nos campos dos destinatários — não alterar outros formulários neste passo (evita regressão).
-- Preservar o valor já formatado vindo do banco ao editar (a função é idempotente: reaplica a máscara sobre dígitos extraídos).
-- Sem mudanças de schema, sem mudanças visuais além da máscara.
+### Regras
+- Sem mudanças nos demais módulos (Ordem de Coleta permanece com destinatário completo).
+- Não removo colunas existentes — apenas paro de usá-las no formulário.
+- Sem alterações em máscaras/formatadores.

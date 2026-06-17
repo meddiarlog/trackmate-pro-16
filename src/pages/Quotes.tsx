@@ -59,26 +59,19 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { QuotePrintView } from "@/components/QuotePrintView";
 import { CustomerFormDialog } from "@/components/CustomerFormDialog";
-import { formatCpfCnpj, formatPhone, formatCep } from "@/lib/formatters";
 
 const BRAZILIAN_STATES = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
   "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
-type QuoteRecipient = {
-  name: string;
-  cpf_cnpj: string;
-  phone: string;
-  address: string;
+type QuoteLocation = {
   city: string;
   state: string;
-  cep: string;
 };
 
-const emptyRecipient = (): QuoteRecipient => ({
-  name: "", cpf_cnpj: "", phone: "", address: "", city: "", state: "", cep: "",
-});
+const emptyLocation = (): QuoteLocation => ({ city: "", state: "" });
+
 
 
 interface Quote {
@@ -118,7 +111,8 @@ interface Quote {
   product?: { name: string } | null;
   vehicle_type?: { name: string } | null;
   body_type?: { name: string } | null;
-  recipients?: QuoteRecipient[];
+  recipients?: QuoteLocation[];
+  origins?: QuoteLocation[];
 }
 
 
@@ -186,10 +180,6 @@ export default function Quotes() {
     service_munck: false,
     service_carregamento: false,
     service_descarga: false,
-    origin_city: "",
-    origin_state: "",
-    destination_city: "",
-    destination_state: "",
     product_id: "",
     freight_value: "",
     munck_value: "",
@@ -206,8 +196,10 @@ export default function Quotes() {
     payment_term_days: "30",
     observations: "",
     payment_method: "",
-    recipients: [emptyRecipient()] as QuoteRecipient[],
+    origins: [emptyLocation()] as QuoteLocation[],
+    recipients: [emptyLocation()] as QuoteLocation[],
   });
+
 
 
   // Helper to build service_type string for backward compatibility
@@ -395,10 +387,13 @@ export default function Quotes() {
 
   const saveQuoteMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      // First recipient drives legacy destination_city/state for backward compatibility
+      // First origin / recipient drive legacy fields for backward compatibility
+      const firstOrigin = data.origins?.[0];
       const firstRecipient = data.recipients?.[0];
-      const legacyDestCity = firstRecipient?.city?.trim() || data.destination_city || "";
-      const legacyDestState = firstRecipient?.state?.trim() || data.destination_state || "";
+      const legacyOriginCity = firstOrigin?.city?.trim() || "";
+      const legacyOriginState = firstOrigin?.state?.trim() || "";
+      const legacyDestCity = firstRecipient?.city?.trim() || "";
+      const legacyDestState = firstRecipient?.state?.trim() || "";
 
       const payload: any = {
         customer_id: data.customer_id || null,
@@ -409,8 +404,8 @@ export default function Quotes() {
         service_carregamento: data.service_carregamento,
         service_descarga: data.service_descarga,
         service_type: buildServiceTypeString(),
-        origin_city: data.origin_city || null,
-        origin_state: data.origin_state || null,
+        origin_city: legacyOriginCity || null,
+        origin_state: legacyOriginState || null,
         destination_city: legacyDestCity || null,
         destination_state: legacyDestState || null,
         product_id: data.product_id || null,
@@ -452,30 +447,48 @@ export default function Quotes() {
         quoteId = inserted.id;
       }
 
-      // Replace recipients: delete existing then insert new
+      // Replace origins
+      await (supabase as any)
+        .from("quote_origins")
+        .delete()
+        .eq("quote_id", quoteId);
+
+      const originRows = (data.origins || [])
+        .filter(o => (o.city?.trim() || o.state?.trim()))
+        .map((o, idx) => ({
+          quote_id: quoteId,
+          position: idx,
+          city: o.city || null,
+          state: o.state || null,
+        }));
+
+      if (originRows.length > 0) {
+        const { error: oErr } = await (supabase as any)
+          .from("quote_origins")
+          .insert(originRows);
+        if (oErr) throw oErr;
+      }
+
+      // Replace recipients
       await (supabase as any)
         .from("quote_recipients")
         .delete()
         .eq("quote_id", quoteId);
 
       const recipientRows = (data.recipients || [])
-        .filter(r => (r.name || r.cpf_cnpj || r.address || r.city || r.state || r.cep || r.phone).toString().trim() !== "")
+        .filter(r => (r.city?.trim() || r.state?.trim()))
         .map((r, idx) => ({
           quote_id: quoteId,
           position: idx,
-          name: r.name || null,
-          cpf_cnpj: r.cpf_cnpj || null,
-          phone: r.phone || null,
-          address: r.address || null,
           city: r.city || null,
           state: r.state || null,
-          cep: r.cep || null,
         }));
 
       if (recipientRows.length > 0) {
         const { error: recError } = await (supabase as any)
           .from("quote_recipients")
           .insert(recipientRows);
+
         if (recError) throw recError;
       }
     },
@@ -589,10 +602,6 @@ export default function Quotes() {
       service_munck: false,
       service_carregamento: false,
       service_descarga: false,
-      origin_city: "",
-      origin_state: "",
-      destination_city: "",
-      destination_state: "",
       product_id: "",
       freight_value: "",
       munck_value: "",
@@ -609,7 +618,8 @@ export default function Quotes() {
       payment_term_days: "30",
       observations: "",
       payment_method: "",
-      recipients: [emptyRecipient()],
+      origins: [emptyLocation()],
+      recipients: [emptyLocation()],
     });
     setEditingQuote(null);
   };
@@ -624,23 +634,21 @@ export default function Quotes() {
       return;
     }
 
-    // Validate recipients: at least one with a name
-    const validRecipients = (formData.recipients || []).filter(r => r.name?.trim());
-    if (validRecipients.length === 0) {
-      toast.error("Informe pelo menos um destinatário com nome");
+    // Validate origins: every entry must have city and state
+    const origins = formData.origins || [];
+    if (origins.length === 0 || origins.some(o => !o.city?.trim() || !o.state?.trim())) {
+      toast.error("Informe Cidade e UF em todas as origens");
+      return;
+    }
+
+    // Validate recipients: every entry must have city and state
+    const recipients = formData.recipients || [];
+    if (recipients.length === 0 || recipients.some(r => !r.city?.trim() || !r.state?.trim())) {
+      toast.error("Informe Cidade e UF em todos os destinatários");
       return;
     }
 
     if (formData.service_transporte) {
-      if (!formData.origin_city) {
-        toast.error("Origem é obrigatória para Transporte");
-        return;
-      }
-      const firstCity = formData.recipients?.[0]?.city?.trim();
-      if (!firstCity) {
-        toast.error("Informe a cidade do primeiro destinatário para Transporte");
-        return;
-      }
       if (!formData.freight_mode) {
         toast.error("Selecione o tipo de frete: P/Ton ou Fechado");
         return;
@@ -655,34 +663,44 @@ export default function Quotes() {
     saveQuoteMutation.mutate(formData);
   };
 
-  const handleEdit = async (quote: Quote) => {
-    setEditingQuote(quote);
+  const loadQuoteLocations = async (quoteId: string, quote: Quote) => {
+    const [{ data: originsData }, { data: recipientsData }] = await Promise.all([
+      (supabase as any)
+        .from("quote_origins")
+        .select("*")
+        .eq("quote_id", quoteId)
+        .order("position", { ascending: true }),
+      (supabase as any)
+        .from("quote_recipients")
+        .select("*")
+        .eq("quote_id", quoteId)
+        .order("position", { ascending: true }),
+    ]);
 
-    // Load recipients for this quote
-    const { data: recipientsData } = await (supabase as any)
-      .from("quote_recipients")
-      .select("*")
-      .eq("quote_id", quote.id)
-      .order("position", { ascending: true });
+    let origins: QuoteLocation[] = (originsData || []).map((o: any) => ({
+      city: o.city || "",
+      state: o.state || "",
+    }));
+    if (origins.length === 0 && (quote.origin_city || quote.origin_state)) {
+      origins = [{ city: quote.origin_city || "", state: quote.origin_state || "" }];
+    }
+    if (origins.length === 0) origins = [emptyLocation()];
 
-    let recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
-      name: r.name || "",
-      cpf_cnpj: r.cpf_cnpj || "",
-      phone: r.phone || "",
-      address: r.address || "",
+    let recipients: QuoteLocation[] = (recipientsData || []).map((r: any) => ({
       city: r.city || "",
       state: r.state || "",
-      cep: r.cep || "",
     }));
-
-    // Fallback for legacy quotes: build first recipient from legacy destination fields
-    if (recipients.length === 0) {
-      recipients = [{
-        ...emptyRecipient(),
-        city: quote.destination_city || "",
-        state: quote.destination_state || "",
-      }];
+    if (recipients.length === 0 && (quote.destination_city || quote.destination_state)) {
+      recipients = [{ city: quote.destination_city || "", state: quote.destination_state || "" }];
     }
+    if (recipients.length === 0) recipients = [emptyLocation()];
+
+    return { origins, recipients };
+  };
+
+  const handleEdit = async (quote: Quote) => {
+    setEditingQuote(quote);
+    const { origins, recipients } = await loadQuoteLocations(quote.id, quote);
 
     setFormData({
       customer_id: quote.customer_id || "",
@@ -692,10 +710,6 @@ export default function Quotes() {
       service_munck: quote.service_munck ?? (quote.service_type === "munck"),
       service_carregamento: quote.service_carregamento ?? false,
       service_descarga: quote.service_descarga ?? false,
-      origin_city: quote.origin_city || "",
-      origin_state: quote.origin_state || "",
-      destination_city: quote.destination_city || "",
-      destination_state: quote.destination_state || "",
       product_id: quote.product_id || "",
       freight_value: quote.freight_value?.toString() || "",
       munck_value: quote.munck_value?.toString() || "",
@@ -712,32 +726,18 @@ export default function Quotes() {
       payment_term_days: quote.payment_term_days?.toString() || "30",
       observations: quote.observations || "",
       payment_method: quote.payment_method || "",
+      origins,
       recipients,
     });
     setIsDialogOpen(true);
   };
 
   const handleView = async (quote: Quote) => {
-    // Load recipients for printing
-    const { data: recipientsData } = await (supabase as any)
-      .from("quote_recipients")
-      .select("*")
-      .eq("quote_id", quote.id)
-      .order("position", { ascending: true });
-
-    const recipients: QuoteRecipient[] = (recipientsData || []).map((r: any) => ({
-      name: r.name || "",
-      cpf_cnpj: r.cpf_cnpj || "",
-      phone: r.phone || "",
-      address: r.address || "",
-      city: r.city || "",
-      state: r.state || "",
-      cep: r.cep || "",
-    }));
-
-    setViewingQuote({ ...quote, recipients });
+    const { origins, recipients } = await loadQuoteLocations(quote.id, quote);
+    setViewingQuote({ ...quote, origins, recipients });
     setIsPrintDialogOpen(true);
   };
+
 
 
 
@@ -987,34 +987,73 @@ export default function Quotes() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>
-                  Origem{" "}
-                  {formData.service_transporte && (
-                    <span className="text-destructive">*</span>
-                  )}
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={formData.origin_city}
-                    onChange={(e) =>
-                      setFormData({ ...formData, origin_city: e.target.value })
-                    }
-                    placeholder="Cidade"
-                    className="flex-1"
-                  />
-                  <Input
-                    value={formData.origin_state}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        origin_state: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="UF"
-                    maxLength={2}
-                    className="w-16"
-                  />
+              {/* Origens (multi) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>
+                    Origens <span className="text-destructive">*</span>
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      origins: [...(prev.origins || []), emptyLocation()],
+                    }))}
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar origem
+                  </Button>
+                </div>
+                <div className="border rounded-md bg-muted/30 p-3 space-y-2">
+                  {(formData.origins || []).map((loc, idx) => (
+                    <div key={idx} className="flex items-end gap-2">
+                      <div className="w-8 text-sm text-muted-foreground pb-2">#{idx + 1}</div>
+                      <div className="flex-1">
+                        <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                        <Input
+                          value={loc.city}
+                          onChange={(e) => setFormData(prev => {
+                            const origins = [...(prev.origins || [])];
+                            origins[idx] = { ...origins[idx], city: e.target.value };
+                            return { ...prev, origins };
+                          })}
+                          placeholder="Cidade"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <Label className="text-xs">UF <span className="text-destructive">*</span></Label>
+                        <Select
+                          value={loc.state || "__none__"}
+                          onValueChange={(v) => setFormData(prev => {
+                            const origins = [...(prev.origins || [])];
+                            origins[idx] = { ...origins[idx], state: v === "__none__" ? "" : v };
+                            return { ...prev, origins };
+                          })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">-</SelectItem>
+                            {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-destructive"
+                        disabled={(formData.origins?.length || 0) <= 1}
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          origins: (prev.origins || []).filter((_, i) => i !== idx),
+                        }))}
+                        title="Remover origem"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1030,151 +1069,65 @@ export default function Quotes() {
                     size="sm"
                     onClick={() => setFormData(prev => ({
                       ...prev,
-                      recipients: [...(prev.recipients || []), emptyRecipient()],
+                      recipients: [...(prev.recipients || []), emptyLocation()],
                     }))}
                   >
                     <Plus className="h-4 w-4 mr-1" /> Adicionar destinatário
                   </Button>
                 </div>
-                <Accordion
-                  type="multiple"
-                  defaultValue={["recipient-0"]}
-                  className="border rounded-md bg-muted/30 px-3"
-                >
-                  {(formData.recipients || []).map((rec, idx) => (
-                    <AccordionItem key={idx} value={`recipient-${idx}`} className="border-b last:border-b-0">
-                      <div className="flex items-center gap-2">
-                        <AccordionTrigger className="flex-1 hover:no-underline">
-                          <span className="text-sm font-medium text-left">
-                            #{idx + 1} — {rec.name?.trim() || "Sem nome"}
-                            {(rec.city || rec.state) && (
-                              <span className="text-muted-foreground font-normal">
-                                {" "}({[rec.city, rec.state].filter(Boolean).join("/")})
-                              </span>
-                            )}
-                          </span>
-                        </AccordionTrigger>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          disabled={(formData.recipients?.length || 0) <= 1}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFormData(prev => ({
-                              ...prev,
-                              recipients: (prev.recipients || []).filter((_, i) => i !== idx),
-                            }));
-                          }}
-                          title="Remover destinatário"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                <div className="border rounded-md bg-muted/30 p-3 space-y-2">
+                  {(formData.recipients || []).map((loc, idx) => (
+                    <div key={idx} className="flex items-end gap-2">
+                      <div className="w-8 text-sm text-muted-foreground pb-2">#{idx + 1}</div>
+                      <div className="flex-1">
+                        <Label className="text-xs">Cidade <span className="text-destructive">*</span></Label>
+                        <Input
+                          value={loc.city}
+                          onChange={(e) => setFormData(prev => {
+                            const recipients = [...(prev.recipients || [])];
+                            recipients[idx] = { ...recipients[idx], city: e.target.value };
+                            return { ...prev, recipients };
+                          })}
+                          placeholder="Cidade"
+                        />
                       </div>
-                      <AccordionContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                          <div className="md:col-span-2">
-                            <Label className="text-xs">Nome / Razão Social</Label>
-                            <Input
-                              value={rec.name}
-                              onChange={(e) => setFormData(prev => {
-                                const recipients = [...(prev.recipients || [])];
-                                recipients[idx] = { ...recipients[idx], name: e.target.value };
-                                return { ...prev, recipients };
-                              })}
-                              placeholder="Nome do destinatário"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">CPF / CNPJ</Label>
-                            <Input
-                              value={rec.cpf_cnpj}
-                              onChange={(e) => setFormData(prev => {
-                                const recipients = [...(prev.recipients || [])];
-                                recipients[idx] = { ...recipients[idx], cpf_cnpj: formatCpfCnpj(e.target.value) };
-                                return { ...prev, recipients };
-                              })}
-                              placeholder="000.000.000-00 / 00.000.000/0000-00"
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Telefone</Label>
-                            <Input
-                              value={rec.phone}
-                              onChange={(e) => setFormData(prev => {
-                                const recipients = [...(prev.recipients || [])];
-                                recipients[idx] = { ...recipients[idx], phone: formatPhone(e.target.value) };
-                                return { ...prev, recipients };
-                              })}
-                              placeholder="(00) 00000-0000"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <Label className="text-xs">Endereço</Label>
-                            <Input
-                              value={rec.address}
-                              onChange={(e) => setFormData(prev => {
-                                const recipients = [...(prev.recipients || [])];
-                                recipients[idx] = { ...recipients[idx], address: e.target.value };
-                                return { ...prev, recipients };
-                              })}
-                              placeholder="Rua, número, bairro"
-                            />
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 md:col-span-2">
-                            <div className="col-span-2">
-                              <Label className="text-xs">
-                                Cidade {idx === 0 && formData.service_transporte && (<span className="text-destructive">*</span>)}
-                              </Label>
-                              <Input
-                                value={rec.city}
-                                onChange={(e) => setFormData(prev => {
-                                  const recipients = [...(prev.recipients || [])];
-                                  recipients[idx] = { ...recipients[idx], city: e.target.value };
-                                  return { ...prev, recipients };
-                                })}
-                                placeholder="Cidade"
-                              />
-                            </div>
-                            <div>
-                              <Label className="text-xs">UF</Label>
-                              <Select
-                                value={rec.state || "__none__"}
-                                onValueChange={(v) => setFormData(prev => {
-                                  const recipients = [...(prev.recipients || [])];
-                                  recipients[idx] = { ...recipients[idx], state: v === "__none__" ? "" : v };
-                                  return { ...prev, recipients };
-                                })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="UF" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__">-</SelectItem>
-                                  {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-xs">CEP</Label>
-                            <Input
-                              value={rec.cep}
-                              onChange={(e) => setFormData(prev => {
-                                const recipients = [...(prev.recipients || [])];
-                                recipients[idx] = { ...recipients[idx], cep: formatCep(e.target.value) };
-                                return { ...prev, recipients };
-                              })}
-                              placeholder="00000-000"
-                            />
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                      <div className="w-24">
+                        <Label className="text-xs">UF <span className="text-destructive">*</span></Label>
+                        <Select
+                          value={loc.state || "__none__"}
+                          onValueChange={(v) => setFormData(prev => {
+                            const recipients = [...(prev.recipients || [])];
+                            recipients[idx] = { ...recipients[idx], state: v === "__none__" ? "" : v };
+                            return { ...prev, recipients };
+                          })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="UF" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">-</SelectItem>
+                            {BRAZILIAN_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-destructive"
+                        disabled={(formData.recipients?.length || 0) <= 1}
+                        onClick={() => setFormData(prev => ({
+                          ...prev,
+                          recipients: (prev.recipients || []).filter((_, i) => i !== idx),
+                        }))}
+                        title="Remover destinatário"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
-                </Accordion>
+                </div>
               </div>
+
+
 
 
               {/* Produto */}
