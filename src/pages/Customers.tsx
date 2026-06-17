@@ -51,6 +51,8 @@ export default function Customers() {
   const [cnpjSearching, setCnpjSearching] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
   
   const [formData, setFormData] = useState({
     name: "",
