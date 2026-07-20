@@ -1,19 +1,20 @@
-## Problema Identificado
-A validação de CNPJ duplicado já existe no código (linha 240) e lança a mensagem **"Cliente já possui cadastro!"**, porém o handler `onError` da mutation (linha 298-301) não exibe essa mensagem ao usuário — mostra apenas um texto genérico fixo **"Erro ao salvar cliente"**.
+## Remover boleto anexado na edição de Contas a Pagar
 
-## Correção Proposta
-Ajustar o handler `onError` em `src/pages/Customers.tsx` para exibir a mensagem específica do erro lançado:
+### O que muda
+No dialog de edição de uma conta em **Contas a Pagar**, quando já existir um boleto anexado, adicionar um botão para **remover o boleto** (útil quando foi anexado errado).
 
-- Se o erro contiver a mensagem "Cliente já possui cadastro!", exibir essa mensagem no `toast.error()`.
-- Caso contrário, manter ou melhorar a mensagem genérica.
+### Comportamento
+- Ao lado do botão de "Visualizar boleto" (ícone olho), incluir um botão de "Remover boleto" (ícone lixeira, em vermelho).
+- Ao clicar, pedir confirmação ("Deseja realmente remover o boleto anexado?").
+- Confirmado:
+  - Apagar o arquivo do storage bucket `boletos`.
+  - Atualizar o registro em `accounts_payable` zerando `boleto_file_url` e `boleto_file_name`.
+  - Limpar os estados locais (`existingBoletoUrl`, `existingBoletoName`, `boletoFile`) para o input voltar ao estado vazio.
+  - Exibir toast de sucesso e recarregar a lista.
 
-## Arquivo Alvo
-- `src/pages/Customers.tsx` — linhas 298-301 (handler `onError` da `saveCustomerMutation`)
+### Arquivo alterado
+- `src/pages/AccountsPayable.tsx` — bloco do upload de boleto (linhas ~650–694) e adição de uma pequena função `handleRemoveBoleto`.
 
-## Não Será Alterado
-- A lógica de validação de duplicidade (já está correta).
-- Qualquer outra funcionalidade do módulo de clientes.
-
----
-
-**Resumo técnico:** O `toast.error()` atual recebe string fixa. Deve ser alterado para extrair `error.message` e mostrá-la ao usuário.
+### Não muda
+- Estrutura do banco, storage, ou outras telas.
+- Lógica de upload/edição existente.
