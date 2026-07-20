@@ -663,22 +663,63 @@ export default function AccountsPayable() {
                         className="flex-1"
                       />
                       {(existingBoletoUrl || boletoFile) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            if (boletoFile) {
-                              const url = URL.createObjectURL(boletoFile);
-                              window.open(url, '_blank');
-                            } else if (existingBoletoUrl) {
-                              window.open(existingBoletoUrl, '_blank');
-                            }
-                          }}
-                          title="Visualizar boleto"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              if (boletoFile) {
+                                const url = URL.createObjectURL(boletoFile);
+                                window.open(url, '_blank');
+                              } else if (existingBoletoUrl) {
+                                window.open(existingBoletoUrl, '_blank');
+                              }
+                            }}
+                            title="Visualizar boleto"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            onClick={async () => {
+                              if (!confirm("Deseja realmente remover o boleto anexado?")) return;
+                              // Clear local pending file
+                              if (boletoFile) {
+                                setBoletoFile(null);
+                              }
+                              // Remove persisted boleto
+                              if (existingBoletoUrl && editingAccount) {
+                                try {
+                                  // Extract storage path from public URL
+                                  const marker = "/boletos/";
+                                  const idx = existingBoletoUrl.indexOf(marker);
+                                  if (idx !== -1) {
+                                    const path = existingBoletoUrl.substring(idx + marker.length);
+                                    await supabase.storage.from("boletos").remove([path]);
+                                  }
+                                  const { error } = await supabase
+                                    .from("accounts_payable")
+                                    .update({ boleto_file_url: null, boleto_file_name: null })
+                                    .eq("id", editingAccount.id);
+                                  if (error) throw error;
+                                  setExistingBoletoUrl(null);
+                                  setExistingBoletoName(null);
+                                  queryClient.invalidateQueries({ queryKey: ["accounts_payable"] });
+                                  toast.success("Boleto removido!");
+                                } catch (err) {
+                                  console.error(err);
+                                  toast.error("Erro ao remover boleto");
+                                }
+                              }
+                            }}
+                            title="Remover boleto"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </div>
                     {boletoFile && (
